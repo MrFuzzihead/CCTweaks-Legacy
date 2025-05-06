@@ -22,7 +22,7 @@ import cpw.mods.fml.relauncher.IFMLLoadingPlugin;
     "org.squiddev.cctweaks.core.asm.",
     // Shared
     "org.squiddev.patcher", })
-@IFMLLoadingPlugin.MCVersion("${minecraftVersion}")
+@IFMLLoadingPlugin.MCVersion("1.7.10")
 public class TweaksLoadingPlugin implements IFMLLoadingPlugin {
 
     public static File minecraftDir;
@@ -31,6 +31,7 @@ public class TweaksLoadingPlugin implements IFMLLoadingPlugin {
     public TweaksLoadingPlugin() {
         if (minecraftDir == null) {
             minecraftDir = (File) FMLInjectionData.data()[6];
+            org.squiddev.cctweaks.core.Config.init(new File(new File(minecraftDir, "config"), CCTweaks.ID + ".cfg"));
 
             dump = new File(new File(TweaksLoadingPlugin.minecraftDir, "asm"), CCTweaks.NAME);
             if (org.squiddev.cctweaks.lua.Config.Testing.dumpAsm && !dump.exists() && !dump.mkdirs()) {
@@ -70,7 +71,7 @@ public class TweaksLoadingPlugin implements IFMLLoadingPlugin {
             md.name = md.modId = "<CCTweaks ASM>";
             md.authorList = Arrays.asList("SquidDev", "ElvishJerricco");
             md.description = "CCTweaks ASM Transformer. Refer to the main CCTweaks mod for info.";
-            md.version = "${mod_version}";
+            md.version = "1.1.2";
         }
 
         @Override

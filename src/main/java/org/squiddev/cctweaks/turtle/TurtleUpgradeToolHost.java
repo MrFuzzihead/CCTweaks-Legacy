@@ -7,7 +7,7 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.util.IIcon;
 
 import org.squiddev.cctweaks.CCTweaks;
-import org.squiddev.cctweaks.Config;
+import org.squiddev.cctweaks.core.Config;
 import org.squiddev.cctweaks.core.registry.Registry;
 
 import cpw.mods.fml.relauncher.Side;

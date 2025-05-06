@@ -1,6 +1,6 @@
 package org.squiddev.cctweaks.integration.peripheralspp;
 
-import org.squiddev.cctweaks.Config;
+import org.squiddev.cctweaks.core.Config;
 import org.squiddev.cctweaks.core.utils.DebugLogger;
 import org.squiddev.cctweaks.integration.ModIntegration;
 

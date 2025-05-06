@@ -1,57 +1,86 @@
 package org.squiddev.cctweaks;
 
 import net.minecraft.creativetab.CreativeTabs;
+import net.minecraftforge.common.MinecraftForge;
 
+import org.squiddev.cctweaks.core.FmlEvents;
+import org.squiddev.cctweaks.core.McEvents;
+import org.squiddev.cctweaks.core.network.bridge.NetworkBindings;
+import org.squiddev.cctweaks.core.registry.Registry;
+import org.squiddev.cctweaks.core.visualiser.NetworkPlayerWatcher;
+import org.squiddev.cctweaks.lua.lib.DelayedTasks;
+
+import cpw.mods.fml.common.FMLCommonHandler;
 import cpw.mods.fml.common.Mod;
-import cpw.mods.fml.common.SidedProxy;
+import cpw.mods.fml.common.Mod.EventHandler;
 import cpw.mods.fml.common.event.*;
+import cpw.mods.fml.common.network.NetworkRegistry;
+import cpw.mods.fml.common.network.simpleimpl.SimpleNetworkWrapper;
+import cpw.mods.fml.relauncher.Side;
 import dan200.computercraft.ComputerCraft;
 
 @Mod(
-    modid = CCTweaks.MODID,
+    modid = CCTweaks.ID,
     name = CCTweaks.NAME,
     version = CCTweaks.VERSION,
     dependencies = CCTweaks.DEPENDENCIES,
     guiFactory = CCTweaks.GUI_FACTORY)
 public class CCTweaks {
 
-    public static final String MODID = "cctweaks";
-    public static final String NAME = "CCTweaks";
-    public static final String VERSION = Tags.VERSION;
-    public static final String RESOURCE_DOMAIN = MODID;
+    public static final String ID = "CCTweaks";
+    public static final String NAME = ID;
+    public static final String VERSION = "1.1.2";
+    public static final String RESOURCE_DOMAIN = ID.toLowerCase();
     public static final String DEPENDENCIES = "required-after:ComputerCraft@[1.74,);after:CCTurtle;after:ForgeMultipart;after:OpenPeripheralCore;";
+
     public static final String ROOT_NAME = "org.squiddev.cctweaks.";
     public static final String GUI_FACTORY = ROOT_NAME + "client.gui.GuiConfigFactory";
+
+    public static SimpleNetworkWrapper NETWORK;
 
     public static CreativeTabs getCreativeTab() {
         return ComputerCraft.mainCreativeTab;
     }
 
-    @SidedProxy(clientSide = "org.squiddev.cctweaks.ClientProxy", serverSide = "org.squiddev.cctweaks.CommonProxy")
-    public static CommonProxy proxy;
-
-    @Mod.EventHandler
+    @EventHandler
     public void preInit(FMLPreInitializationEvent event) {
-        proxy.preInit(event);
+        FMLCommonHandler.instance()
+            .bus()
+            .register(new FmlEvents());
+        MinecraftForge.EVENT_BUS.register(new McEvents());
+
+        NETWORK = NetworkRegistry.INSTANCE.newSimpleChannel(ID);
+
+        Registry.preInit();
     }
 
-    @Mod.EventHandler
+    @EventHandler
     public void init(FMLInitializationEvent event) {
-        proxy.init(event);
+        Registry.init();
     }
 
-    @Mod.EventHandler
+    @EventHandler
     public void postInit(FMLPostInitializationEvent event) {
-        proxy.postInit(event);
+        Registry.postInit();
     }
 
-    @Mod.EventHandler
-    public void onServerStart(FMLServerStartingEvent event) {
-        proxy.serverStarting(event);
+    @EventHandler
+    public void onServerStart(FMLServerStartedEvent event) {
+        if (FMLCommonHandler.instance()
+            .getEffectiveSide() == Side.SERVER) {
+            DelayedTasks.reset();
+            NetworkBindings.reset();
+            NetworkPlayerWatcher.reset();
+        }
     }
 
-    @Mod.EventHandler
-    public void serverStopping(FMLServerStoppingEvent event) {
-        proxy.serverStopping(event);
+    @EventHandler
+    public void onServerStopped(FMLServerStoppedEvent event) {
+        if (FMLCommonHandler.instance()
+            .getEffectiveSide() == Side.SERVER) {
+            DelayedTasks.reset();
+            NetworkBindings.reset();
+            NetworkPlayerWatcher.reset();
+        }
     }
 }

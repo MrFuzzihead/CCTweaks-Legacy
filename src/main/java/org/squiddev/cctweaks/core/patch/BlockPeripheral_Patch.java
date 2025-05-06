@@ -3,7 +3,7 @@ package org.squiddev.cctweaks.core.patch;
 import net.minecraft.block.Block;
 import net.minecraft.world.IBlockAccess;
 
-import org.squiddev.cctweaks.Config;
+import org.squiddev.cctweaks.core.Config;
 
 import dan200.computercraft.shared.peripheral.PeripheralType;
 import dan200.computercraft.shared.peripheral.common.BlockPeripheral;

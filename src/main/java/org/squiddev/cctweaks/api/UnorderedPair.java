@@ -1,10 +1,5 @@
 package org.squiddev.cctweaks.api;
 
-/**
- * An unordered pair of objects with the same type.
- *
- * @param <T> Object type
- */
 public class UnorderedPair<T> {
 
     public final T x;
@@ -15,62 +10,45 @@ public class UnorderedPair<T> {
         this.y = y;
     }
 
-    /**
-     * Gets the other object in the pair.
-     *
-     * @param obj The object that you don't want from this pair.
-     * @return If obj is {@link #x}, returns {@link #y}. Else if obj is {@link #y}, returns {@link #x}. Else returns
-     *         null.
-     */
     public T other(T obj) {
-        if (obj.equals(x)) {
-            return y;
-        } else if (obj.equals(y)) {
-            return x;
+        if (obj.equals(this.x)) {
+            return this.y;
         } else {
-            return null;
+            return obj.equals(this.y) ? this.x : null;
         }
     }
 
-    /**
-     * Determines if an object is one of this pair's elements.
-     *
-     * @param z An object to test against.
-     * @return If {@link #x} or {@link #y} {@link #equals(Object)} the passed object.
-     */
     public boolean contains(Object z) {
-        return x.equals(z) || y.equals(z);
+        return this.x.equals(z) || this.y.equals(z);
     }
 
-    /**
-     * Determine equality even if the other object has a different order.
-     */
     @Override
     public boolean equals(Object other) {
         if (other == this) {
             return true;
-        }
-        if (other instanceof UnorderedPair) {
-            UnorderedPair<?> pair = (UnorderedPair) other;
-            if (x.equals(pair.x) && y.equals(pair.y)) {
-                return true;
-            } else if (y.equals(pair.x) && x.equals(pair.y)) {
-                return true;
+        } else {
+            if (other instanceof UnorderedPair) {
+                UnorderedPair<?> pair = (UnorderedPair<?>) other;
+                if (this.x.equals(pair.x) && this.y.equals(pair.y)) {
+                    return true;
+                }
+
+                if (this.y.equals(pair.x) && this.x.equals(pair.y)) {
+                    return true;
+                }
             }
+
+            return false;
         }
-        return false;
     }
 
-    /**
-     * Symmetric hashcode.
-     */
     @Override
     public int hashCode() {
-        return x.hashCode() ^ y.hashCode();
+        return this.x.hashCode() ^ this.y.hashCode();
     }
 
     @Override
     public String toString() {
-        return String.format("<%s, %s>", x, y);
+        return String.format("<%s, %s>", this.x, this.y);
     }
 }

@@ -7,7 +7,7 @@ import net.minecraft.launchwrapper.IClassTransformer;
 import org.apache.logging.log4j.Level;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.util.TraceClassVisitor;
-import org.squiddev.cctweaks.Config;
+import org.squiddev.cctweaks.core.Config;
 import org.squiddev.cctweaks.core.utils.DebugLogger;
 import org.squiddev.cctweaks.integration.multipart.MultipartIntegration;
 import org.squiddev.cctweaks.lua.asm.CustomChain;
@@ -46,9 +46,6 @@ public class ASMTransformer implements IClassTransformer {
                 new ClassReplacer(
                     "dan200.computercraft.shared.turtle.core.TurtleRefuelCommand",
                     "org.squiddev.cctweaks.core.patch.TurtleRefuelCommand_Rewrite"),
-                new ClassReplacer(
-                    "dan200.computercraft.shared.computer.blocks.TileComputerBase",
-                    "org.squiddev.cctweaks.core.patch.TileComputerBase_Rewrite"),
                 new ClassMerger(
                     "dan200.computercraft.shared.peripheral.common.BlockPeripheral",
                     "org.squiddev.cctweaks.core.patch.BlockPeripheral_Patch"),
@@ -136,10 +133,9 @@ public class ASMTransformer implements IClassTransformer {
             if (x.getName()
                 .equals("ComputerCraft")
                 && !x.getVersion()
-                    .equals("${cc_version}")) {
+                    .equals("1.75")) {
                 message = new String[] {
-                    "CCTweaks ${modVersion} was tested against ComputerCraft ${cc_version} but is running against "
-                        + x.getVersion()
+                    "CCTweaks 1.1.2 was tested against ComputerCraft 1.75 but is running against " + x.getVersion()
                         + ".",
                     "Some CCTweaks/ComputerCraft features may not work correctly - please check CCTweaks for updates.",
                     "If you encounter issues then try to reproduce without CCTweaks installed, then report to the appropriate mod author.", };

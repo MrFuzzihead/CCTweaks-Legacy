@@ -11,10 +11,10 @@ import net.minecraft.util.IIcon;
 import net.minecraft.world.World;
 
 import org.squiddev.cctweaks.CCTweaks;
-import org.squiddev.cctweaks.Config;
 import org.squiddev.cctweaks.blocks.BlockBase;
 import org.squiddev.cctweaks.blocks.IMultiBlock;
 import org.squiddev.cctweaks.blocks.TileBase;
+import org.squiddev.cctweaks.core.Config;
 import org.squiddev.cctweaks.items.ItemMultiBlock;
 
 import cpw.mods.fml.common.registry.GameRegistry;

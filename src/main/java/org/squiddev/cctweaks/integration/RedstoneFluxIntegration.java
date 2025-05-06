@@ -2,9 +2,9 @@ package org.squiddev.cctweaks.integration;
 
 import net.minecraft.item.ItemStack;
 
-import org.squiddev.cctweaks.Config;
 import org.squiddev.cctweaks.api.CCTweaksAPI;
 import org.squiddev.cctweaks.api.turtle.ITurtleFuelProvider;
+import org.squiddev.cctweaks.core.Config;
 
 import cofh.api.energy.IEnergyContainerItem;
 import dan200.computercraft.api.turtle.ITurtleAccess;

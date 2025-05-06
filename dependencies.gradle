@@ -34,12 +34,13 @@
  * For more details, see https://docs.gradle.org/8.0.1/userguide/java_library_plugin.html#sec:java_library_configurations_graph
  */
 dependencies {
-    devOnlyNonPublishable(project.files("libs/NotEnoughItems-2.7.4-GTNH-dev.jar"))
-    devOnlyNonPublishable(project.files("libs/CodeChickenCore-1.4.2-dev.jar"))
-    devOnlyNonPublishable(project.files("libs/CodeChickenLib-1.3.0-dev.jar"))
-    devOnlyNonPublishable(project.files("libs/ForgeMultipart-1.6.2-dev.jar"))
+    implementation(project.files("libs/NotEnoughItems-2.7.4-GTNH-dev.jar"))
+    implementation(project.files("libs/CodeChickenCore-1.4.2-dev.jar"))
+    implementation(project.files("libs/CodeChickenLib-1.3.0-dev.jar"))
+    implementation(project.files("libs/ForgeMultipart-1.6.2-dev.jar"))
 
-    devOnlyNonPublishable(rfg.deobf(project.files("libs/ComputerCraft1.75.jar")))
+    //api(rfg.deobf(project.files("libs/ComputerCraft1.75.jar")))
+    api(project.files("libs/computercraft-1.76.0-dev.jar"))
     devOnlyNonPublishable(project.files("libs/OpenPeripheralCore-API-3.2.jar"))
     devOnlyNonPublishable(rfg.deobf(project.files("libs/CollectiveFramework-1.0.0-132.jar")))
     devOnlyNonPublishable(rfg.deobf(project.files("libs/Peripherals++-1.3.6.jar")))
@@ -48,5 +49,6 @@ dependencies {
     devOnlyNonPublishable(project.files("libs/iChunUtil-4.2.2-deobf.jar"))
     devOnlyNonPublishable(rfg.deobf(project.files("libs/industrialcraft-2-2.2.827-experimental.jar")))
 
-    devOnlyNonPublishable((project.files("libs/cctweaks-lua-1.0.13-complete.jar")))
+    devOnlyNonPublishable(project.files("libs/configgen-1.2.7-dev.jar"))
+    shadowImplementation((project.files("libs/cctweaks-lua-1.0.13-complete.jar")))
 }

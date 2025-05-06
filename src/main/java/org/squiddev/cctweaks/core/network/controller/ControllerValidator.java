@@ -5,8 +5,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import org.squiddev.cctweaks.Config;
 import org.squiddev.cctweaks.api.network.INetworkNode;
+import org.squiddev.cctweaks.core.Config;
 import org.squiddev.cctweaks.core.utils.DebugLogger;
 
 import com.google.common.collect.Sets;

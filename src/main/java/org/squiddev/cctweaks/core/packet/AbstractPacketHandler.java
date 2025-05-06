@@ -1,6 +1,6 @@
 package org.squiddev.cctweaks.core.packet;
 
-import org.squiddev.cctweaks.CommonProxy;
+import org.squiddev.cctweaks.CCTweaks;
 import org.squiddev.cctweaks.core.registry.Module;
 
 import cpw.mods.fml.common.network.simpleimpl.IMessage;
@@ -28,7 +28,7 @@ public class AbstractPacketHandler<T extends AbstractPacketHandler.IPacket> exte
     @Override
     public void preInit() {
         super.preInit();
-        CommonProxy.NETWORK.registerMessage(this, type, id, side);
+        CCTweaks.NETWORK.registerMessage(this, type, id, side);
     }
 
     @Override

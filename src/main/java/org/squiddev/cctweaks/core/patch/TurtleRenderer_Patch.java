@@ -7,7 +7,7 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.util.ResourceLocation;
 
 import org.lwjgl.opengl.GL11;
-import org.squiddev.cctweaks.Config;
+import org.squiddev.cctweaks.core.Config;
 import org.squiddev.patcher.visitors.MergeVisitor;
 
 import dan200.computercraft.ComputerCraft;

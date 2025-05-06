@@ -15,7 +15,7 @@ import net.minecraft.world.World;
 import net.minecraftforge.oredict.RecipeSorter;
 
 import org.squiddev.cctweaks.CCTweaks;
-import org.squiddev.cctweaks.Config;
+import org.squiddev.cctweaks.core.Config;
 import org.squiddev.cctweaks.core.utils.BlockNotifyFlags;
 import org.squiddev.cctweaks.core.utils.ComputerAccessor;
 import org.squiddev.cctweaks.core.utils.DebugLogger;

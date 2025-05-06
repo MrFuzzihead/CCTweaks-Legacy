@@ -10,8 +10,8 @@ import net.minecraft.world.World;
 import net.minecraftforge.common.util.ForgeDirection;
 
 import org.squiddev.cctweaks.CCTweaks;
-import org.squiddev.cctweaks.Config;
 import org.squiddev.cctweaks.api.IDataCard;
+import org.squiddev.cctweaks.core.Config;
 import org.squiddev.cctweaks.core.network.bridge.NetworkBindingWithModem;
 import org.squiddev.cctweaks.core.network.modem.BasicModemPeripheral;
 import org.squiddev.cctweaks.core.network.modem.DynamicPeripheralCollection;

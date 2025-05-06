@@ -12,8 +12,8 @@ import net.minecraft.util.Vec3;
 import net.minecraft.world.World;
 import net.minecraft.world.WorldServer;
 
-import org.squiddev.cctweaks.Config;
 import org.squiddev.cctweaks.api.IWorldPosition;
+import org.squiddev.cctweaks.core.Config;
 import org.squiddev.cctweaks.core.McEvents;
 import org.squiddev.cctweaks.core.utils.FakeNetHandler;
 import org.squiddev.cctweaks.core.utils.WorldPosition;

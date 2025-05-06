@@ -8,7 +8,7 @@ import java.util.Map;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.world.IBlockAccess;
 
-import org.squiddev.cctweaks.CommonProxy;
+import org.squiddev.cctweaks.CCTweaks;
 import org.squiddev.cctweaks.api.network.INetworkController;
 import org.squiddev.cctweaks.client.render.RenderNetworkOverlay;
 import org.squiddev.cctweaks.core.packet.AbstractPacketHandler;
@@ -33,7 +33,7 @@ public class VisualisationPacket implements AbstractPacketHandler.IPacket {
     }
 
     public static void send(INetworkController controller, EntityPlayerMP player) {
-        CommonProxy.NETWORK.sendTo(create(controller, player.worldObj), player);
+        CCTweaks.NETWORK.sendTo(create(controller, player.worldObj), player);
     }
 
     @Override

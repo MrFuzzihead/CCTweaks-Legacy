@@ -5,10 +5,10 @@ import java.util.Collections;
 import java.util.Set;
 import java.util.UUID;
 
-import org.squiddev.cctweaks.Config;
 import org.squiddev.cctweaks.api.UnorderedPair;
 import org.squiddev.cctweaks.api.network.INetworkNode;
 import org.squiddev.cctweaks.api.network.IWorldNetworkNode;
+import org.squiddev.cctweaks.core.Config;
 
 import com.google.common.collect.MultimapBuilder;
 import com.google.common.collect.SetMultimap;

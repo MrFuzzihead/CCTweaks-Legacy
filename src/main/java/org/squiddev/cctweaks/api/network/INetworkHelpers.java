@@ -8,100 +8,23 @@ import net.minecraftforge.common.util.ForgeDirection;
 
 import org.squiddev.cctweaks.api.IWorldPosition;
 
-/**
- * Various helper methods for networks
- */
 public interface INetworkHelpers {
 
-    /**
-     * Check if an adjacent block is a node and accepts connections.
-     *
-     * @param world     World the node lies in
-     * @param x         X position of the node we are checking from
-     * @param y         Y position of the node we are checking from
-     * @param z         Z position of the node we are checking from
-     * @param direction Direction we are checking in
-     * @return If the target block is a node and can be connected to
-     */
-    boolean canConnect(IBlockAccess world, int x, int y, int z, ForgeDirection direction);
+    boolean canConnect(IBlockAccess var1, int var2, int var3, int var4, ForgeDirection var5);
 
-    /**
-     * Check if an adjacent block is a node and accepts connections.
-     *
-     * @param pos       The position of the current node
-     * @param direction Direction we are checking in
-     * @return If the target block is a node and can be connected to
-     */
-    boolean canConnect(IWorldPosition pos, ForgeDirection direction);
+    boolean canConnect(IWorldPosition var1, ForgeDirection var2);
 
-    /**
-     * Get adjacent nodes that can be connected to
-     *
-     * Checks the current node can connect, and adjacent node can be connected to
-     * in that direction
-     *
-     * @param node The current node
-     * @return The adjacent nodes
-     */
-    Set<INetworkNode> getAdjacentNodes(IWorldNetworkNode node);
+    Set<INetworkNode> getAdjacentNodes(IWorldNetworkNode var1);
 
-    /**
-     * Get adjacent nodes that can be connected to
-     *
-     * Checks the current node can connect, and adjacent node can be connected to
-     * in that direction
-     *
-     * @param node        The current node
-     * @param checkExists Check if the block exists. This is {@code true} by default
-     *                    for {@link #getAdjacentNodes(IWorldNetworkNode)}, and controls
-     *                    if we should check if the chunk the neighbouring blocks are loaded
-     * @return The adjacent nodes
-     */
-    Set<INetworkNode> getAdjacentNodes(IWorldNetworkNode node, boolean checkExists);
+    Set<INetworkNode> getAdjacentNodes(IWorldNetworkNode var1, boolean var2);
 
-    /**
-     * Connect to adjacent nodes, or create a network.
-     *
-     * Uses {@link #getAdjacentNodes(IWorldNetworkNode)} and {@link #joinOrCreateNetwork(INetworkNode, Set)}.
-     *
-     * @param node The node to scan with
-     */
-    void joinOrCreateNetwork(IWorldNetworkNode node);
+    void joinOrCreateNetwork(IWorldNetworkNode var1);
 
-    /**
-     * Attempt to connect to all nodes.
-     *
-     * If it cannot find a network it will create a new one and assimilate all nodes in {@code connections}.
-     *
-     * @param node        The node to scan with
-     * @param connections The nodes that can connect
-     */
-    void joinOrCreateNetwork(INetworkNode node, Set<? extends INetworkNode> connections);
+    void joinOrCreateNetwork(INetworkNode var1, Set<? extends INetworkNode> var2);
 
-    /**
-     * Creates a new network for the node.
-     * It will be removed from the current network.
-     *
-     * @param node The node to create the network with.
-     */
-    void joinNewNetwork(INetworkNode node);
+    void joinNewNetwork(INetworkNode var1);
 
-    /**
-     * Schedule calling {@link #joinOrCreateNetwork(IWorldNetworkNode)} next tick.
-     *
-     * This is the recommended method of attaching nodes to a network.
-     *
-     * @param node The node to schedule
-     */
-    void scheduleJoin(IWorldNetworkNode node);
+    void scheduleJoin(IWorldNetworkNode var1);
 
-    /**
-     * Schedule calling {@link #joinOrCreateNetwork(IWorldNetworkNode)} next tick.
-     *
-     * This is the recommended method of attaching nodes to a network.
-     *
-     * @param node The node to schedule
-     * @param tile The tile this node is bound to. We will ensure the tile is still there.
-     */
-    void scheduleJoin(IWorldNetworkNode node, TileEntity tile);
+    void scheduleJoin(IWorldNetworkNode var1, TileEntity var2);
 }

@@ -14,7 +14,7 @@ import org.squiddev.cctweaks.lua.Config;
  */
 public class DebugLogger {
 
-    private static final Logger logger = LogManager.getLogger(CCTweaks.MODID);
+    private static final Logger logger = LogManager.getLogger(CCTweaks.ID);
 
     public static void deprecated(String message) {
         if (Config.Testing.deprecatedWarnings) {

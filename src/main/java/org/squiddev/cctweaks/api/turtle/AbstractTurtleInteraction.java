@@ -1,5 +1,6 @@
 package org.squiddev.cctweaks.api.turtle;
 
+import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.MovingObjectPosition;
 import net.minecraftforge.common.util.FakePlayer;
@@ -10,6 +11,13 @@ import dan200.computercraft.api.peripheral.IComputerAccess;
 import dan200.computercraft.api.turtle.ITurtleAccess;
 import dan200.computercraft.api.turtle.TurtleCommandResult;
 
+/**
+ * Abstract implementation of {@link ITurtleInteraction} with no methods implemented.
+ * It is probably a good idea to override at least one of them.
+ *
+ * @see ITurtleRegistry#registerInteraction(ITurtleInteraction)
+ * @see ITurtleRegistry#registerInteraction(Item, ITurtleInteraction)
+ */
 public abstract class AbstractTurtleInteraction implements ITurtleInteraction {
 
     @Override

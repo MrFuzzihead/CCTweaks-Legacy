@@ -7,6 +7,9 @@ import org.squiddev.cctweaks.api.peripheral.IPeripheralHelpers;
 import org.squiddev.cctweaks.api.turtle.ITurtleFuelRegistry;
 import org.squiddev.cctweaks.api.turtle.ITurtleRegistry;
 
+/**
+ * A provider for the API interface
+ */
 public interface ICCTweaksAPI {
 
     INetworkRegistry networkRegistry();

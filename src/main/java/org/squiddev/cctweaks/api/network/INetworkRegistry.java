@@ -5,19 +5,71 @@ import net.minecraft.world.IBlockAccess;
 
 import org.squiddev.cctweaks.api.IWorldPosition;
 
+/**
+ * Handles registration of node providers
+ */
 public interface INetworkRegistry {
 
-    void addNodeProvider(INetworkNodeProvider var1);
+    /**
+     * Add a custom node provider.
+     *
+     * This should occur during the init stages of a mod
+     *
+     * @param provider The provider to register
+     */
+    void addNodeProvider(INetworkNodeProvider provider);
 
-    boolean isNode(IBlockAccess var1, int var2, int var3, int var4);
+    /**
+     * Check if this block is a node
+     *
+     * @param world The world to check in
+     * @param x     X position of the block
+     * @param y     Y position of the block
+     * @param z     Z position of the block
+     * @return If this block is a node
+     */
+    boolean isNode(IBlockAccess world, int x, int y, int z);
 
-    boolean isNode(TileEntity var1);
+    /**
+     * Check if this tile is a node
+     *
+     * @param tile The tile to check
+     * @return If this block is a node
+     */
+    boolean isNode(TileEntity tile);
 
-    boolean isNode(IWorldPosition var1);
+    /**
+     * Check if block tile is a node
+     *
+     * @param position The position to check
+     * @return If this block is a node
+     */
+    boolean isNode(IWorldPosition position);
 
-    IWorldNetworkNode getNode(IBlockAccess var1, int var2, int var3, int var4);
+    /**
+     * Get the node for this position
+     *
+     * @param world The world to check in
+     * @param x     X position of the block
+     * @param y     Y position of the block
+     * @param z     Z position of the block
+     * @return The node, or null if there is none
+     */
+    IWorldNetworkNode getNode(IBlockAccess world, int x, int y, int z);
 
-    IWorldNetworkNode getNode(TileEntity var1);
+    /**
+     * Get the node from this tile entity
+     *
+     * @param tile The tile to check
+     * @return The node, or null if there is none
+     */
+    IWorldNetworkNode getNode(TileEntity tile);
 
-    IWorldNetworkNode getNode(IWorldPosition var1);
+    /**
+     * Get the node for this position
+     *
+     * @param position The position to check
+     * @return The node, or null if there is none
+     */
+    IWorldNetworkNode getNode(IWorldPosition position);
 }

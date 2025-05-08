@@ -6,7 +6,6 @@ import java.util.Set;
 
 import net.minecraftforge.common.config.Configuration;
 
-import org.squiddev.cctweaks.lua.ConfigForgeLoader;
 import org.squiddev.configgen.*;
 
 /**
@@ -20,7 +19,8 @@ public final class Config {
 
     public static void init(File file) {
         org.squiddev.cctweaks.lua.ConfigForgeLoader.init(file);
-        org.squiddev.cctweaks.core.ConfigForgeLoader.init(ConfigForgeLoader.getConfiguration());
+        org.squiddev.cctweaks.core.ConfigForgeLoader
+            .init(org.squiddev.cctweaks.lua.ConfigForgeLoader.getConfiguration());
     }
 
     public static void sync() {

@@ -5,6 +5,7 @@ import java.util.Arrays;
 import java.util.Map;
 
 import org.squiddev.cctweaks.CCTweaks;
+import org.squiddev.cctweaks.Tags;
 import org.squiddev.cctweaks.core.utils.DebugLogger;
 
 import com.google.common.eventbus.EventBus;
@@ -71,7 +72,7 @@ public class TweaksLoadingPlugin implements IFMLLoadingPlugin {
             md.name = md.modId = "<CCTweaks ASM>";
             md.authorList = Arrays.asList("SquidDev", "ElvishJerricco");
             md.description = "CCTweaks ASM Transformer. Refer to the main CCTweaks mod for info.";
-            md.version = "1.1.2";
+            md.version = Tags.VERSION;
         }
 
         @Override

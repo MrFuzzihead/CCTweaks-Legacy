@@ -6,7 +6,6 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.Marker;
 import org.squiddev.cctweaks.CCTweaks;
-import org.squiddev.cctweaks.lua.Config;
 
 /**
  * Facade to the basic logger, which also forces debug calls
@@ -14,7 +13,7 @@ import org.squiddev.cctweaks.lua.Config;
  */
 public class DebugLogger {
 
-    private static final Logger logger = LogManager.getLogger(CCTweaks.ID);
+    private static final Logger logger = LogManager.getLogger(CCTweaks.MODID);
 
     public static void deprecated(String message) {
         if (Config.Testing.deprecatedWarnings) {

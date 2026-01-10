@@ -6,12 +6,12 @@ import java.util.Map;
 import net.minecraft.util.Vec3;
 
 import org.squiddev.cctweaks.api.IWorldPosition;
-import org.squiddev.cctweaks.api.lua.IArguments;
-import org.squiddev.cctweaks.api.lua.IBinaryHandler;
-import org.squiddev.cctweaks.api.lua.IPeripheralWithArguments;
+import dan200.computercraft.api.lua.IArguments;
+import dan200.computercraft.api.lua.IBinaryHandler;
+import dan200.computercraft.api.lua.IPeripheralWithArguments;
 import org.squiddev.cctweaks.api.network.INetworkController;
 import org.squiddev.cctweaks.api.peripheral.IPeripheralTargeted;
-import org.squiddev.cctweaks.lua.lib.BinaryConverter;
+import dan200.computercraft.core.lua.lib.BinaryConverter;
 
 import dan200.computercraft.api.lua.ILuaContext;
 import dan200.computercraft.api.lua.LuaException;

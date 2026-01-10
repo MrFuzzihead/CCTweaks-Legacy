@@ -11,7 +11,6 @@ import net.minecraftforge.common.util.ForgeDirection;
 
 import org.squiddev.cctweaks.CCTweaks;
 import org.squiddev.cctweaks.api.IDataCard;
-import org.squiddev.cctweaks.core.Config;
 import org.squiddev.cctweaks.core.network.bridge.NetworkBindingWithModem;
 import org.squiddev.cctweaks.core.network.modem.BasicModemPeripheral;
 import org.squiddev.cctweaks.core.network.modem.DynamicPeripheralCollection;
@@ -29,22 +28,22 @@ public class PocketWirelessBinding implements IPocketComputerUpgrade {
 
     @Override
     public int getUpgradeID() {
-        return Config.Network.WirelessBridge.pocketId;
+        return CCTweaks.pocketId;
     }
 
     @Override
     public String getUnlocalisedAdjective() {
-        return "pocket." + CCTweaks.RESOURCE_DOMAIN + ".wirelessBridge.adjective";
+        return "pocket." + CCTweaks.MODID + ".wirelessBridge.adjective";
     }
 
     @Override
     public ItemStack getCraftingItem() {
-        return Config.Network.WirelessBridge.pocketEnabled ? new ItemStack(Registry.blockNetworked, 0) : null;
+        return CCTweaks.pocketEnabled ? new ItemStack(Registry.blockNetworked, 0) : null;
     }
 
     @Override
     public IPeripheral createPeripheral(Entity entity, ItemStack stack) {
-        return Config.Network.WirelessBridge.pocketEnabled
+        return CCTweaks.pocketEnabled
             ? new PocketBinding(new PocketAccess(entity, stack)).getModem().modem
             : null;
     }

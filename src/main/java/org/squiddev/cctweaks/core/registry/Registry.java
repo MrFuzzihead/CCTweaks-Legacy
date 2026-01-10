@@ -19,7 +19,7 @@ import org.squiddev.cctweaks.items.ItemComputerUpgrade;
 import org.squiddev.cctweaks.items.ItemDataCard;
 import org.squiddev.cctweaks.items.ItemDebugger;
 import org.squiddev.cctweaks.items.ItemToolHost;
-import org.squiddev.cctweaks.lua.lib.ApiRegister;
+//import org.squiddev.cctweaks.lua.lib.ApiRegister;
 import org.squiddev.cctweaks.turtle.TurtleUpgradeWirelessBridge;
 
 import cpw.mods.fml.relauncher.Side;
@@ -57,13 +57,13 @@ public final class Registry {
         addModule(new OpenPeripheralIntegration());
 
         addModule(new PeripheralHostProvider());
-        addModule(new Module() {
+        /*addModule(new Module() {
 
             @Override
             public void init() {
                 ApiRegister.init();
             }
-        });
+        });*/
 
         addModule(new DefaultTurtleProviders());
         addModule(new TurtleUpgradeWirelessBridge());

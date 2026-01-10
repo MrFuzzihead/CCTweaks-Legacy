@@ -1,3 +1,3 @@
 tasks.withType<JavaExec>() {
-    jvmArgs("-noverify")
+    //jvmArgs("-noverify")
 }

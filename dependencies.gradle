@@ -34,22 +34,30 @@
  * For more details, see https://docs.gradle.org/8.0.1/userguide/java_library_plugin.html#sec:java_library_configurations_graph
  */
 dependencies {
-    //api("com.github.MrFuzzihead:Computercraft-Legacy:1.78.0")
-    api(project.files("libs/ComputerCraft-1.78.0-dev.jar"))
+    //api("com.github.MrFuzzihead:Computercraft-Legacy:1.79.0")
+    api(project.files("libs/ComputerCraft-1.78.0-feature-CCTweaksPatches.16+290f1acf9d-dirty-dev.jar"))
 
-    implementation(project.files("libs/NotEnoughItems-2.7.4-GTNH-dev.jar"))
+    implementation("com.github.GTNewHorizons:ForgeMultipart:1.7.2:dev")
+    implementation("com.github.GTNewHorizons:CodeChickenCore:1.4.10:dev")
+    implementation("com.github.GTNewHorizons:NotEnoughItems:2.7.4-GTNH:dev")
+
+    devOnlyNonPublishable("curse.maven:CollectiveFramework-232966:2248220")
+    devOnlyNonPublishable("openperipheral:OpenPeripheralCore-API:3.2")
+    devOnlyNonPublishable(rfg.deobf(project.files("libs/Peripherals++-1.3.6.jar")))
+
+    devOnlyNonPublishable("curse.maven:cofh-core-69162:2388751")
+    compileOnly(rfg.deobf(project.files("libs/PortalGun-4.0.0-beta-6.jar")))
+    devOnlyNonPublishable(project.files("libs/iChunUtil-4.2.2-deobf.jar"))
+    devOnlyNonPublishable("net.industrial-craft:industrialcraft-2:2.2.828-experimental:dev")
+
+    api(project.files("libs/configgen-1.2.7-dev.jar"))
+
+    testCompile("junit:junit:4.13.1")
+
+    /*implementation(project.files("libs/NotEnoughItems-2.7.4-GTNH-dev.jar"))
     implementation(project.files("libs/CodeChickenCore-1.4.2-dev.jar"))
     implementation(project.files("libs/CodeChickenLib-1.3.0-dev.jar"))
     implementation(project.files("libs/ForgeMultipart-1.6.2-dev.jar"))
 
-    devOnlyNonPublishable(project.files("libs/OpenPeripheralCore-API-3.2.jar"))
-    devOnlyNonPublishable(rfg.deobf(project.files("libs/CollectiveFramework-1.0.0-132.jar")))
-    devOnlyNonPublishable(rfg.deobf(project.files("libs/Peripherals++-1.3.6.jar")))
-    devOnlyNonPublishable(project.files("libs/CoFHLib-[1.7.10]1.0.2-160-dev.jar"))
-    devOnlyNonPublishable(rfg.deobf(project.files("libs/PortalGun-4.0.0-beta-6.jar")))
-    devOnlyNonPublishable(project.files("libs/iChunUtil-4.2.2-deobf.jar"))
-    devOnlyNonPublishable(rfg.deobf(project.files("libs/industrialcraft-2-2.2.827-experimental.jar")))
-
-    devOnlyNonPublishable(project.files("libs/configgen-1.2.7-dev.jar"))
-    shadowImplementation((project.files("libs/cctweaks-lua-1.0.13-complete.jar")))
+    devOnlyNonPublishable(project.files("libs/OpenPeripheralCore-API-3.2.jar"))*/
 }

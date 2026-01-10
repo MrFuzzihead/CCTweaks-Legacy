@@ -14,7 +14,7 @@ import net.minecraft.nbt.NBTTagList;
 import net.minecraftforge.common.util.Constants;
 
 import org.squiddev.cctweaks.core.utils.ComputerAccessor;
-import org.squiddev.cctweaks.core.utils.DebugLogger;
+//import org.squiddev.cctweaks.core.utils.DebugLogger;
 
 import com.austinv11.peripheralsplusplus.hooks.ComputerCraftHooks;
 import com.austinv11.peripheralsplusplus.hooks.ComputerCraftRegistry;
@@ -52,10 +52,10 @@ public class PocketAccess implements IPocketAccess {
                 .invoke(ComputerCraft.Items.pocketComputer, entity.worldObj, inventory, stack);
             return computer == null ? null : (ServerComputer) computer;
         } catch (InvocationTargetException e) {
-            DebugLogger.error("Cannot find computer", e);
+            //DebugLogger.error("Cannot find computer", e);
             return null;
         } catch (IllegalAccessException e) {
-            DebugLogger.error("Cannot find computer", e);
+            //DebugLogger.error("Cannot find computer", e);
             return null;
         }
     }

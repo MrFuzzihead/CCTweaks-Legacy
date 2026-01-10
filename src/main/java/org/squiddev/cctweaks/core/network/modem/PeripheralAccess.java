@@ -3,10 +3,10 @@ package org.squiddev.cctweaks.core.network.modem;
 import java.util.HashMap;
 import java.util.Map;
 
-import org.squiddev.cctweaks.api.lua.ArgumentDelegator;
-import org.squiddev.cctweaks.api.lua.IArguments;
-import org.squiddev.cctweaks.api.lua.IBinaryHandler;
-import org.squiddev.cctweaks.lua.lib.BinaryConverter;
+import dan200.computercraft.api.lua.ArgumentDelegator;
+import dan200.computercraft.api.lua.IArguments;
+import dan200.computercraft.api.lua.IBinaryHandler;
+import dan200.computercraft.core.lua.lib.BinaryConverter;
 
 import dan200.computercraft.api.filesystem.IMount;
 import dan200.computercraft.api.filesystem.IWritableMount;

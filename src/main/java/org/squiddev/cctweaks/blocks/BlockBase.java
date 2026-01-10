@@ -28,8 +28,8 @@ public abstract class BlockBase<T extends TileBase> extends BlockContainer imple
         name = blockName;
 
         setHardness(2);
-        setBlockName(CCTweaks.RESOURCE_DOMAIN + "." + blockName);
-        setBlockTextureName(CCTweaks.RESOURCE_DOMAIN + ":" + blockName);
+        setBlockName(CCTweaks.MODID + "." + blockName);
+        setBlockTextureName(CCTweaks.MODID + ":" + blockName);
         setCreativeTab(CCTweaks.getCreativeTab());
     }
 

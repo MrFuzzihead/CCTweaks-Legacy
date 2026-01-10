@@ -13,15 +13,15 @@ import net.minecraft.world.World;
 import org.apache.commons.lang3.StringUtils;
 import org.luaj.vm2.LuaValue;
 import org.luaj.vm2.lib.DebugLib;
+import org.squiddev.cctweaks.CCTweaks;
 import org.squiddev.cctweaks.api.IWorldPosition;
 import org.squiddev.cctweaks.api.network.INetworkController;
 import org.squiddev.cctweaks.api.network.INetworkNode;
 import org.squiddev.cctweaks.api.network.IWorldNetworkNode;
 import org.squiddev.cctweaks.api.network.NetworkAPI;
 import org.squiddev.cctweaks.blocks.debug.TileDebugPeripheral;
-import org.squiddev.cctweaks.core.Config;
 import org.squiddev.cctweaks.core.utils.ComputerAccessor;
-import org.squiddev.cctweaks.core.utils.DebugLogger;
+//import org.squiddev.cctweaks.core.utils.DebugLogger;
 import org.squiddev.cctweaks.core.utils.WorldPosition;
 import org.squiddev.cctweaks.core.visualiser.NetworkPlayerWatcher;
 import org.squiddev.cctweaks.core.visualiser.VisualisationPacket;
@@ -42,7 +42,7 @@ public class ItemDebugger extends ItemComputerAction {
     @Override
     public boolean onItemUseFirst(ItemStack stack, EntityPlayer player, World world, int x, int y, int z, int side,
         float hitX, float hitY, float hitZ) {
-        return Config.Computer.debugWandEnabled
+        return CCTweaks.debugWandEnabled
             && super.onItemUseFirst(stack, player, world, x, y, z, side, hitX, hitY, hitZ);
     }
 
@@ -51,7 +51,7 @@ public class ItemDebugger extends ItemComputerAction {
         // Allow manually refreshing the network
         if (player.isSneaking() && !world.isRemote
             && player instanceof EntityPlayerMP
-            && Config.Computer.debugWandEnabled) {
+            && CCTweaks.debugWandEnabled) {
             handleWatcher((EntityPlayerMP) player, NetworkPlayerWatcher.get(player), true);
         }
 
@@ -68,7 +68,7 @@ public class ItemDebugger extends ItemComputerAction {
     public void onUpdate(ItemStack stack, World world, Entity entity, int p_77663_4_, boolean p_77663_5_) {
         super.onUpdate(stack, world, entity, p_77663_4_, p_77663_5_);
 
-        if (!world.isRemote && entity instanceof EntityPlayerMP && Config.Computer.debugWandEnabled) {
+        if (!world.isRemote && entity instanceof EntityPlayerMP && CCTweaks.debugWandEnabled) {
             EntityPlayerMP player = ((EntityPlayerMP) entity);
             if (player.getHeldItem() == stack) {
                 MovingObjectPosition position = getMovingObjectPositionFromPlayer(world, player, false);
@@ -91,20 +91,20 @@ public class ItemDebugger extends ItemComputerAction {
             Object luaMachine = ComputerAccessor.computerMachine.get(computer);
 
             if (!(luaMachine instanceof LuaJLuaMachine)) {
-                DebugLogger.warn("Computer is not instance of LuaJLuaMachine, cannot get globals");
+                //DebugLogger.warn("Computer is not instance of LuaJLuaMachine, cannot get globals");
                 return false;
             }
 
             LuaValue globals = (LuaValue) ComputerAccessor.luaMachineGlobals.get(luaMachine);
             globals.load(new DebugLib());
         } catch (NullPointerException e) {
-            DebugLogger.warn("Could not add DebugLib", e);
+            //DebugLogger.warn("Could not add DebugLib", e);
             return false;
         } catch (IllegalAccessException e) {
-            DebugLogger.warn("Could not add DebugLib", e);
+            //DebugLogger.warn("Could not add DebugLib", e);
             return false;
         } catch (Exception e) {
-            DebugLogger.error("Unknown error in injecting DebugLib", e);
+            //DebugLogger.error("Unknown error in injecting DebugLib", e);
             return false;
         }
 

@@ -7,7 +7,7 @@ import net.minecraft.util.Facing;
 
 import org.squiddev.cctweaks.api.peripheral.IPeripheralHost;
 import org.squiddev.cctweaks.blocks.TileBase;
-import org.squiddev.cctweaks.core.utils.DebugLogger;
+//import org.squiddev.cctweaks.core.utils.DebugLogger;
 
 import com.google.common.collect.Sets;
 
@@ -61,31 +61,31 @@ public class TileDebugPeripheral extends TileBase implements IPeripheralHost {
 
         @Override
         public void attach(IComputerAccess computer) {
-            DebugLogger.debug(
+            /*DebugLogger.debug(
                 "Attaching to computer " + computer
                     + " #"
                     + computer.getID()
                     + " with "
                     + computer.getAttachmentName()
                     + " for side "
-                    + sideName);
+                    + sideName);*/
             if (!computers.add(computer)) {
-                DebugLogger.warn("Already attached");
+                //DebugLogger.warn("Already attached");
             }
         }
 
         @Override
         public void detach(IComputerAccess computer) {
-            DebugLogger.debug(
+            /*DebugLogger.debug(
                 "Detaching from computer " + computer
                     + " #"
                     + computer.getID()
                     + " with "
                     + computer.getAttachmentName()
                     + " for side "
-                    + sideName);
+                    + sideName);*/
             if (!computers.remove(computer)) {
-                DebugLogger.warn("Not attached");
+                //DebugLogger.warn("Not attached");
             }
         }
 

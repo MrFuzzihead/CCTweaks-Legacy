@@ -1,18 +1,23 @@
 [
-	{
-		"modid": "{modId}",
-		"name": "{modName}",
-		"description": "Random tweaks to Computer Craft",
-		"version": "${modVersion}",
-		"mcversion": "${minecraftVersion}",
-		"url": "https://github.com/SquidDev-CC/CCTweaks",
-		"credits": "Dan200, Forge team, Luaj.org",
-		"authorList": [
-			"SquidDev",
-			"ElvishJerricco"
-		],
-		"dependencies": [
-			"ComputerCraft"
-		]
-	}
+  {
+    "modid": "{modId}",
+    "name": "{modName}",
+    "version": "${modVersion}",
+    "mcversion": "${minecraftVersion}",
+    "url": "https://github.com/MrFuzzihead/CCTweaks-Legacy",
+    "credits": "Dan200, Forge team, Luaj.org, SquidDev & ElvishJerricco",
+    "authors": [
+      "MrFuzzihead",
+      "SquidDev",
+      "ElvishJerricco"
+    ],
+    "description": "Random tweaks to Computer Craft",
+    "logoFile": "",
+    "updateUrl": "https://github.com/MrFuzzihead/CCTweaks-Legacy/releases/latest",
+    "parent": "",
+    "screenshots": [],
+    "dependencies": [
+      "ComputerCraft"
+    ]
+  }
 ]

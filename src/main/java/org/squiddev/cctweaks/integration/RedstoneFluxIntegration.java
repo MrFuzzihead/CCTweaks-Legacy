@@ -2,9 +2,9 @@ package org.squiddev.cctweaks.integration;
 
 import net.minecraft.item.ItemStack;
 
+import org.squiddev.cctweaks.CCTweaks;
 import org.squiddev.cctweaks.api.CCTweaksAPI;
 import org.squiddev.cctweaks.api.turtle.ITurtleFuelProvider;
-import org.squiddev.cctweaks.core.Config;
 
 import cofh.api.energy.IEnergyContainerItem;
 import dan200.computercraft.api.turtle.ITurtleAccess;
@@ -26,12 +26,12 @@ public class RedstoneFluxIntegration extends APIIntegration {
 
                 @Override
                 public boolean canRefuel(ITurtleAccess turtle, ItemStack stack) {
-                    return Config.Turtle.fluxRefuelAmount > 0 && stack.getItem() instanceof IEnergyContainerItem;
+                    return CCTweaks.fluxRefuelAmount > 0 && stack.getItem() instanceof IEnergyContainerItem;
                 }
 
                 @Override
                 public int refuel(ITurtleAccess turtle, ItemStack stack, int limit) {
-                    int fluxAmount = Config.Turtle.fluxRefuelAmount;
+                    int fluxAmount = CCTweaks.fluxRefuelAmount;
 
                     // Avoid over refueling
                     int maxRefuel = turtle.getFuelLimit() - turtle.getFuelLevel();

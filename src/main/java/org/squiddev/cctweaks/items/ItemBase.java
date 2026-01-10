@@ -16,8 +16,8 @@ public abstract class ItemBase extends Item implements IModule {
     public ItemBase(String itemName, int stackSize) {
         name = itemName;
 
-        setUnlocalizedName(CCTweaks.RESOURCE_DOMAIN + "." + itemName);
-        setTextureName(CCTweaks.RESOURCE_DOMAIN + ":" + itemName);
+        setUnlocalizedName(CCTweaks.MODID + "." + itemName);
+        setTextureName(CCTweaks.MODID + ":" + itemName);
 
         setCreativeTab(CCTweaks.getCreativeTab());
         setMaxStackSize(stackSize);

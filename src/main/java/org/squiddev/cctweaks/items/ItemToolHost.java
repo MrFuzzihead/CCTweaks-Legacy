@@ -10,7 +10,7 @@ import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.IIcon;
 
-import org.squiddev.cctweaks.core.Config;
+import org.squiddev.cctweaks.CCTweaks;
 import org.squiddev.cctweaks.turtle.TurtleUpgradeToolHost;
 import org.squiddev.cctweaks.turtle.TurtleUpgradeToolManipulator;
 
@@ -79,8 +79,8 @@ public class ItemToolHost extends ItemBase {
     public void init() {
         super.init();
 
-        if (Config.Turtle.ToolHost.enabled) {
-            if (Config.Turtle.ToolHost.crafting) {
+        if (CCTweaks.thEnabled) {
+            if (CCTweaks.thCrafting) {
                 GameRegistry.addRecipe(
                     new ItemStack(this, 1, 0),
                     "GDG",
@@ -97,7 +97,7 @@ public class ItemToolHost extends ItemBase {
 
             ComputerCraft.registerTurtleUpgrade(new TurtleUpgradeToolHost());
 
-            if (Config.Turtle.ToolHost.advanced) {
+            if (CCTweaks.advanced) {
                 GameRegistry.addRecipe(
                     new ItemStack(this, 1, 1),
                     "GDG",

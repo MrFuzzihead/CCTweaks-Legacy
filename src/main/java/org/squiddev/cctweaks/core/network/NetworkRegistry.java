@@ -11,7 +11,7 @@ import org.squiddev.cctweaks.api.network.INetworkNodeProvider;
 import org.squiddev.cctweaks.api.network.INetworkRegistry;
 import org.squiddev.cctweaks.api.network.IWorldNetworkNode;
 import org.squiddev.cctweaks.api.network.IWorldNetworkNodeHost;
-import org.squiddev.cctweaks.core.utils.DebugLogger;
+//import org.squiddev.cctweaks.core.utils.DebugLogger;
 
 /**
  * Registry for network components
@@ -41,7 +41,7 @@ public final class NetworkRegistry implements INetworkRegistry {
             try {
                 if (provider.isNode(tile)) return true;
             } catch (Exception e) {
-                DebugLogger.debug("Node provider " + provider + " threw exception", e);
+                //DebugLogger.debug("Node provider " + provider + " threw exception", e);
             }
         }
 
@@ -70,7 +70,7 @@ public final class NetworkRegistry implements INetworkRegistry {
                 IWorldNetworkNode node = provider.getNode(tile);
                 if (node != null) return node;
             } catch (Exception e) {
-                DebugLogger.debug("Node provider " + provider + " threw exception", e);
+                //DebugLogger.debug("Node provider " + provider + " threw exception", e);
             }
         }
 

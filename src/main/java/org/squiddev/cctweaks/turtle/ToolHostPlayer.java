@@ -12,8 +12,8 @@ import net.minecraft.util.Vec3;
 import net.minecraft.world.World;
 import net.minecraft.world.WorldServer;
 
+import org.squiddev.cctweaks.CCTweaks;
 import org.squiddev.cctweaks.api.IWorldPosition;
-import org.squiddev.cctweaks.core.Config;
 import org.squiddev.cctweaks.core.McEvents;
 import org.squiddev.cctweaks.core.utils.FakeNetHandler;
 import org.squiddev.cctweaks.core.utils.WorldPosition;
@@ -120,7 +120,7 @@ public class ToolHostPlayer extends TurtlePlayer {
             loadInventory(getItem(turtle));
 
             ItemInWorldManager manager = theItemInWorldManager;
-            for (int i = 0; i < Config.Turtle.ToolHost.digFactor; i++) {
+            for (int i = 0; i < CCTweaks.digFactor; i++) {
                 if (manager.durabilityRemainingOnBlock == -1) {
                     manager.onBlockClicked(x, y, z, Facing.oppositeSide[direction]);
                 } else {

@@ -1,0 +1,14 @@
+{
+  "required": true,
+  "minVersion": "0.8.5-GTNH",
+  "package": "org.squiddev.cctweaks.mixins.late",
+  "refmap": "mixins.cctweaks.refmap.json",
+  "target": "@env(DEFAULT)",
+  "compatibilityLevel": "JAVA_8",
+  "mixins": [
+    "BlockCable_Mixin",
+    "CableBlockRenderingHandler_Mixin",
+    "ItemCable_Mixin",
+    "TurtleRefuelCommand_Mixin"
+  ]
+}

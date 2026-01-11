@@ -1,0 +1,33 @@
+package org.squiddev.cctweaks.mixins;
+
+import com.gtnewhorizon.gtnhmixins.builders.IMixins;
+import com.gtnewhorizon.gtnhmixins.builders.ITargetMod;
+import com.gtnewhorizon.gtnhmixins.builders.MixinBuilder;
+import org.squiddev.cctweaks.CCTweaks;
+
+import javax.annotation.Nonnull;
+
+public enum Mixins implements IMixins {
+    // Read the Javadoc of IMixins and MixinBuilder for further information
+    // You should declare all of your mixins early and late in this same enum
+    CCMIXINS(new MixinBuilder()
+        .setPhase(Phase.LATE)
+        .addCommonMixins("TurtleRefuelCommand_Mixin", "BlockCable_Mixin", "CableBlockRenderingHandler_Mixin")),
+    MULTIPART(new MixinBuilder()
+        .setPhase(Phase.LATE)
+        .addRequiredMod(TargetMods.MULTIPART)
+        .setApplyIf(() -> CCTweaks.cbMultipart)
+        .addCommonMixins("ItemCable_Mixin"));
+
+    private final MixinBuilder builder;
+
+    Mixins(MixinBuilder builder) {
+        this.builder = builder;
+    }
+
+    @Nonnull
+    @Override
+    public MixinBuilder getBuilder() {
+        return builder;
+    }
+}

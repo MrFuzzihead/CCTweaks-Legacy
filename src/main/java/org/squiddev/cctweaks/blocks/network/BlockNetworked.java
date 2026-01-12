@@ -17,7 +17,6 @@ import org.squiddev.cctweaks.CCTweaks;
 import org.squiddev.cctweaks.blocks.BlockBase;
 import org.squiddev.cctweaks.blocks.IMultiBlock;
 import org.squiddev.cctweaks.blocks.TileBase;
-//import org.squiddev.cctweaks.core.utils.DebugLogger;
 import org.squiddev.cctweaks.core.utils.Helpers;
 import org.squiddev.cctweaks.items.ItemMultiBlock;
 
@@ -86,9 +85,9 @@ public class BlockNetworked extends BlockBase<TileBase> implements IMultiBlock {
                     icons[i] = modemIcons[i * 2];
                 }
             } catch (IllegalAccessException e) {
-                //DebugLogger.error("Cannot find TileCable texture", e);
+                // DebugLogger.error("Cannot find TileCable texture", e);
             } catch (NoSuchFieldException e) {
-                //DebugLogger.error("Cannot find TileCable texture", e);
+                // DebugLogger.error("Cannot find TileCable texture", e);
             }
         }
 

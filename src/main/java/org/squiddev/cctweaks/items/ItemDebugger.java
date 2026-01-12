@@ -21,7 +21,6 @@ import org.squiddev.cctweaks.api.network.IWorldNetworkNode;
 import org.squiddev.cctweaks.api.network.NetworkAPI;
 import org.squiddev.cctweaks.blocks.debug.TileDebugPeripheral;
 import org.squiddev.cctweaks.core.utils.ComputerAccessor;
-//import org.squiddev.cctweaks.core.utils.DebugLogger;
 import org.squiddev.cctweaks.core.utils.WorldPosition;
 import org.squiddev.cctweaks.core.visualiser.NetworkPlayerWatcher;
 import org.squiddev.cctweaks.core.visualiser.VisualisationPacket;
@@ -42,16 +41,13 @@ public class ItemDebugger extends ItemComputerAction {
     @Override
     public boolean onItemUseFirst(ItemStack stack, EntityPlayer player, World world, int x, int y, int z, int side,
         float hitX, float hitY, float hitZ) {
-        return CCTweaks.debugWandEnabled
-            && super.onItemUseFirst(stack, player, world, x, y, z, side, hitX, hitY, hitZ);
+        return CCTweaks.debugWandEnabled && super.onItemUseFirst(stack, player, world, x, y, z, side, hitX, hitY, hitZ);
     }
 
     @Override
     public ItemStack onItemRightClick(ItemStack stack, World world, EntityPlayer player) {
         // Allow manually refreshing the network
-        if (player.isSneaking() && !world.isRemote
-            && player instanceof EntityPlayerMP
-            && CCTweaks.debugWandEnabled) {
+        if (player.isSneaking() && !world.isRemote && player instanceof EntityPlayerMP && CCTweaks.debugWandEnabled) {
             handleWatcher((EntityPlayerMP) player, NetworkPlayerWatcher.get(player), true);
         }
 
@@ -91,20 +87,20 @@ public class ItemDebugger extends ItemComputerAction {
             Object luaMachine = ComputerAccessor.computerMachine.get(computer);
 
             if (!(luaMachine instanceof LuaJLuaMachine)) {
-                //DebugLogger.warn("Computer is not instance of LuaJLuaMachine, cannot get globals");
+                // DebugLogger.warn("Computer is not instance of LuaJLuaMachine, cannot get globals");
                 return false;
             }
 
             LuaValue globals = (LuaValue) ComputerAccessor.luaMachineGlobals.get(luaMachine);
             globals.load(new DebugLib());
         } catch (NullPointerException e) {
-            //DebugLogger.warn("Could not add DebugLib", e);
+            // DebugLogger.warn("Could not add DebugLib", e);
             return false;
         } catch (IllegalAccessException e) {
-            //DebugLogger.warn("Could not add DebugLib", e);
+            // DebugLogger.warn("Could not add DebugLib", e);
             return false;
         } catch (Exception e) {
-            //DebugLogger.error("Unknown error in injecting DebugLib", e);
+            // DebugLogger.error("Unknown error in injecting DebugLib", e);
             return false;
         }
 

@@ -1,6 +1,5 @@
 package org.squiddev.cctweaks.mixins.late;
 
-import dan200.computercraft.shared.turtle.core.TurtleRefuelCommand;
 import net.minecraft.item.ItemStack;
 
 import org.spongepowered.asm.mixin.Final;
@@ -14,11 +13,13 @@ import dan200.computercraft.api.turtle.ITurtleAccess;
 import dan200.computercraft.api.turtle.ITurtleCommand;
 import dan200.computercraft.api.turtle.TurtleAnimation;
 import dan200.computercraft.api.turtle.TurtleCommandResult;
+import dan200.computercraft.shared.turtle.core.TurtleRefuelCommand;
 
 @Mixin(TurtleRefuelCommand.class)
 public class TurtleRefuelCommand_Mixin implements ITurtleCommand {
 
-    @Shadow(remap = false) @Final
+    @Shadow(remap = false)
+    @Final
     private int m_limit;
 
     /**

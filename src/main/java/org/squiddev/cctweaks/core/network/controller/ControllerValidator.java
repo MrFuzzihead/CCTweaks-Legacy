@@ -7,7 +7,6 @@ import java.util.Set;
 
 import org.squiddev.cctweaks.CCTweaks;
 import org.squiddev.cctweaks.api.network.INetworkNode;
-//import org.squiddev.cctweaks.core.utils.DebugLogger;
 
 import com.google.common.collect.Sets;
 
@@ -100,9 +99,9 @@ public class ControllerValidator {
 
     public static void trace(String message) {
         if (CCTweaks.extendedControllerValidation) {
-            //DebugLogger.trace(message);
+            // DebugLogger.trace(message);
         } else {
-            //DebugLogger.debug(message);
+            // DebugLogger.debug(message);
         }
     }
 }

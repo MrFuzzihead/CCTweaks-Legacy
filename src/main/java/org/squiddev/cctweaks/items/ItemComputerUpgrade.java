@@ -17,7 +17,6 @@ import net.minecraftforge.oredict.RecipeSorter;
 import org.squiddev.cctweaks.CCTweaks;
 import org.squiddev.cctweaks.core.utils.BlockNotifyFlags;
 import org.squiddev.cctweaks.core.utils.ComputerAccessor;
-//import org.squiddev.cctweaks.core.utils.DebugLogger;
 import org.squiddev.cctweaks.core.utils.InventoryUtils;
 
 import cpw.mods.fml.common.registry.GameRegistry;
@@ -71,7 +70,7 @@ public class ItemComputerUpgrade extends ItemComputerAction {
         try {
             ComputerAccessor.tileCopy.invoke(newComputer, computerTile);
         } catch (Exception e) {
-            //DebugLogger.warn("Cannot copy tile in ItemComputerUpgrade", e);
+            // DebugLogger.warn("Cannot copy tile in ItemComputerUpgrade", e);
             return false;
         }
 
@@ -109,7 +108,7 @@ public class ItemComputerUpgrade extends ItemComputerAction {
         try {
             ComputerAccessor.turtleTileMoved.setBoolean(computerTile, true);
         } catch (Exception e) {
-            //DebugLogger.warn("Cannot set TurtleTile m_moved in ItemComputerUpgrade", e);
+            // DebugLogger.warn("Cannot set TurtleTile m_moved in ItemComputerUpgrade", e);
             return false;
         }
 

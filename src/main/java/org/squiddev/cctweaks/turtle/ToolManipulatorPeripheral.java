@@ -18,7 +18,6 @@ import net.minecraftforge.event.entity.player.PlayerInteractEvent;
 
 import org.squiddev.cctweaks.api.network.INetworkCompatiblePeripheral;
 import org.squiddev.cctweaks.core.turtle.TurtleRegistry;
-import dan200.computercraft.core.lua.lib.DelayedTask;
 
 import com.google.common.collect.Multimap;
 
@@ -28,6 +27,7 @@ import dan200.computercraft.api.lua.LuaException;
 import dan200.computercraft.api.peripheral.IComputerAccess;
 import dan200.computercraft.api.peripheral.IPeripheral;
 import dan200.computercraft.api.turtle.*;
+import dan200.computercraft.core.lua.lib.DelayedTask;
 import dan200.computercraft.shared.turtle.core.InteractDirection;
 import dan200.computercraft.shared.util.WorldUtil;
 

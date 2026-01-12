@@ -2,9 +2,9 @@ package org.squiddev.cctweaks;
 
 import net.minecraft.creativetab.CreativeTabs;
 import net.minecraftforge.common.MinecraftForge;
-
 import net.minecraftforge.common.config.Configuration;
 import net.minecraftforge.common.config.Property;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.squiddev.cctweaks.core.FmlEvents;
@@ -12,7 +12,6 @@ import org.squiddev.cctweaks.core.McEvents;
 import org.squiddev.cctweaks.core.network.bridge.NetworkBindings;
 import org.squiddev.cctweaks.core.registry.Registry;
 import org.squiddev.cctweaks.core.visualiser.NetworkPlayerWatcher;
-import dan200.computercraft.core.lua.lib.DelayedTasks;
 
 import cpw.mods.fml.common.FMLCommonHandler;
 import cpw.mods.fml.common.Mod;
@@ -22,6 +21,7 @@ import cpw.mods.fml.common.network.NetworkRegistry;
 import cpw.mods.fml.common.network.simpleimpl.SimpleNetworkWrapper;
 import cpw.mods.fml.relauncher.Side;
 import dan200.computercraft.ComputerCraft;
+import dan200.computercraft.core.lua.lib.DelayedTasks;
 
 @Mod(
     modid = CCTweaks.MODID,
@@ -46,49 +46,49 @@ public class CCTweaks {
         return ComputerCraft.mainCreativeTab;
     }
 
-    //region Config values
-    //region computer
+    // region Config values
+    // region computer
     public static boolean computerUpgradeEnabled = true;
     public static boolean computerUpgradeCrafting = true;
     public static boolean debugWandEnabled = true;
-    //endregion
-    //region integration
+    // endregion
+    // region integration
     public static boolean cbMultipart = true;
     public static boolean openPeripheralInventories = true;
-    //endregion
-    //region network
+    // endregion
+    // region network
     public static boolean fullBlockModemCrafting = true;
-    //region wirelessbridge
+    // region wirelessbridge
     public static boolean wbCrafting = true;
     public static boolean wbEnabled = true;
     public static boolean pocketEnabled = true;
     public static int pocketId = 331;
     public static boolean turtleEnabled = true;
     public static int turtleId = 331;
-    //endregion
-    //endregion
-    //region testing
+    // endregion
+    // endregion
+    // region testing
     public static boolean debug = false;
     public static boolean debugItems = false;
     public static boolean extendedControllerValidation = false;
-    //endregion
-    //region turtle
+    // endregion
+    // region turtle
     public static int euRefuelAmount = 25;
     public static int fluxRefuelAmount = 100;
-    //region toolhost
+    // region toolhost
     public static boolean advanced = true;
     public static int advancedUpgradeId = 333;
     public static boolean thCrafting = true;
     public static int digFactor = 10;
     public static boolean thEnabled = true;
     public static int upgradeId = 332;
-    //endregion
-    //endregion
-    //endregion
+    // endregion
+    // endregion
+    // endregion
 
     @EventHandler
     public void preInit(FMLPreInitializationEvent event) {
-        //Config additions
+        // Config additions
         Configuration config = new Configuration(event.getSuggestedConfigurationFile());
         config.load();
         setConfig(config);
@@ -135,7 +135,7 @@ public class CCTweaks {
 
     private void setConfig(Configuration config) {
         Property prop;
-        //region computer
+        // region computer
         prop = config.get("computer", "computerUpgradeEnabled", true);
         prop.comment = "Enable upgrading computers.";
         computerUpgradeEnabled = prop.getBoolean(computerUpgradeEnabled);
@@ -145,20 +145,20 @@ public class CCTweaks {
         prop = config.get("computer", "debugWandEnabled", true);
         prop.comment = "Enable using the debug wand.";
         debugWandEnabled = prop.getBoolean(debugWandEnabled);
-        //endregion
-        //region integration
+        // endregion
+        // region integration
         prop = config.get("integration", "cbMultipart", true);
         prop.comment = "Enable compatibility with ChickenBones' Multipart mod.";
         cbMultipart = prop.getBoolean(cbMultipart);
         prop = config.get("integration", "openPeripheralInventories", true);
         prop.comment = "Enable compatibility with OpenPeripheral's inventory modules.";
         openPeripheralInventories = prop.getBoolean(openPeripheralInventories);
-        //endregion
-        //region network
+        // endregion
+        // region network
         prop = config.get("network", "fullBlockModemCrafting", true);
         prop.comment = "Enable crafting full block modems.";
         fullBlockModemCrafting = prop.getBoolean(fullBlockModemCrafting);
-        //region wirelessbridge
+        // region wirelessbridge
         prop = config.get("network.wirelessbridge", "wbCrafting", true);
         prop.comment = "Enable crafting the wireless bridge.";
         wbCrafting = prop.getBoolean(wbCrafting);
@@ -177,9 +177,9 @@ public class CCTweaks {
         prop = config.get("network.wirelessbridge", "turtleId", 331);
         prop.comment = "The turtle upgrade Id. Requires Peripherals++";
         turtleId = prop.getInt(turtleId);
-        //endregion
-        //endregion
-        //region testing
+        // endregion
+        // endregion
+        // region testing
         prop = config.get("testing", "debug", false);
         prop.comment = "Enable debug mode.";
         debug = prop.getBoolean(debug);
@@ -189,15 +189,15 @@ public class CCTweaks {
         prop = config.get("testing", "extendedControllerValidation", false);
         prop.comment = "Enable extended controller validation.";
         extendedControllerValidation = prop.getBoolean(extendedControllerValidation);
-        //endregion
-        //region turtle
+        // endregion
+        // region turtle
         prop = config.get("turtle", "euRefuelAmount", 25);
         prop.comment = "The amount of EU a single refuel action provides.";
         euRefuelAmount = prop.getInt(euRefuelAmount);
         prop = config.get("turtle", "fluxRefuelAmount", 100);
         prop.comment = "The amount of Flux a single refuel action provides.";
         fluxRefuelAmount = prop.getInt(fluxRefuelAmount);
-        //region toolhost
+        // region toolhost
         prop = config.get("turtle.toolhost", "advanced", true);
         prop.comment = "Enable the Advanced Tool Host upgrade.";
         advanced = prop.getBoolean(advanced);
@@ -216,7 +216,7 @@ public class CCTweaks {
         prop = config.get("turtle.toolhost", "upgradeId", 332);
         prop.comment = "The Tool Host upgrade Id.";
         upgradeId = prop.getInt(upgradeId);
-        //endregion
-        //endregion
+        // endregion
+        // endregion
     }
 }

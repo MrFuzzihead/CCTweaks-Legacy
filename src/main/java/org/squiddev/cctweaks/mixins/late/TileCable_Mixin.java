@@ -1,14 +1,5 @@
 package org.squiddev.cctweaks.mixins.late;
 
-import dan200.computercraft.ComputerCraft;
-import dan200.computercraft.api.lua.ILuaContext;
-import dan200.computercraft.api.peripheral.IPeripheral;
-import dan200.computercraft.shared.peripheral.PeripheralType;
-import dan200.computercraft.shared.peripheral.common.BlockCable;
-import dan200.computercraft.shared.peripheral.modem.IReceiver;
-import dan200.computercraft.shared.peripheral.modem.ModemPeripheral;
-import dan200.computercraft.shared.peripheral.modem.TileCable;
-import dan200.computercraft.shared.peripheral.modem.TileModemBase;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.util.AxisAlignedBB;
@@ -17,6 +8,7 @@ import net.minecraft.util.Facing;
 import net.minecraft.util.IIcon;
 import net.minecraft.world.IBlockAccess;
 import net.minecraftforge.common.util.ForgeDirection;
+
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Overwrite;
@@ -36,8 +28,19 @@ import org.squiddev.cctweaks.core.network.cable.SingleModemCable;
 import org.squiddev.cctweaks.core.network.modem.DirectionalPeripheralModem;
 import org.squiddev.cctweaks.core.utils.Helpers;
 
+import dan200.computercraft.ComputerCraft;
+import dan200.computercraft.api.lua.ILuaContext;
+import dan200.computercraft.api.peripheral.IPeripheral;
+import dan200.computercraft.shared.peripheral.PeripheralType;
+import dan200.computercraft.shared.peripheral.common.BlockCable;
+import dan200.computercraft.shared.peripheral.modem.IReceiver;
+import dan200.computercraft.shared.peripheral.modem.ModemPeripheral;
+import dan200.computercraft.shared.peripheral.modem.TileCable;
+import dan200.computercraft.shared.peripheral.modem.TileModemBase;
+
 @Mixin(TileCable.class)
 public abstract class TileCable_Mixin extends TileModemBase implements IWorldNetworkNodeHost, IWorldPosition {
+
     @Unique
     private static final double cCTweaks_Legacy$MIN = 0.375;
     @Unique
@@ -73,6 +76,7 @@ public abstract class TileCable_Mixin extends TileModemBase implements IWorldNet
     public DirectionalPeripheralModem cCTweaks_Legacy$getModem() {
         if (cCTweaks_Legacy$modem == null) {
             return cCTweaks_Legacy$modem = new DirectionalPeripheralModem() {
+
                 @Override
                 public int getDirection() {
                     return TileCable_Mixin.this.getDirection();
@@ -106,6 +110,7 @@ public abstract class TileCable_Mixin extends TileModemBase implements IWorldNet
     public SingleModemCable cCTweaks_Legacy$getCable() {
         if (cCTweaks_Legacy$cable == null) {
             return cCTweaks_Legacy$cable = new SingleModemCable() {
+
                 @Override
                 public DirectionalPeripheralModem getModem() {
                     return TileCable_Mixin.this.cCTweaks_Legacy$getModem();
@@ -175,6 +180,7 @@ public abstract class TileCable_Mixin extends TileModemBase implements IWorldNet
         super.validate();
         if (!worldObj.isRemote) {
             FmlEvents.schedule(new Runnable() {
+
                 @Override
                 public void run() {
                     // In case the tile is removed within this tick
@@ -200,7 +206,8 @@ public abstract class TileCable_Mixin extends TileModemBase implements IWorldNet
     private void UsePeripheralType(CallbackInfo ci) {
         if (cCTweaks_Legacy$type.get() == PeripheralType.WiredModemWithCable) {
             if (cCTweaks_Legacy$getModem().updateEnabled()) {
-                cCTweaks_Legacy$modem.getAttachedNetwork().invalidateNode(cCTweaks_Legacy$modem);
+                cCTweaks_Legacy$modem.getAttachedNetwork()
+                    .invalidateNode(cCTweaks_Legacy$modem);
                 updateAnim();
             }
         }
@@ -307,7 +314,9 @@ public abstract class TileCable_Mixin extends TileModemBase implements IWorldNet
      */
     @Overwrite(remap = false)
     public IPeripheral getPeripheral(int side) {
-        return side == getDirection() && cCTweaks_Legacy$getPeripheralTypeSafe() != PeripheralType.Cable ? cCTweaks_Legacy$getModem().modem : null;
+        return side == getDirection() && cCTweaks_Legacy$getPeripheralTypeSafe() != PeripheralType.Cable
+            ? cCTweaks_Legacy$getModem().modem
+            : null;
     }
 
     /**
@@ -346,7 +355,7 @@ public abstract class TileCable_Mixin extends TileModemBase implements IWorldNet
      */
     @Overwrite(remap = false)
     public void transmit(int channel, int replyChannel, Object payload, double range, double xPos, double yPos,
-                         double zPos, Object senderObject) {
+        double zPos, Object senderObject) {
         cCTweaks_Legacy$getModem().transmit(channel, replyChannel, payload, range, xPos, yPos, zPos, senderObject);
     }
 
@@ -420,7 +429,11 @@ public abstract class TileCable_Mixin extends TileModemBase implements IWorldNet
     @Overwrite(remap = false)
     @Deprecated
     private void dispatchPacket(TileCable.Packet packet) {
-        Packet cCTweaks_Legacy$Packet = new Packet(packet.channel, packet.replyChannel, packet.payload, packet.senderObject);
+        Packet cCTweaks_Legacy$Packet = new Packet(
+            packet.channel,
+            packet.replyChannel,
+            packet.payload,
+            packet.senderObject);
         cCTweaks_Legacy$getModem().getAttachedNetwork()
             .transmitPacket(cCTweaks_Legacy$modem, cCTweaks_Legacy$Packet);
     }
@@ -432,7 +445,11 @@ public abstract class TileCable_Mixin extends TileModemBase implements IWorldNet
     @Overwrite(remap = false)
     @Deprecated
     private void receivePacket(TileCable.Packet packet, int distanceTravelled) {
-        Packet cCTweaks_Legacy$Packet = new Packet(packet.channel, packet.replyChannel, packet.payload, packet.senderObject);
+        Packet cCTweaks_Legacy$Packet = new Packet(
+            packet.channel,
+            packet.replyChannel,
+            packet.payload,
+            packet.senderObject);
         cCTweaks_Legacy$getModem().receivePacket(cCTweaks_Legacy$Packet, distanceTravelled);
     }
 
@@ -448,7 +465,8 @@ public abstract class TileCable_Mixin extends TileModemBase implements IWorldNet
 
     /**
      * @author MrFuzzihead
-     * @reason This is needed for OpenPeripherals' peripheral proxy, see <a href="https://github.com/OpenMods/OpenPeripheral-Addons/blob/master/src/main/java/openperipheral/addons/peripheralproxy/TileEntityPeripheralProxy.java#L23-L32">...</a>
+     * @reason This is needed for OpenPeripherals' peripheral proxy, see <a href=
+     *         "https://github.com/OpenMods/OpenPeripheral-Addons/blob/master/src/main/java/openperipheral/addons/peripheralproxy/TileEntityPeripheralProxy.java#L23-L32">...</a>
      */
     @Overwrite(remap = false)
     public void togglePeripheralAccess() {
@@ -505,7 +523,8 @@ public abstract class TileCable_Mixin extends TileModemBase implements IWorldNet
      */
     @Overwrite(remap = false)
     public IIcon getTexture(int side) {
-        PeripheralType type = BlockCable.renderAsModem ? PeripheralType.WiredModem : cCTweaks_Legacy$getPeripheralTypeSafe();
+        PeripheralType type = BlockCable.renderAsModem ? PeripheralType.WiredModem
+            : cCTweaks_Legacy$getPeripheralTypeSafe();
 
         if (type == PeripheralType.Cable || type == PeripheralType.WiredModemWithCable) {
             int dir = -1;

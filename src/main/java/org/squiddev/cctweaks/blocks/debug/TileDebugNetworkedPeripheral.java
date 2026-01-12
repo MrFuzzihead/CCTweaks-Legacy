@@ -2,11 +2,9 @@ package org.squiddev.cctweaks.blocks.debug;
 
 import java.util.Map;
 
-import org.apache.commons.lang3.StringUtils;
 import org.squiddev.cctweaks.api.network.INetworkAccess;
 import org.squiddev.cctweaks.api.network.INetworkedPeripheral;
 import org.squiddev.cctweaks.api.network.Packet;
-//import org.squiddev.cctweaks.core.utils.DebugLogger;
 
 import dan200.computercraft.api.peripheral.IPeripheral;
 
@@ -33,29 +31,31 @@ public class TileDebugNetworkedPeripheral extends TileDebugPeripheral {
 
         @Override
         public void attachToNetwork(INetworkAccess network, String name) {
-            //DebugLogger.debug("Attaching to network " + network + " with name " + name);
+            // DebugLogger.debug("Attaching to network " + network + " with name " + name);
         }
 
         @Override
         public void detachFromNetwork(INetworkAccess network, String name) {
-            //DebugLogger.debug("Detaching from network " + network + " with name " + name);
+            // DebugLogger.debug("Detaching from network " + network + " with name " + name);
         }
 
         @Override
         public void networkInvalidated(INetworkAccess network, Map<String, IPeripheral> oldPeripherals,
             Map<String, IPeripheral> newPeripherals) {
-            /*DebugLogger.debug(
-                "Node invalidated at %s, %s, %s\n - Old: %s\n - New: %s",
-                xCoord,
-                yCoord,
-                zCoord,
-                StringUtils.join(oldPeripherals.keySet(), ", "),
-                StringUtils.join(newPeripherals.keySet(), ", "));*/
+            /*
+             * DebugLogger.debug(
+             * "Node invalidated at %s, %s, %s\n - Old: %s\n - New: %s",
+             * xCoord,
+             * yCoord,
+             * zCoord,
+             * StringUtils.join(oldPeripherals.keySet(), ", "),
+             * StringUtils.join(newPeripherals.keySet(), ", "));
+             */
         }
 
         @Override
         public void receivePacket(INetworkAccess network, Packet packet, double distanceTravelled) {
-            //DebugLogger.debug("Received packet from " + distanceTravelled + " blocks away");
+            // DebugLogger.debug("Received packet from " + distanceTravelled + " blocks away");
         }
     }
 }

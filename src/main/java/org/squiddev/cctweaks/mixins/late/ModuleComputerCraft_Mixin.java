@@ -1,7 +1,7 @@
 package org.squiddev.cctweaks.mixins.late;
 
-import openperipheral.adapter.composed.MethodSelector;
-import openperipheral.interfaces.cc.ModuleComputerCraft;
+import java.lang.reflect.Field;
+
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -9,10 +9,12 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.squiddev.cctweaks.api.network.INetworkAccess;
 import org.squiddev.cctweaks.api.peripheral.IPeripheralEnvironments;
 
-import java.lang.reflect.Field;
+import openperipheral.adapter.composed.MethodSelector;
+import openperipheral.interfaces.cc.ModuleComputerCraft;
 
 @Mixin(ModuleComputerCraft.class)
 public abstract class ModuleComputerCraft_Mixin {
+
     @Inject(method = "init", at = @At("RETURN"), remap = false)
     private static void injectNetworkEnv(CallbackInfo ci) {
         try {

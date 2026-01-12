@@ -1,5 +1,19 @@
 package org.squiddev.cctweaks.mixins.late;
 
+import net.minecraft.block.Block;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.item.ItemStack;
+import net.minecraft.tileentity.TileEntity;
+import net.minecraft.util.Facing;
+import net.minecraft.world.World;
+import net.minecraftforge.common.util.ForgeDirection;
+
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Overwrite;
+import org.spongepowered.asm.mixin.Unique;
+import org.squiddev.cctweaks.integration.multipart.network.PartCable;
+import org.squiddev.cctweaks.integration.multipart.network.PartModem;
+
 import codechicken.lib.vec.BlockCoord;
 import codechicken.lib.vec.Rotation;
 import codechicken.lib.vec.Vector3;
@@ -12,18 +26,6 @@ import dan200.computercraft.shared.peripheral.PeripheralType;
 import dan200.computercraft.shared.peripheral.common.ItemCable;
 import dan200.computercraft.shared.peripheral.common.ItemPeripheralBase;
 import dan200.computercraft.shared.peripheral.modem.TileCable;
-import net.minecraft.block.Block;
-import net.minecraft.entity.player.EntityPlayer;
-import net.minecraft.item.ItemStack;
-import net.minecraft.tileentity.TileEntity;
-import net.minecraft.util.Facing;
-import net.minecraft.world.World;
-import net.minecraftforge.common.util.ForgeDirection;
-import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.Overwrite;
-import org.spongepowered.asm.mixin.Unique;
-import org.squiddev.cctweaks.integration.multipart.network.PartCable;
-import org.squiddev.cctweaks.integration.multipart.network.PartModem;
 
 @Mixin(ItemCable.class)
 public abstract class ItemCable_Mixin extends ItemPeripheralBase implements TItemMultiPart {
@@ -34,11 +36,13 @@ public abstract class ItemCable_Mixin extends ItemPeripheralBase implements TIte
 
     @Override
     public double getHitDepth(Vector3 hit, int side) {
-        return hit.copy().scalarProject(Rotation.axes[side]) + (side % 2 ^ 1);
+        return hit.copy()
+            .scalarProject(Rotation.axes[side]) + (side % 2 ^ 1);
     }
 
     @Override
-    public TMultiPart newPart(ItemStack stack, EntityPlayer player, World world, BlockCoord pos, int side, Vector3 hit) {
+    public TMultiPart newPart(ItemStack stack, EntityPlayer player, World world, BlockCoord pos, int side,
+        Vector3 hit) {
         PeripheralType type = ((ItemCable) (Object) this).getPeripheralType(stack);
         return switch (type) {
             case Cable -> MultiPartRegistry.createPart(PartCable.NAME, false);
@@ -48,7 +52,8 @@ public abstract class ItemCable_Mixin extends ItemPeripheralBase implements TIte
     }
 
     @Unique
-    public boolean cCTweaks_Legacy$place(ItemStack item, EntityPlayer player, World world, BlockCoord pos, int side, Vector3 hit) {
+    public boolean cCTweaks_Legacy$place(ItemStack item, EntityPlayer player, World world, BlockCoord pos, int side,
+        Vector3 hit) {
         TMultiPart part = newPart(item, player, world, pos, side, hit);
         if (part == null || !TileMultipart.canPlacePart(world, pos, part)) return false;
         if (!world.isRemote) TileMultipart.addPart(world, pos, part);
@@ -62,7 +67,7 @@ public abstract class ItemCable_Mixin extends ItemPeripheralBase implements TIte
      */
     @Overwrite(remap = false)
     public boolean onItemUse(ItemStack stack, EntityPlayer player, World world, int x, int y, int z, int side,
-                             float hitX, float hitY, float hitZ) {
+        float hitX, float hitY, float hitZ) {
         Block block = world.getBlock(x, y, z);
 
         // Try multipart placement first
@@ -71,7 +76,8 @@ public abstract class ItemCable_Mixin extends ItemPeripheralBase implements TIte
         double d = getHitDepth(hit, side);
 
         if (d < 1 && cCTweaks_Legacy$place(stack, player, world, pos, side, hit)) return true;
-        if (block.isAir(world, x, y, z) && cCTweaks_Legacy$nativePlace(stack, player, world, x, y, z, side, hitX, hitY, hitZ)) return true;
+        if (block.isAir(world, x, y, z)
+            && cCTweaks_Legacy$nativePlace(stack, player, world, x, y, z, side, hitX, hitY, hitZ)) return true;
         if (cCTweaks_Legacy$place(stack, player, world, pos.offset(side), side, hit)) return true;
 
         // Fallback to vanilla logic
@@ -83,8 +89,8 @@ public abstract class ItemCable_Mixin extends ItemPeripheralBase implements TIte
      * This is a stub and will be merged by the patcher or handled by a shadow method.
      */
     @Unique
-    public boolean cCTweaks_Legacy$nativePlace(ItemStack stack, EntityPlayer player, World world, int x, int y, int z, int side,
-                                               float hitX, float hitY, float hitZ) {
+    public boolean cCTweaks_Legacy$nativePlace(ItemStack stack, EntityPlayer player, World world, int x, int y, int z,
+        int side, float hitX, float hitY, float hitZ) {
         if (!this.func_150936_a(world, x, y, z, side, player, stack)) {
             return false;
         } else {
@@ -96,7 +102,13 @@ public abstract class ItemCable_Mixin extends ItemPeripheralBase implements TIte
                     if (stack.stackSize > 0) {
                         int existingDirection = ComputerCraft.Blocks.cable.getDirection(world, x, y, z);
                         world.setBlockMetadataWithNotify(x, y, z, existingDirection + 6, 3);
-                        world.playSoundEffect((double)x + (double)0.5F, (double)y + (double)0.5F, (double)z + (double)0.5F, ComputerCraft.Blocks.cable.stepSound.getBreakSound(), (ComputerCraft.Blocks.cable.stepSound.getVolume() + 1.0F) / 2.0F, ComputerCraft.Blocks.cable.stepSound.getPitch() * 0.8F);
+                        world.playSoundEffect(
+                            (double) x + (double) 0.5F,
+                            (double) y + (double) 0.5F,
+                            (double) z + (double) 0.5F,
+                            ComputerCraft.Blocks.cable.stepSound.getBreakSound(),
+                            (ComputerCraft.Blocks.cable.stepSound.getVolume() + 1.0F) / 2.0F,
+                            ComputerCraft.Blocks.cable.stepSound.getPitch() * 0.8F);
                         --stack.stackSize;
                         TileEntity tile = world.getTileEntity(x, y, z);
                         if (tile instanceof TileCable cable) {
@@ -110,18 +122,26 @@ public abstract class ItemCable_Mixin extends ItemPeripheralBase implements TIte
                 }
             }
 
-            if (existing != net.minecraft.init.Blocks.air && (type == PeripheralType.Cable || existing.isSideSolid(world, x, y, z, ForgeDirection.getOrientation(side)))) {
+            if (existing != net.minecraft.init.Blocks.air && (type == PeripheralType.Cable
+                || existing.isSideSolid(world, x, y, z, ForgeDirection.getOrientation(side)))) {
                 int offsetX = x + Facing.offsetsXForSide[side];
                 int offsetY = y + Facing.offsetsYForSide[side];
                 int offsetZ = z + Facing.offsetsZForSide[side];
                 Block offsetExisting = world.getBlock(offsetX, offsetY, offsetZ);
                 if (offsetExisting == ComputerCraft.Blocks.cable) {
-                    PeripheralType offsetExistingType = ComputerCraft.Blocks.cable.getPeripheralType(world, offsetX, offsetY, offsetZ);
+                    PeripheralType offsetExistingType = ComputerCraft.Blocks.cable
+                        .getPeripheralType(world, offsetX, offsetY, offsetZ);
                     if (offsetExistingType == PeripheralType.Cable && type == PeripheralType.WiredModem) {
                         if (stack.stackSize > 0) {
                             int direction = Facing.oppositeSide[side];
                             world.setBlockMetadataWithNotify(offsetX, offsetY, offsetZ, direction + 6, 3);
-                            world.playSoundEffect((double)offsetX + (double)0.5F, (double)offsetY + (double)0.5F, (double)offsetZ + (double)0.5F, ComputerCraft.Blocks.cable.stepSound.getBreakSound(), (ComputerCraft.Blocks.cable.stepSound.getVolume() + 1.0F) / 2.0F, ComputerCraft.Blocks.cable.stepSound.getPitch() * 0.8F);
+                            world.playSoundEffect(
+                                (double) offsetX + (double) 0.5F,
+                                (double) offsetY + (double) 0.5F,
+                                (double) offsetZ + (double) 0.5F,
+                                ComputerCraft.Blocks.cable.stepSound.getBreakSound(),
+                                (ComputerCraft.Blocks.cable.stepSound.getVolume() + 1.0F) / 2.0F,
+                                ComputerCraft.Blocks.cable.stepSound.getPitch() * 0.8F);
                             --stack.stackSize;
                             TileEntity tile = world.getTileEntity(offsetX, offsetY, offsetZ);
                             if (tile instanceof TileCable cable) {
@@ -136,9 +156,16 @@ public abstract class ItemCable_Mixin extends ItemPeripheralBase implements TIte
 
                     if (offsetExistingType == PeripheralType.WiredModem && type == PeripheralType.Cable) {
                         if (stack.stackSize > 0) {
-                            int offsetExistingDirection = ComputerCraft.Blocks.cable.getDirection(world, offsetX, offsetY, offsetZ);
+                            int offsetExistingDirection = ComputerCraft.Blocks.cable
+                                .getDirection(world, offsetX, offsetY, offsetZ);
                             world.setBlockMetadataWithNotify(offsetX, offsetY, offsetZ, offsetExistingDirection + 6, 3);
-                            world.playSoundEffect((double)offsetX + (double)0.5F, (double)offsetY + (double)0.5F, (double)offsetZ + (double)0.5F, ComputerCraft.Blocks.cable.stepSound.getBreakSound(), (ComputerCraft.Blocks.cable.stepSound.getVolume() + 1.0F) / 2.0F, ComputerCraft.Blocks.cable.stepSound.getPitch() * 0.8F);
+                            world.playSoundEffect(
+                                (double) offsetX + (double) 0.5F,
+                                (double) offsetY + (double) 0.5F,
+                                (double) offsetZ + (double) 0.5F,
+                                ComputerCraft.Blocks.cable.stepSound.getBreakSound(),
+                                (ComputerCraft.Blocks.cable.stepSound.getVolume() + 1.0F) / 2.0F,
+                                ComputerCraft.Blocks.cable.stepSound.getPitch() * 0.8F);
                             --stack.stackSize;
                             TileEntity tile = world.getTileEntity(offsetX, offsetY, offsetZ);
                             if (tile instanceof TileCable cable) {

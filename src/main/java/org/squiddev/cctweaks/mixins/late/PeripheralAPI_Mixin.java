@@ -1,9 +1,8 @@
 package org.squiddev.cctweaks.mixins.late;
 
-import dan200.computercraft.api.peripheral.IComputerAccess;
-import dan200.computercraft.api.peripheral.IPeripheral;
-import dan200.computercraft.core.apis.PeripheralAPI;
-import dan200.computercraft.core.computer.Computer;
+import java.util.HashMap;
+import java.util.Map;
+
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -14,11 +13,14 @@ import org.squiddev.cctweaks.api.network.INetworkAccess;
 import org.squiddev.cctweaks.api.network.INetworkedPeripheral;
 import org.squiddev.cctweaks.api.network.Packet;
 
-import java.util.HashMap;
-import java.util.Map;
+import dan200.computercraft.api.peripheral.IComputerAccess;
+import dan200.computercraft.api.peripheral.IPeripheral;
+import dan200.computercraft.core.apis.PeripheralAPI;
+import dan200.computercraft.core.computer.Computer;
 
 @Mixin(targets = "dan200.computercraft.core.apis.PeripheralAPI$PeripheralWrapper")
 public abstract class PeripheralAPI_Mixin implements INetworkAccess, IComputerAccess {
+
     @Final
     @Shadow(remap = false)
     private String m_side;
@@ -46,7 +48,9 @@ public abstract class PeripheralAPI_Mixin implements INetworkAccess, IComputerAc
         // Get the outer PeripheralAPI instance via the synthetic this$0 field
         PeripheralAPI outer;
         try {
-            outer = (PeripheralAPI) this.getClass().getDeclaredField("this$0").get(this);
+            outer = (PeripheralAPI) this.getClass()
+                .getDeclaredField("this$0")
+                .get(this);
         } catch (Exception e) {
             throw new RuntimeException("Unable to get outer PeripheralAPI instance", e);
         }
@@ -54,7 +58,8 @@ public abstract class PeripheralAPI_Mixin implements INetworkAccess, IComputerAc
         for (int i = 0; i < 6; ++i) {
             if (m_peripherals[i] != null) {
                 try {
-                    java.lang.reflect.Field pField = m_peripherals[i].getClass().getDeclaredField("m_peripheral");
+                    java.lang.reflect.Field pField = m_peripherals[i].getClass()
+                        .getDeclaredField("m_peripheral");
                     pField.setAccessible(true);
                     IPeripheral peripheral = (IPeripheral) pField.get(m_peripherals[i]);
                     peripheralMap.put(Computer.s_sideNames[i], peripheral);

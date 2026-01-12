@@ -1,21 +1,24 @@
 package org.squiddev.cctweaks.mixins.late;
 
-import dan200.computercraft.ComputerCraft;
-import dan200.computercraft.client.render.FixedRenderBlocks;
-import dan200.computercraft.shared.peripheral.PeripheralType;
-import dan200.computercraft.shared.peripheral.common.BlockCable;
 import net.minecraft.block.Block;
 import net.minecraft.client.renderer.RenderBlocks;
 import net.minecraft.world.IBlockAccess;
 import net.minecraftforge.common.util.ForgeDirection;
+
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Overwrite;
 import org.spongepowered.asm.mixin.Unique;
 import org.squiddev.cctweaks.api.network.INetworkHelpers;
 import org.squiddev.cctweaks.api.network.NetworkAPI;
 
+import dan200.computercraft.ComputerCraft;
+import dan200.computercraft.client.render.FixedRenderBlocks;
+import dan200.computercraft.shared.peripheral.PeripheralType;
+import dan200.computercraft.shared.peripheral.common.BlockCable;
+
 @Mixin(targets = "dan200.computercraft.client.proxy.ComputerCraftProxyClient$CableBlockRenderingHandler")
 public abstract class CableBlockRenderingHandler_Mixin {
+
     @Unique
     private static final double cCTweaks_Legacy$MIN = 0.375;
     @Unique
@@ -28,7 +31,8 @@ public abstract class CableBlockRenderingHandler_Mixin {
      * @reason Replace cable rendering with network-aware logic
      */
     @Overwrite(remap = false)
-    public boolean renderWorldBlock(IBlockAccess world, int x, int y, int z, Block block, int modelID, RenderBlocks renderblocks) {
+    public boolean renderWorldBlock(IBlockAccess world, int x, int y, int z, Block block, int modelID,
+        RenderBlocks renderblocks) {
         if (modelID == ComputerCraft.Blocks.cable.blockRenderID) {
             if (cCTweaks_Legacy$fixedRenderBlocks == null) cCTweaks_Legacy$fixedRenderBlocks = new FixedRenderBlocks();
 
@@ -37,7 +41,13 @@ public abstract class CableBlockRenderingHandler_Mixin {
 
             if (type == PeripheralType.Cable || type == PeripheralType.WiredModemWithCable) {
                 cCTweaks_Legacy$fixedRenderBlocks.setWorld(world);
-                cCTweaks_Legacy$fixedRenderBlocks.setRenderBounds(cCTweaks_Legacy$MIN, cCTweaks_Legacy$MIN, cCTweaks_Legacy$MIN, cCTweaks_Legacy$MAX, cCTweaks_Legacy$MAX, cCTweaks_Legacy$MAX);
+                cCTweaks_Legacy$fixedRenderBlocks.setRenderBounds(
+                    cCTweaks_Legacy$MIN,
+                    cCTweaks_Legacy$MIN,
+                    cCTweaks_Legacy$MIN,
+                    cCTweaks_Legacy$MAX,
+                    cCTweaks_Legacy$MAX,
+                    cCTweaks_Legacy$MAX);
                 cCTweaks_Legacy$fixedRenderBlocks.renderStandardBlock(block, x, y, z);
                 int modemDir;
                 if (type == PeripheralType.WiredModemWithCable) {

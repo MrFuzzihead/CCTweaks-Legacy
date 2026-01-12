@@ -1,13 +1,13 @@
 package org.squiddev.cctweaks.mixins;
 
-import com.gtnewhorizon.gtnhmixins.ILateMixinLoader;
-import com.gtnewhorizon.gtnhmixins.LateMixin;
-import com.gtnewhorizon.gtnhmixins.builders.IMixins;
+import java.util.List;
+import java.util.Set;
 
 import javax.annotation.Nonnull;
 
-import java.util.List;
-import java.util.Set;
+import com.gtnewhorizon.gtnhmixins.ILateMixinLoader;
+import com.gtnewhorizon.gtnhmixins.LateMixin;
+import com.gtnewhorizon.gtnhmixins.builders.IMixins;
 
 // The annotation is required, it indicates to
 // the mixins framework to instantiate this class

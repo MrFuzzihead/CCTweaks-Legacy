@@ -43,9 +43,7 @@ public class PocketWirelessBinding implements IPocketComputerUpgrade {
 
     @Override
     public IPeripheral createPeripheral(Entity entity, ItemStack stack) {
-        return CCTweaks.pocketEnabled
-            ? new PocketBinding(new PocketAccess(entity, stack)).getModem().modem
-            : null;
+        return CCTweaks.pocketEnabled ? new PocketBinding(new PocketAccess(entity, stack)).getModem().modem : null;
     }
 
     @Override

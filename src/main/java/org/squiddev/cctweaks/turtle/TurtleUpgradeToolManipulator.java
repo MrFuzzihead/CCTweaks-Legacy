@@ -1,16 +1,15 @@
 package org.squiddev.cctweaks.turtle;
 
-import dan200.computercraft.api.turtle.IExtendedTurtleUpgrade;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.IIcon;
 
 import org.squiddev.cctweaks.CCTweaks;
 import org.squiddev.cctweaks.core.registry.Registry;
-//import org.squiddev.cctweaks.core.utils.DebugLogger;
 
 import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
 import dan200.computercraft.api.peripheral.IPeripheral;
+import dan200.computercraft.api.turtle.IExtendedTurtleUpgrade;
 import dan200.computercraft.api.turtle.ITurtleAccess;
 import dan200.computercraft.api.turtle.ITurtleUpgrade;
 import dan200.computercraft.api.turtle.TurtleSide;
@@ -20,7 +19,7 @@ public class TurtleUpgradeToolManipulator extends TurtleUpgradeToolHost implemen
 
     @Override
     public IPeripheral createPeripheral(ITurtleAccess turtle, TurtleSide side) {
-        //DebugLogger.debug("Creating peripherals with " + players.size() + " players");
+        // DebugLogger.debug("Creating peripherals with " + players.size() + " players");
         return new ToolManipulatorPeripheral(turtle, getPlayer(turtle), side);
     }
 

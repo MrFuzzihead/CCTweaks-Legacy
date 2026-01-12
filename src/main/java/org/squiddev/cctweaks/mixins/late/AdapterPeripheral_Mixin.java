@@ -1,13 +1,7 @@
 package org.squiddev.cctweaks.mixins.late;
 
-import dan200.computercraft.api.lua.ILuaContext;
-import dan200.computercraft.api.peripheral.IComputerAccess;
-import dan200.computercraft.api.peripheral.IPeripheral;
-import dan200.computercraft.api.peripheral.IPeripheralTargeted;
-import openperipheral.adapter.IMethodCall;
-import openperipheral.adapter.IMethodExecutor;
-import openperipheral.interfaces.cc.ModuleComputerCraft;
-import openperipheral.interfaces.cc.wrappers.AdapterPeripheral;
+import java.util.Map;
+
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Overwrite;
@@ -19,10 +13,18 @@ import org.squiddev.cctweaks.api.network.Packet;
 import org.squiddev.cctweaks.api.peripheral.IPeripheralEnvironments;
 import org.squiddev.cctweaks.core.network.NetworkAccessDelegate;
 
-import java.util.Map;
+import dan200.computercraft.api.lua.ILuaContext;
+import dan200.computercraft.api.peripheral.IComputerAccess;
+import dan200.computercraft.api.peripheral.IPeripheral;
+import dan200.computercraft.api.peripheral.IPeripheralTargeted;
+import openperipheral.adapter.IMethodCall;
+import openperipheral.adapter.IMethodExecutor;
+import openperipheral.interfaces.cc.ModuleComputerCraft;
+import openperipheral.interfaces.cc.wrappers.AdapterPeripheral;
 
 @Mixin(AdapterPeripheral.class)
 public abstract class AdapterPeripheral_Mixin implements IPeripheralTargeted, INetworkedPeripheral {
+
     @Final
     @Shadow(remap = false)
     protected Object target;
@@ -65,7 +67,7 @@ public abstract class AdapterPeripheral_Mixin implements IPeripheralTargeted, IN
 
     @Override
     public void networkInvalidated(INetworkAccess network, Map<String, IPeripheral> oldPeripherals,
-                                   Map<String, IPeripheral> newPeripherals) {}
+        Map<String, IPeripheral> newPeripherals) {}
 
     @Override
     public void receivePacket(INetworkAccess network, Packet packet, double distanceTravelled) {}

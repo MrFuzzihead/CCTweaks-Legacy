@@ -2,7 +2,7 @@ package org.squiddev.cctweaks.client.render;
 
 import static org.squiddev.cctweaks.core.visualiser.VisualisationData.*;
 
-import java.awt.*;
+import java.awt.Color;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -104,7 +104,7 @@ public final class RenderNetworkOverlay extends Module implements IClientModule 
 
         int counter = 0;
         for (Node node : nodes) {
-            String name = node.position == null ? "\u00a78" + node.name : node.name;
+            String name = node.position == null ? "§8" + node.name : node.name;
             renderLabel(position.blockX + 0.5, position.blockY + 1.5 + (counter++) * 0.4, position.blockZ + 0.5, name);
         }
     }

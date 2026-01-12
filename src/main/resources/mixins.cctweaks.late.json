@@ -13,6 +13,7 @@
     "ModuleComputerCraft_Mixin",
     "PeripheralAPI_Mixin",
     "PeripheralProxy_Mixin",
+    "TileCable_Mixin",
     "TurtleRefuelCommand_Mixin"
   ]
 }

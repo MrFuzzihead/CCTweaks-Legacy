@@ -35,7 +35,7 @@
  */
 dependencies {
     //api("com.github.MrFuzzihead:Computercraft-Legacy:1.79.0")
-    api(project.files("libs/ComputerCraft-1.78.0-feature-CCTweaksPatches.16+290f1acf9d-dirty-dev.jar"))
+    api(project.files("libs/ComputerCraft-1.78.0-feature-CCTweaksPatches.17+be4a705701-dirty-dev.jar"))
     api("curse.maven:OpenPeripheralCore-228817:2386737")
     api("curse.maven:OpenPeripheralAddons-228818:2386739")
     runtimeOnlyNonPublishable("com.github.GTNewHorizons:OpenModsLib:0.10.13:dev")

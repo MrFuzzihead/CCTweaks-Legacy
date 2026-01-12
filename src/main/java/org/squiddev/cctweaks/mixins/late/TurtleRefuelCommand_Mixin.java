@@ -16,7 +16,7 @@ import dan200.computercraft.api.turtle.TurtleCommandResult;
 import dan200.computercraft.shared.turtle.core.TurtleRefuelCommand;
 
 @Mixin(TurtleRefuelCommand.class)
-public class TurtleRefuelCommand_Mixin implements ITurtleCommand {
+public abstract class TurtleRefuelCommand_Mixin implements ITurtleCommand {
 
     @Shadow(remap = false)
     @Final

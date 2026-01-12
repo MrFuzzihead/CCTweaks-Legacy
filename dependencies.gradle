@@ -36,13 +36,15 @@
 dependencies {
     //api("com.github.MrFuzzihead:Computercraft-Legacy:1.79.0")
     api(project.files("libs/ComputerCraft-1.78.0-feature-CCTweaksPatches.16+290f1acf9d-dirty-dev.jar"))
+    api("curse.maven:OpenPeripheralCore-228817:2386737")
+    api("curse.maven:OpenPeripheralAddons-228818:2386739")
+    runtimeOnlyNonPublishable("com.github.GTNewHorizons:OpenModsLib:0.10.13:dev")
 
     implementation("com.github.GTNewHorizons:ForgeMultipart:1.7.2:dev")
     implementation("com.github.GTNewHorizons:CodeChickenCore:1.4.10:dev")
     implementation("com.github.GTNewHorizons:NotEnoughItems:2.7.4-GTNH:dev")
 
     devOnlyNonPublishable("curse.maven:CollectiveFramework-232966:2248220")
-    devOnlyNonPublishable("openperipheral:OpenPeripheralCore-API:3.2")
     devOnlyNonPublishable(rfg.deobf(project.files("libs/Peripherals++-1.3.6.jar")))
 
     devOnlyNonPublishable("curse.maven:cofh-core-69162:2388751")
@@ -57,7 +59,5 @@ dependencies {
     /*implementation(project.files("libs/NotEnoughItems-2.7.4-GTNH-dev.jar"))
     implementation(project.files("libs/CodeChickenCore-1.4.2-dev.jar"))
     implementation(project.files("libs/CodeChickenLib-1.3.0-dev.jar"))
-    implementation(project.files("libs/ForgeMultipart-1.6.2-dev.jar"))
-
-    devOnlyNonPublishable(project.files("libs/OpenPeripheralCore-API-3.2.jar"))*/
+    implementation(project.files("libs/ForgeMultipart-1.6.2-dev.jar"))*/
 }

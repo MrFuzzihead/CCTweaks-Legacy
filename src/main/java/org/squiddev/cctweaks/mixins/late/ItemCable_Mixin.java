@@ -7,13 +7,18 @@ import codechicken.multipart.MultiPartRegistry;
 import codechicken.multipart.TItemMultiPart;
 import codechicken.multipart.TMultiPart;
 import codechicken.multipart.TileMultipart;
+import dan200.computercraft.ComputerCraft;
 import dan200.computercraft.shared.peripheral.PeripheralType;
 import dan200.computercraft.shared.peripheral.common.ItemCable;
+import dan200.computercraft.shared.peripheral.common.ItemPeripheralBase;
+import dan200.computercraft.shared.peripheral.modem.TileCable;
 import net.minecraft.block.Block;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.ItemStack;
+import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.Facing;
 import net.minecraft.world.World;
+import net.minecraftforge.common.util.ForgeDirection;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Overwrite;
 import org.spongepowered.asm.mixin.Unique;
@@ -21,7 +26,12 @@ import org.squiddev.cctweaks.integration.multipart.network.PartCable;
 import org.squiddev.cctweaks.integration.multipart.network.PartModem;
 
 @Mixin(ItemCable.class)
-public abstract class ItemCable_Mixin implements TItemMultiPart {
+public abstract class ItemCable_Mixin extends ItemPeripheralBase implements TItemMultiPart {
+
+    protected ItemCable_Mixin(Block block) {
+        super(block);
+    }
+
     @Override
     public double getHitDepth(Vector3 hit, int side) {
         return hit.copy().scalarProject(Rotation.axes[side]) + (side % 2 ^ 1);
@@ -75,6 +85,75 @@ public abstract class ItemCable_Mixin implements TItemMultiPart {
     @Unique
     public boolean cCTweaks_Legacy$nativePlace(ItemStack stack, EntityPlayer player, World world, int x, int y, int z, int side,
                                                float hitX, float hitY, float hitZ) {
-        throw new AbstractMethodError("nativePlace should be implemented by the patcher or shadowed");
+        if (!this.func_150936_a(world, x, y, z, side, player, stack)) {
+            return false;
+        } else {
+            PeripheralType type = this.getPeripheralType(stack);
+            Block existing = world.getBlock(x, y, z);
+            if (existing == ComputerCraft.Blocks.cable) {
+                PeripheralType existingType = ComputerCraft.Blocks.cable.getPeripheralType(world, x, y, z);
+                if (existingType == PeripheralType.WiredModem && type == PeripheralType.Cable) {
+                    if (stack.stackSize > 0) {
+                        int existingDirection = ComputerCraft.Blocks.cable.getDirection(world, x, y, z);
+                        world.setBlockMetadataWithNotify(x, y, z, existingDirection + 6, 3);
+                        world.playSoundEffect((double)x + (double)0.5F, (double)y + (double)0.5F, (double)z + (double)0.5F, ComputerCraft.Blocks.cable.stepSound.getBreakSound(), (ComputerCraft.Blocks.cable.stepSound.getVolume() + 1.0F) / 2.0F, ComputerCraft.Blocks.cable.stepSound.getPitch() * 0.8F);
+                        --stack.stackSize;
+                        TileEntity tile = world.getTileEntity(x, y, z);
+                        if (tile instanceof TileCable cable) {
+                            cable.networkChanged();
+                        }
+
+                        return true;
+                    }
+
+                    return false;
+                }
+            }
+
+            if (existing != net.minecraft.init.Blocks.air && (type == PeripheralType.Cable || existing.isSideSolid(world, x, y, z, ForgeDirection.getOrientation(side)))) {
+                int offsetX = x + Facing.offsetsXForSide[side];
+                int offsetY = y + Facing.offsetsYForSide[side];
+                int offsetZ = z + Facing.offsetsZForSide[side];
+                Block offsetExisting = world.getBlock(offsetX, offsetY, offsetZ);
+                if (offsetExisting == ComputerCraft.Blocks.cable) {
+                    PeripheralType offsetExistingType = ComputerCraft.Blocks.cable.getPeripheralType(world, offsetX, offsetY, offsetZ);
+                    if (offsetExistingType == PeripheralType.Cable && type == PeripheralType.WiredModem) {
+                        if (stack.stackSize > 0) {
+                            int direction = Facing.oppositeSide[side];
+                            world.setBlockMetadataWithNotify(offsetX, offsetY, offsetZ, direction + 6, 3);
+                            world.playSoundEffect((double)offsetX + (double)0.5F, (double)offsetY + (double)0.5F, (double)offsetZ + (double)0.5F, ComputerCraft.Blocks.cable.stepSound.getBreakSound(), (ComputerCraft.Blocks.cable.stepSound.getVolume() + 1.0F) / 2.0F, ComputerCraft.Blocks.cable.stepSound.getPitch() * 0.8F);
+                            --stack.stackSize;
+                            TileEntity tile = world.getTileEntity(offsetX, offsetY, offsetZ);
+                            if (tile instanceof TileCable cable) {
+                                cable.networkChanged();
+                            }
+
+                            return true;
+                        }
+
+                        return false;
+                    }
+
+                    if (offsetExistingType == PeripheralType.WiredModem && type == PeripheralType.Cable) {
+                        if (stack.stackSize > 0) {
+                            int offsetExistingDirection = ComputerCraft.Blocks.cable.getDirection(world, offsetX, offsetY, offsetZ);
+                            world.setBlockMetadataWithNotify(offsetX, offsetY, offsetZ, offsetExistingDirection + 6, 3);
+                            world.playSoundEffect((double)offsetX + (double)0.5F, (double)offsetY + (double)0.5F, (double)offsetZ + (double)0.5F, ComputerCraft.Blocks.cable.stepSound.getBreakSound(), (ComputerCraft.Blocks.cable.stepSound.getVolume() + 1.0F) / 2.0F, ComputerCraft.Blocks.cable.stepSound.getPitch() * 0.8F);
+                            --stack.stackSize;
+                            TileEntity tile = world.getTileEntity(offsetX, offsetY, offsetZ);
+                            if (tile instanceof TileCable cable) {
+                                cable.networkChanged();
+                            }
+
+                            return true;
+                        }
+
+                        return false;
+                    }
+                }
+            }
+
+            return super.onItemUse(stack, player, world, x, y, z, side, hitX, hitY, hitZ);
+        }
     }
 }

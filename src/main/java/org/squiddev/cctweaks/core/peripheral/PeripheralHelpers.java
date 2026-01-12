@@ -1,8 +1,8 @@
 package org.squiddev.cctweaks.core.peripheral;
 
+import dan200.computercraft.api.peripheral.IPeripheralTargeted;
 import org.squiddev.cctweaks.api.peripheral.IPeripheralHelpers;
 import org.squiddev.cctweaks.api.peripheral.IPeripheralProxy;
-import org.squiddev.cctweaks.api.peripheral.IPeripheralTargeted;
 
 import dan200.computercraft.api.peripheral.IPeripheral;
 

@@ -6,9 +6,13 @@
   "target": "@env(DEFAULT)",
   "compatibilityLevel": "JAVA_8",
   "mixins": [
+    "AdapterPeripheral_Mixin",
     "BlockCable_Mixin",
     "CableBlockRenderingHandler_Mixin",
     "ItemCable_Mixin",
+    "ModuleComputerCraft_Mixin",
+    "PeripheralAPI_Mixin",
+    "PeripheralProxy_Mixin",
     "TurtleRefuelCommand_Mixin"
   ]
 }

@@ -1,7 +1,6 @@
 package org.squiddev.cctweaks.mixins;
 
 import com.gtnewhorizon.gtnhmixins.builders.IMixins;
-import com.gtnewhorizon.gtnhmixins.builders.ITargetMod;
 import com.gtnewhorizon.gtnhmixins.builders.MixinBuilder;
 import org.squiddev.cctweaks.CCTweaks;
 
@@ -12,7 +11,10 @@ public enum Mixins implements IMixins {
     // You should declare all of your mixins early and late in this same enum
     CCMIXINS(new MixinBuilder()
         .setPhase(Phase.LATE)
-        .addCommonMixins("TurtleRefuelCommand_Mixin", "BlockCable_Mixin", "CableBlockRenderingHandler_Mixin")),
+        .addCommonMixins("TurtleRefuelCommand_Mixin", "BlockCable_Mixin", "CableBlockRenderingHandler_Mixin", "ItemCable_Mixin", "PeripheralAPI_Mixin")),
+    OPENPERIPHERAL(new MixinBuilder()
+        .setPhase(Phase.LATE)
+        .addCommonMixins("PeripheralProxy_Mixin", "AdapterPeripheral_Mixin", "ModuleComputerCraft_Mixin")),
     MULTIPART(new MixinBuilder()
         .setPhase(Phase.LATE)
         .addRequiredMod(TargetMods.MULTIPART)

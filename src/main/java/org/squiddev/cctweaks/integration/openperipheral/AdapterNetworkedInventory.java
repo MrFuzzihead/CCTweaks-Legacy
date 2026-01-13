@@ -12,7 +12,12 @@ import com.google.common.base.Preconditions;
 
 import openperipheral.api.adapter.Asynchronous;
 import openperipheral.api.adapter.IPeripheralAdapter;
-import openperipheral.api.adapter.method.*;
+import openperipheral.api.adapter.method.Alias;
+import openperipheral.api.adapter.method.Arg;
+import openperipheral.api.adapter.method.Env;
+import openperipheral.api.adapter.method.Optionals;
+import openperipheral.api.adapter.method.ReturnType;
+import openperipheral.api.adapter.method.ScriptCallable;
 
 /**
  * An adapter that allows you to push to a networked peripheral instead

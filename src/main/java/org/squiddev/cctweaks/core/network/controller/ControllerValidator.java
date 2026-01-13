@@ -5,9 +5,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import org.squiddev.cctweaks.CCTweaks;
 import org.squiddev.cctweaks.api.network.INetworkNode;
-import org.squiddev.cctweaks.core.Config;
-import org.squiddev.cctweaks.core.utils.DebugLogger;
 
 import com.google.common.collect.Sets;
 
@@ -57,7 +56,7 @@ public class ControllerValidator {
                         peripheral.getKey(),
                         peripheral.getValue(),
                         other);
-                    if (Config.Testing.extendedControllerValidation) {
+                    if (CCTweaks.extendedControllerValidation) {
                         StringBuilder builder = new StringBuilder(error);
 
                         for (Point otherPoint : controller.points.values()) {
@@ -99,10 +98,10 @@ public class ControllerValidator {
     }
 
     public static void trace(String message) {
-        if (Config.Testing.extendedControllerValidation) {
-            DebugLogger.trace(message);
+        if (CCTweaks.extendedControllerValidation) {
+            // DebugLogger.trace(message);
         } else {
-            DebugLogger.debug(message);
+            // DebugLogger.debug(message);
         }
     }
 }

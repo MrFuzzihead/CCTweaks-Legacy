@@ -5,12 +5,12 @@ import net.minecraft.tileentity.TileEntity;
 import net.minecraft.world.World;
 import net.minecraftforge.client.MinecraftForgeClient;
 
+import org.squiddev.cctweaks.CCTweaks;
 import org.squiddev.cctweaks.api.network.INetworkNodeProvider;
 import org.squiddev.cctweaks.api.network.IWorldNetworkNode;
 import org.squiddev.cctweaks.api.network.IWorldNetworkNodeHost;
 import org.squiddev.cctweaks.api.network.NetworkAPI;
 import org.squiddev.cctweaks.api.peripheral.IPeripheralHost;
-import org.squiddev.cctweaks.core.Config;
 import org.squiddev.cctweaks.core.registry.IClientModule;
 import org.squiddev.cctweaks.core.registry.Registry;
 import org.squiddev.cctweaks.core.utils.Helpers;
@@ -39,7 +39,7 @@ public class MultipartIntegration extends ModIntegration implements IClientModul
 
     @Override
     public boolean canLoad() {
-        return Config.Integration.cbMultipart && super.canLoad();
+        return CCTweaks.cbMultipart && super.canLoad();
     }
 
     @Override
@@ -53,7 +53,7 @@ public class MultipartIntegration extends ModIntegration implements IClientModul
     public void init() {
         itemPart.init();
 
-        if (Config.Network.WirelessBridge.crafting) {
+        if (CCTweaks.wbCrafting) {
             Helpers.twoWayCrafting(new ItemStack(Registry.blockNetworked), new ItemStack(itemPart));
         }
 

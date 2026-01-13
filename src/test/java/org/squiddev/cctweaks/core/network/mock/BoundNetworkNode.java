@@ -2,8 +2,8 @@ package org.squiddev.cctweaks.core.network.mock;
 
 import java.util.UUID;
 
+import org.squiddev.cctweaks.CCTweaks;
 import org.squiddev.cctweaks.api.IWorldPosition;
-import org.squiddev.cctweaks.core.Config;
 import org.squiddev.cctweaks.core.network.bridge.NetworkBinding;
 
 public class BoundNetworkNode extends KeyedNetworkNode {
@@ -25,6 +25,6 @@ public class BoundNetworkNode extends KeyedNetworkNode {
     }
 
     static {
-        Config.Network.WirelessBridge.enabled = true;
+        CCTweaks.wbEnabled = true;
     }
 }

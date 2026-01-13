@@ -17,8 +17,6 @@ import org.squiddev.cctweaks.CCTweaks;
 import org.squiddev.cctweaks.blocks.BlockBase;
 import org.squiddev.cctweaks.blocks.IMultiBlock;
 import org.squiddev.cctweaks.blocks.TileBase;
-import org.squiddev.cctweaks.core.Config;
-import org.squiddev.cctweaks.core.utils.DebugLogger;
 import org.squiddev.cctweaks.core.utils.Helpers;
 import org.squiddev.cctweaks.items.ItemMultiBlock;
 
@@ -67,8 +65,8 @@ public class BlockNetworked extends BlockBase<TileBase> implements IMultiBlock {
     @Override
     @SideOnly(Side.CLIENT)
     public void registerBlockIcons(IIconRegister register) {
-        bridgeIcon = blockIcon = register.registerIcon(CCTweaks.RESOURCE_DOMAIN + ":wirelessBridge");
-        bridgeSmallIcon = register.registerIcon(CCTweaks.RESOURCE_DOMAIN + ":wirelessBridgeSmall");
+        bridgeIcon = blockIcon = register.registerIcon(CCTweaks.MODID + ":wirelessBridge");
+        bridgeSmallIcon = register.registerIcon(CCTweaks.MODID + ":wirelessBridgeSmall");
 
         // Clear the cache to ensure we have the latest texture
         modemIcons = null;
@@ -87,9 +85,9 @@ public class BlockNetworked extends BlockBase<TileBase> implements IMultiBlock {
                     icons[i] = modemIcons[i * 2];
                 }
             } catch (IllegalAccessException e) {
-                DebugLogger.error("Cannot find TileCable texture", e);
+                // DebugLogger.error("Cannot find TileCable texture", e);
             } catch (NoSuchFieldException e) {
-                DebugLogger.error("Cannot find TileCable texture", e);
+                // DebugLogger.error("Cannot find TileCable texture", e);
             }
         }
 
@@ -152,7 +150,7 @@ public class BlockNetworked extends BlockBase<TileBase> implements IMultiBlock {
     public void init() {
         super.init();
 
-        if (Config.Network.WirelessBridge.crafting) {
+        if (CCTweaks.wbCrafting) {
             Helpers.alternateCrafting(
                 new ItemStack(this, 1, 0),
                 'C',
@@ -171,7 +169,7 @@ public class BlockNetworked extends BlockBase<TileBase> implements IMultiBlock {
                 PeripheralItemFactory.create(PeripheralType.WirelessModem, null, 1));
         }
 
-        if (Config.Network.fullBlockModemCrafting) {
+        if (CCTweaks.fullBlockModemCrafting) {
             Helpers.twoWayCrafting(
                 new ItemStack(this, 1, 1),
                 PeripheralItemFactory.create(PeripheralType.WiredModem, null, 1));

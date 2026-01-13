@@ -6,9 +6,9 @@ import org.junit.Test;
 import org.squiddev.cctweaks.api.CCTweaksAPI;
 import org.squiddev.cctweaks.api.peripheral.IPeripheralHelpers;
 import org.squiddev.cctweaks.api.peripheral.IPeripheralProxy;
-import org.squiddev.cctweaks.api.peripheral.IPeripheralTargeted;
 
 import dan200.computercraft.api.peripheral.IPeripheral;
+import dan200.computercraft.api.peripheral.IPeripheralTargeted;
 
 /**
  * Some tests for {@link PeripheralHelpers}

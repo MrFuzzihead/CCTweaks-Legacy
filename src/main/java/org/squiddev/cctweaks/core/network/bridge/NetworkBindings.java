@@ -5,10 +5,10 @@ import java.util.Collections;
 import java.util.Set;
 import java.util.UUID;
 
+import org.squiddev.cctweaks.CCTweaks;
 import org.squiddev.cctweaks.api.UnorderedPair;
 import org.squiddev.cctweaks.api.network.INetworkNode;
 import org.squiddev.cctweaks.api.network.IWorldNetworkNode;
-import org.squiddev.cctweaks.core.Config;
 
 import com.google.common.collect.MultimapBuilder;
 import com.google.common.collect.SetMultimap;
@@ -27,22 +27,22 @@ public final class NetworkBindings {
         .build();
 
     public static Set<IWorldNetworkNode> getNodes(UUID id) {
-        if (id == null || !Config.Network.WirelessBridge.enabled) return Collections.emptySet();
+        if (id == null || !CCTweaks.wbEnabled) return Collections.emptySet();
         return Collections.unmodifiableSet(uuidNetworks.get(id));
     }
 
     public static Set<IWorldNetworkNode> getNodes(int id) {
-        if (!Config.Network.WirelessBridge.enabled) return Collections.emptySet();
+        if (!CCTweaks.wbEnabled) return Collections.emptySet();
         return Collections.unmodifiableSet(idNetworks.get(id));
     }
 
     public static void addNode(UUID id, IWorldNetworkNode node) {
-        if (id == null || !Config.Network.WirelessBridge.enabled) return;
+        if (id == null || !CCTweaks.wbEnabled) return;
         add(uuidNetworks.get(id), node);
     }
 
     public static void addNode(int id, IWorldNetworkNode node) {
-        if (!Config.Network.WirelessBridge.enabled) return;
+        if (!CCTweaks.wbEnabled) return;
         add(idNetworks.get(id), node);
     }
 

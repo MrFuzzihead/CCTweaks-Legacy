@@ -23,7 +23,6 @@ import org.squiddev.cctweaks.api.network.IWorldNetworkNode;
 import org.squiddev.cctweaks.api.network.IWorldNetworkNodeHost;
 import org.squiddev.cctweaks.core.network.NetworkHelpers;
 import org.squiddev.cctweaks.core.network.cable.CableWithInternalSidedParts;
-import org.squiddev.cctweaks.core.utils.DebugLogger;
 import org.squiddev.cctweaks.integration.multipart.PartBase;
 
 import codechicken.lib.raytracer.IndexedCuboid6;
@@ -310,10 +309,10 @@ public class PartCable extends PartBase implements IWorldNetworkNodeHost, TSlott
                     field.setAccessible(true);
                     icons = (IIcon[]) field.get(null);
                 } catch (IllegalAccessException e) {
-                    DebugLogger.error("Cannot find TileCable texture", e);
+                    // DebugLogger.error("Cannot find TileCable texture", e);
                     icons = new IIcon[2];
                 } catch (NoSuchFieldException e) {
-                    DebugLogger.error("Cannot find TileCable texture", e);
+                    // DebugLogger.error("Cannot find TileCable texture", e);
                     icons = new IIcon[2];
                 }
                 PartCable.icons = icons;

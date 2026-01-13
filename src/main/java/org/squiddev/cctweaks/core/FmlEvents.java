@@ -3,12 +3,10 @@ package org.squiddev.cctweaks.core;
 import java.util.LinkedList;
 import java.util.Queue;
 
-import org.squiddev.cctweaks.CCTweaks;
-import org.squiddev.cctweaks.lua.lib.DelayedTasks;
-
 import cpw.mods.fml.client.event.ConfigChangedEvent;
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
 import cpw.mods.fml.common.gameevent.TickEvent;
+import dan200.computercraft.core.lua.lib.DelayedTasks;
 
 /**
  * This handles various events
@@ -66,9 +64,5 @@ public final class FmlEvents {
     }
 
     @SubscribeEvent
-    public void onConfigChanged(ConfigChangedEvent.OnConfigChangedEvent eventArgs) {
-        if (eventArgs.modID.equals(CCTweaks.ID)) {
-            Config.sync();
-        }
-    }
+    public void onConfigChanged(ConfigChangedEvent.OnConfigChangedEvent eventArgs) {}
 }

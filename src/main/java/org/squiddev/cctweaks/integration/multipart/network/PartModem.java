@@ -21,7 +21,6 @@ import org.squiddev.cctweaks.api.peripheral.IPeripheralHost;
 import org.squiddev.cctweaks.core.network.modem.BasicModem;
 import org.squiddev.cctweaks.core.network.modem.DirectionalPeripheralModem;
 import org.squiddev.cctweaks.core.utils.ComputerAccessor;
-import org.squiddev.cctweaks.core.utils.DebugLogger;
 import org.squiddev.cctweaks.core.utils.Helpers;
 
 import codechicken.lib.data.MCDataInput;
@@ -63,7 +62,7 @@ public class PartModem extends PartSidedNetwork implements IPeripheralHost {
                 (modem.getAnim() & BasicModem.MODEM_PERIPHERAL) == BasicModem.MODEM_PERIPHERAL);
             load(tag);
         } catch (Exception e) {
-            DebugLogger.error("Cannot get modem from tile", e);
+            // DebugLogger.error("Cannot get modem from tile", e);
         }
     }
 
@@ -240,10 +239,10 @@ public class PartModem extends PartSidedNetwork implements IPeripheralHost {
                     field.setAccessible(true);
                     icons = (IIcon[]) field.get(null);
                 } catch (IllegalAccessException e) {
-                    DebugLogger.error("Cannot find TileCable texture", e);
+                    // DebugLogger.error("Cannot find TileCable texture", e);
                     icons = new IIcon[8];
                 } catch (NoSuchFieldException e) {
-                    DebugLogger.error("Cannot find TileCable texture", e);
+                    // DebugLogger.error("Cannot find TileCable texture", e);
                     icons = new IIcon[8];
                 }
                 PartModem.icons = icons;

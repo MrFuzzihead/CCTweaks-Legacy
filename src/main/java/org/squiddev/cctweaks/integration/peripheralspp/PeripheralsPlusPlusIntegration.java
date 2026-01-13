@@ -1,7 +1,7 @@
 package org.squiddev.cctweaks.integration.peripheralspp;
 
-import org.squiddev.cctweaks.core.Config;
-import org.squiddev.cctweaks.core.utils.DebugLogger;
+// import org.squiddev.cctweaks.core.utils.DebugLogger;
+import org.squiddev.cctweaks.CCTweaks;
 import org.squiddev.cctweaks.integration.ModIntegration;
 
 import com.austinv11.peripheralsplusplus.hooks.ComputerCraftRegistry;
@@ -22,12 +22,12 @@ public class PeripheralsPlusPlusIntegration extends ModIntegration {
     public void init() {
         super.init();
         try {
-            if (Config.Network.WirelessBridge.pocketEnabled) {
-                DebugLogger.debug("Registering PocketWirelessBinding");
+            if (CCTweaks.pocketEnabled) {
+                // DebugLogger.debug("Registering PocketWirelessBinding");
                 ComputerCraftRegistry.registerPocketUpgrade(new PocketWirelessBinding());
             }
         } catch (Exception e) {
-            DebugLogger.error("Cannot register Peripherals++ upgrades", e);
+            // DebugLogger.error("Cannot register Peripherals++ upgrades", e);
         }
     }
 }

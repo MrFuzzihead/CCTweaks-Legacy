@@ -1,9 +1,18 @@
 package org.squiddev.cctweaks.core.network.controller;
 
-import java.util.*;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.Set;
 
 import org.squiddev.cctweaks.api.UnorderedPair;
-import org.squiddev.cctweaks.api.network.*;
+import org.squiddev.cctweaks.api.network.INetworkAccess;
+import org.squiddev.cctweaks.api.network.INetworkController;
+import org.squiddev.cctweaks.api.network.INetworkNode;
+import org.squiddev.cctweaks.api.network.INetworkedPeripheral;
+import org.squiddev.cctweaks.api.network.Packet;
 import org.squiddev.cctweaks.core.utils.IterableIterator;
 
 import com.google.common.collect.MapDifference;

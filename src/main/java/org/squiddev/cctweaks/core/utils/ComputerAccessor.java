@@ -92,7 +92,7 @@ public final class ComputerAccessor {
                 .getDeclaredMethod("createServerComputer", World.class, IInventory.class, ItemStack.class);
             pocketServerComputer.setAccessible(true);
         } catch (Exception e) {
-            DebugLogger.error("ComputerCraft not found", e);
+            // DebugLogger.error("ComputerCraft not found", e);
             e.printStackTrace();
         }
     }

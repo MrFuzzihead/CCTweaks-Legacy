@@ -7,13 +7,17 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.util.IIcon;
 
 import org.squiddev.cctweaks.CCTweaks;
-import org.squiddev.cctweaks.core.Config;
 import org.squiddev.cctweaks.core.registry.Registry;
 
 import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
 import dan200.computercraft.api.peripheral.IPeripheral;
-import dan200.computercraft.api.turtle.*;
+import dan200.computercraft.api.turtle.ITurtleAccess;
+import dan200.computercraft.api.turtle.ITurtleUpgrade;
+import dan200.computercraft.api.turtle.TurtleCommandResult;
+import dan200.computercraft.api.turtle.TurtleSide;
+import dan200.computercraft.api.turtle.TurtleUpgradeType;
+import dan200.computercraft.api.turtle.TurtleVerb;
 
 /**
  * Allows
@@ -24,12 +28,12 @@ public class TurtleUpgradeToolHost implements ITurtleUpgrade {
 
     @Override
     public int getUpgradeID() {
-        return Config.Turtle.ToolHost.upgradeId;
+        return CCTweaks.upgradeId;
     }
 
     @Override
     public String getUnlocalisedAdjective() {
-        return "turtle." + CCTweaks.RESOURCE_DOMAIN + ".toolHost.adjective";
+        return "turtle." + CCTweaks.MODID + ".toolHost.adjective";
     }
 
     @Override
@@ -49,7 +53,7 @@ public class TurtleUpgradeToolHost implements ITurtleUpgrade {
 
     @Override
     public TurtleCommandResult useTool(ITurtleAccess turtle, TurtleSide side, TurtleVerb verb, int direction) {
-        if (!Config.Turtle.ToolHost.enabled) return null;
+        if (!CCTweaks.thEnabled) return null;
 
         switch (verb) {
             case Attack:

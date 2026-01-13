@@ -16,10 +16,8 @@ import org.squiddev.cctweaks.api.network.INetworkCompatiblePeripheral;
 import org.squiddev.cctweaks.api.network.INetworkController;
 import org.squiddev.cctweaks.api.network.IWorldNetworkNode;
 import org.squiddev.cctweaks.api.network.IWorldNetworkNodeHost;
-import org.squiddev.cctweaks.api.turtle.IExtendedTurtleUpgrade;
 import org.squiddev.cctweaks.blocks.network.BlockNetworked;
 import org.squiddev.cctweaks.blocks.network.TileNetworkedWirelessBridge;
-import org.squiddev.cctweaks.core.Config;
 import org.squiddev.cctweaks.core.network.bridge.NetworkBindingWithModem;
 import org.squiddev.cctweaks.core.network.modem.BasicModemPeripheral;
 import org.squiddev.cctweaks.core.network.modem.PeripheralCollection;
@@ -33,7 +31,13 @@ import dan200.computercraft.api.lua.ILuaContext;
 import dan200.computercraft.api.lua.LuaException;
 import dan200.computercraft.api.peripheral.IComputerAccess;
 import dan200.computercraft.api.peripheral.IPeripheral;
-import dan200.computercraft.api.turtle.*;
+import dan200.computercraft.api.turtle.IExtendedTurtleUpgrade;
+import dan200.computercraft.api.turtle.ITurtleAccess;
+import dan200.computercraft.api.turtle.ITurtleUpgrade;
+import dan200.computercraft.api.turtle.TurtleCommandResult;
+import dan200.computercraft.api.turtle.TurtleSide;
+import dan200.computercraft.api.turtle.TurtleUpgradeType;
+import dan200.computercraft.api.turtle.TurtleVerb;
 import dan200.computercraft.shared.util.PeripheralUtil;
 
 /**
@@ -43,12 +47,12 @@ public class TurtleUpgradeWirelessBridge extends Module implements ITurtleUpgrad
 
     @Override
     public int getUpgradeID() {
-        return Config.Network.WirelessBridge.turtleId;
+        return CCTweaks.turtleId;
     }
 
     @Override
     public String getUnlocalisedAdjective() {
-        return "turtle." + CCTweaks.RESOURCE_DOMAIN + ".wirelessBridge.adjective";
+        return "turtle." + CCTweaks.MODID + ".wirelessBridge.adjective";
     }
 
     @Override
@@ -58,12 +62,12 @@ public class TurtleUpgradeWirelessBridge extends Module implements ITurtleUpgrad
 
     @Override
     public ItemStack getCraftingItem() {
-        return Config.Network.WirelessBridge.turtleEnabled ? new ItemStack(Registry.blockNetworked, 1, 0) : null;
+        return CCTweaks.turtleEnabled ? new ItemStack(Registry.blockNetworked, 1, 0) : null;
     }
 
     @Override
     public IPeripheral createPeripheral(ITurtleAccess turtle, TurtleSide side) {
-        return Config.Network.WirelessBridge.turtleEnabled ? new TurtleBinding(turtle, side).getModem().modem : null;
+        return CCTweaks.turtleEnabled ? new TurtleBinding(turtle, side).getModem().modem : null;
     }
 
     @Override
@@ -87,7 +91,7 @@ public class TurtleUpgradeWirelessBridge extends Module implements ITurtleUpgrad
     @Override
     public void upgradeChanged(ITurtleAccess turtle, TurtleSide side, ITurtleUpgrade oldUpgrade,
         ITurtleUpgrade newUpgrade) {
-        if (Config.Network.WirelessBridge.turtleEnabled) {
+        if (CCTweaks.turtleEnabled) {
             IPeripheral peripheral = turtle.getPeripheral(side);
             if (peripheral instanceof TurtleBinding.TurtleModemPeripheral) {
                 IWorldNetworkNode binding = ((TurtleBinding.TurtleModemPeripheral) peripheral).getNode();

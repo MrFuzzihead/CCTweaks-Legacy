@@ -14,7 +14,6 @@ import org.squiddev.cctweaks.CCTweaks;
 import org.squiddev.cctweaks.blocks.BlockBase;
 import org.squiddev.cctweaks.blocks.IMultiBlock;
 import org.squiddev.cctweaks.blocks.TileBase;
-import org.squiddev.cctweaks.core.Config;
 import org.squiddev.cctweaks.items.ItemMultiBlock;
 
 import cpw.mods.fml.common.registry.GameRegistry;
@@ -45,10 +44,10 @@ public class BlockDebug extends BlockBase<TileBase> implements IMultiBlock {
     @Override
     @SideOnly(Side.CLIENT)
     public void registerBlockIcons(IIconRegister register) {
-        blockIcon = register.registerIcon(CCTweaks.RESOURCE_DOMAIN + ":debugTemplate");
-        peripheralIcon = register.registerIcon(CCTweaks.RESOURCE_DOMAIN + ":debugPeripheral");
-        networkedPeripheralIcon = register.registerIcon(CCTweaks.RESOURCE_DOMAIN + ":debugNetworkedPeripheral");
-        nodeIcon = register.registerIcon(CCTweaks.RESOURCE_DOMAIN + ":debugNode");
+        blockIcon = register.registerIcon(CCTweaks.MODID + ":debugTemplate");
+        peripheralIcon = register.registerIcon(CCTweaks.MODID + ":debugPeripheral");
+        networkedPeripheralIcon = register.registerIcon(CCTweaks.MODID + ":debugNetworkedPeripheral");
+        nodeIcon = register.registerIcon(CCTweaks.MODID + ":debugNode");
     }
 
     @Override
@@ -108,6 +107,6 @@ public class BlockDebug extends BlockBase<TileBase> implements IMultiBlock {
 
     @Override
     public boolean canLoad() {
-        return Config.Testing.debugItems;
+        return CCTweaks.debugItems;
     }
 }

@@ -14,7 +14,12 @@ import org.squiddev.cctweaks.api.IWorldPosition;
 
 import codechicken.lib.raytracer.IndexedCuboid6;
 import codechicken.lib.vec.Cuboid6;
-import codechicken.multipart.*;
+import codechicken.multipart.IconHitEffects;
+import codechicken.multipart.JIconHitEffects;
+import codechicken.multipart.JNormalOcclusion;
+import codechicken.multipart.NormalOcclusionTest;
+import codechicken.multipart.TMultiPart;
+import codechicken.multipart.TileMultipart;
 import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
 

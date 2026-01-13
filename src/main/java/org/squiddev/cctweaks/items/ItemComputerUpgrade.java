@@ -15,10 +15,8 @@ import net.minecraft.world.World;
 import net.minecraftforge.oredict.RecipeSorter;
 
 import org.squiddev.cctweaks.CCTweaks;
-import org.squiddev.cctweaks.core.Config;
 import org.squiddev.cctweaks.core.utils.BlockNotifyFlags;
 import org.squiddev.cctweaks.core.utils.ComputerAccessor;
-import org.squiddev.cctweaks.core.utils.DebugLogger;
 import org.squiddev.cctweaks.core.utils.InventoryUtils;
 
 import cpw.mods.fml.common.registry.GameRegistry;
@@ -43,7 +41,7 @@ public class ItemComputerUpgrade extends ItemComputerAction {
     @Override
     public boolean onItemUseFirst(ItemStack stack, EntityPlayer player, World world, int x, int y, int z, int side,
         float hitX, float hitY, float hitZ) {
-        return Config.Computer.computerUpgradeEnabled
+        return CCTweaks.computerUpgradeEnabled
             && super.onItemUseFirst(stack, player, world, x, y, z, side, hitX, hitY, hitZ);
     }
 
@@ -72,7 +70,7 @@ public class ItemComputerUpgrade extends ItemComputerAction {
         try {
             ComputerAccessor.tileCopy.invoke(newComputer, computerTile);
         } catch (Exception e) {
-            DebugLogger.warn("Cannot copy tile in ItemComputerUpgrade", e);
+            // DebugLogger.warn("Cannot copy tile in ItemComputerUpgrade", e);
             return false;
         }
 
@@ -110,7 +108,7 @@ public class ItemComputerUpgrade extends ItemComputerAction {
         try {
             ComputerAccessor.turtleTileMoved.setBoolean(computerTile, true);
         } catch (Exception e) {
-            DebugLogger.warn("Cannot set TurtleTile m_moved in ItemComputerUpgrade", e);
+            // DebugLogger.warn("Cannot set TurtleTile m_moved in ItemComputerUpgrade", e);
             return false;
         }
 
@@ -145,15 +143,15 @@ public class ItemComputerUpgrade extends ItemComputerAction {
     @Override
     public void init() {
         super.init();
-        if (!Config.Computer.computerUpgradeEnabled) return;
+        if (!CCTweaks.computerUpgradeEnabled) return;
 
         ItemStack stack = new ItemStack(this);
-        if (Config.Computer.computerUpgradeCrafting) {
+        if (CCTweaks.computerUpgradeCrafting) {
             GameRegistry.addRecipe(stack, "GGG", "GSG", "GSG", 'G', Items.gold_ingot, 'S', Blocks.stone);
         }
 
         RecipeSorter.register(
-            CCTweaks.RESOURCE_DOMAIN + ":computer_upgrade_crafting",
+            CCTweaks.MODID + ":computer_upgrade_crafting",
             CraftingComputerUpgrade.class,
             RecipeSorter.Category.SHAPELESS,
             "after:minecraft:shapeless");

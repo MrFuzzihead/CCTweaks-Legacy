@@ -12,7 +12,6 @@ import org.squiddev.cctweaks.CCTweaks;
 import org.squiddev.cctweaks.api.network.INetworkController;
 import org.squiddev.cctweaks.client.render.RenderNetworkOverlay;
 import org.squiddev.cctweaks.core.packet.AbstractPacketHandler;
-import org.squiddev.cctweaks.core.utils.DebugLogger;
 
 import cpw.mods.fml.common.network.ByteBufUtils;
 import cpw.mods.fml.common.network.simpleimpl.IMessage;
@@ -42,7 +41,7 @@ public class VisualisationPacket implements AbstractPacketHandler.IPacket {
         if (version == 0) {
             data = version0.read(buf);
         } else {
-            DebugLogger.error("Unexpected version " + version + " for network visualiser");
+            // DebugLogger.error("Unexpected version " + version + " for network visualiser");
         }
     }
 
@@ -89,7 +88,7 @@ public class VisualisationPacket implements AbstractPacketHandler.IPacket {
         public VisualisationData read(ByteBuf buffer) {
             int nodeSize = buffer.readInt();
             Node[] nodes = new Node[nodeSize];
-            DebugLogger.debug("Reading " + nodeSize + " nodes");
+            // DebugLogger.debug("Reading " + nodeSize + " nodes");
             for (int i = 0; i < nodeSize; i++) {
                 String name = ByteBufUtils.readUTF8String(buffer);
                 Position position = buffer.readByte() == 1
@@ -100,18 +99,18 @@ public class VisualisationPacket implements AbstractPacketHandler.IPacket {
             }
 
             int connectionSize = buffer.readInt();
-            DebugLogger.debug("Reading " + connectionSize + " connections");
+            // DebugLogger.debug("Reading " + connectionSize + " connections");
             Connection[] connections = new Connection[connectionSize];
             for (int i = 0; i < connectionSize; i++) {
                 int x = buffer.readInt();
                 if (x < 0 || x >= nodeSize) {
-                    DebugLogger.error("Invalid node index: " + x + ", expected between 0 <= x < " + nodeSize);
+                    // DebugLogger.error("Invalid node index: " + x + ", expected between 0 <= x < " + nodeSize);
                     return null;
                 }
 
                 int y = buffer.readInt();
                 if (y < 0 || y >= nodeSize) {
-                    DebugLogger.error("Invalid node index: " + x + ", expected between 0 <= x < " + nodeSize);
+                    // DebugLogger.error("Invalid node index: " + x + ", expected between 0 <= x < " + nodeSize);
                     return null;
                 }
 

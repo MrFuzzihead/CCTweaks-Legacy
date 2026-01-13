@@ -10,7 +10,11 @@ import net.minecraft.world.World;
 import net.minecraftforge.common.util.ForgeDirection;
 
 import org.squiddev.cctweaks.api.IWorldPosition;
-import org.squiddev.cctweaks.api.network.*;
+import org.squiddev.cctweaks.api.network.INetworkController;
+import org.squiddev.cctweaks.api.network.INetworkHelpers;
+import org.squiddev.cctweaks.api.network.INetworkNode;
+import org.squiddev.cctweaks.api.network.IWorldNetworkNode;
+import org.squiddev.cctweaks.api.network.NetworkAPI;
 import org.squiddev.cctweaks.core.FmlEvents;
 import org.squiddev.cctweaks.core.network.controller.NetworkController;
 import org.squiddev.cctweaks.integration.multipart.MultipartIntegration;

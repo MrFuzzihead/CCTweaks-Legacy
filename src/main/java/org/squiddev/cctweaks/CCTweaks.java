@@ -96,6 +96,7 @@ public class CCTweaks {
         Configuration config = new Configuration(event.getSuggestedConfigurationFile());
         config.load();
         setConfig(config);
+        config.save();
 
         FMLCommonHandler.instance()
             .bus()

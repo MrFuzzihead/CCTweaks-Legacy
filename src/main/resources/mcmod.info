@@ -1,7 +1,7 @@
 [
   {
-    "modid": "{modId}",
-    "name": "{modName}",
+    "modid": "${modId}",
+    "name": "${modName}",
     "version": "${modVersion}",
     "mcversion": "${minecraftVersion}",
     "url": "https://github.com/MrFuzzihead/CCTweaks-Legacy",

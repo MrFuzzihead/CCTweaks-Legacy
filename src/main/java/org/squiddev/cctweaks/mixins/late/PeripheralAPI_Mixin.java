@@ -15,6 +15,7 @@ import org.squiddev.cctweaks.api.network.Packet;
 
 import dan200.computercraft.api.peripheral.IComputerAccess;
 import dan200.computercraft.api.peripheral.IPeripheral;
+import dan200.computercraft.core.apis.IAPIEnvironment;
 import dan200.computercraft.core.apis.PeripheralAPI;
 import dan200.computercraft.core.computer.Computer;
 
@@ -45,27 +46,12 @@ public abstract class PeripheralAPI_Mixin implements INetworkAccess, IComputerAc
     @Override
     public Map<String, IPeripheral> getPeripheralsOnNetwork() {
         Map<String, IPeripheral> peripheralMap = new HashMap<>();
-        // Get the outer PeripheralAPI instance via the synthetic this$0 field
-        PeripheralAPI outer;
-        try {
-            outer = (PeripheralAPI) this.getClass()
-                .getDeclaredField("this$0")
-                .get(this);
-        } catch (Exception e) {
-            throw new RuntimeException("Unable to get outer PeripheralAPI instance", e);
-        }
-        Object[] m_peripherals = PeripheralAPI_Accessor.getM_peripherals(outer);
+        PeripheralAPI outer = ((PeripheralWrapper_Accessor) this).getOuterPeripheralAPI();
+        IAPIEnvironment env = ((PeripheralAPI_Accessor) outer).getEnvironment();
         for (int i = 0; i < 6; ++i) {
-            if (m_peripherals[i] != null) {
-                try {
-                    java.lang.reflect.Field pField = m_peripherals[i].getClass()
-                        .getDeclaredField("m_peripheral");
-                    pField.setAccessible(true);
-                    IPeripheral peripheral = (IPeripheral) pField.get(m_peripherals[i]);
-                    peripheralMap.put(Computer.s_sideNames[i], peripheral);
-                } catch (Exception e) {
-                    throw new RuntimeException(e);
-                }
+            IPeripheral peripheral = env.getPeripheral(i);
+            if (peripheral != null) {
+                peripheralMap.put(Computer.s_sideNames[i], peripheral);
             }
         }
         return peripheralMap;

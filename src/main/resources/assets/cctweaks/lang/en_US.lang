@@ -30,8 +30,6 @@ gui.config.cctweaks.computer.computerUpgradeCrafting=Computer Upgrade Crafting
 gui.config.cctweaks.computer.debugWandEnabled=Debug Wand Enabled
 gui.config.cctweaks.computer.debug=Debug API Enabled
 gui.config.cctweaks.computer.computerThreadTimeout=Computer Thread Timeout
-gui.config.cctweaks.computer.luaJC=LuaJC
-gui.config.cctweaks.computer.luaJCVerify=Verify LuaJC
 gui.config.cctweaks.computer.cobalt=Cobalt VM
 
 gui.config.cctweaks.turtle=Turtle

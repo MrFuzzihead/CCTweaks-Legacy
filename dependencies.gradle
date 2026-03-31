@@ -34,7 +34,7 @@
  * For more details, see https://docs.gradle.org/8.0.1/userguide/java_library_plugin.html#sec:java_library_configurations_graph
  */
 dependencies {
-    api("com.github.MrFuzzihead:Computercraft-Legacy:2.0.0:dev")
+    api("com.github.MrFuzzihead:Computercraft-Legacy:2.1.3:dev")
     api("curse.maven:OpenPeripheralCore-228817:2386737")
     api("curse.maven:OpenPeripheralAddons-228818:2386739")
     runtimeOnlyNonPublishable("com.github.GTNewHorizons:OpenModsLib:0.10.13:dev")

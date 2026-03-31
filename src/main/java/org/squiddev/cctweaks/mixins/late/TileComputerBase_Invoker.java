@@ -11,4 +11,3 @@ public interface TileComputerBase_Invoker {
     @Invoker("transferStateFrom")
     void invokeTransferStateFrom(TileComputerBase source);
 }
-

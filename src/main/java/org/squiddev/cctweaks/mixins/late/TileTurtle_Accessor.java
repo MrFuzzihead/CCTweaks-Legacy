@@ -14,4 +14,3 @@ public interface TileTurtle_Accessor {
     @Accessor("m_moved")
     void setMoved(boolean moved);
 }
-

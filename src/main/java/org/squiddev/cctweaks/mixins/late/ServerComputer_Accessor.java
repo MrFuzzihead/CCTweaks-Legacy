@@ -12,4 +12,3 @@ public interface ServerComputer_Accessor {
     @Accessor("m_computer")
     Computer getComputer();
 }
-

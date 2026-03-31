@@ -17,6 +17,7 @@
     "PeripheralAPI_Mixin",
     "PeripheralProxy_Mixin",
     "ServerComputer_Accessor",
+    "TileCable_Accessor",
     "TileCable_Mixin",
     "TileComputerBase_Invoker",
     "TileTurtle_Accessor",

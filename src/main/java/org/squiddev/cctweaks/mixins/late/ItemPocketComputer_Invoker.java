@@ -16,4 +16,3 @@ public interface ItemPocketComputer_Invoker {
     @Invoker("createServerComputer")
     ServerComputer invokeCreateServerComputer(World world, IInventory inventory, ItemStack stack);
 }
-

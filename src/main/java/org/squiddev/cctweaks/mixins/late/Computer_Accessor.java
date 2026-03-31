@@ -12,4 +12,3 @@ public interface Computer_Accessor {
     @Accessor("m_machine")
     ILuaMachine getMachine();
 }
-

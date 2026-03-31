@@ -1,6 +1,5 @@
 package org.squiddev.cctweaks.integration.multipart.network;
 
-import java.lang.reflect.Field;
 import java.util.Collections;
 
 import net.minecraft.block.Block;
@@ -20,8 +19,8 @@ import org.squiddev.cctweaks.api.network.IWorldNetworkNode;
 import org.squiddev.cctweaks.api.peripheral.IPeripheralHost;
 import org.squiddev.cctweaks.core.network.modem.BasicModem;
 import org.squiddev.cctweaks.core.network.modem.DirectionalPeripheralModem;
-import org.squiddev.cctweaks.core.utils.ComputerAccessor;
 import org.squiddev.cctweaks.core.utils.Helpers;
+import org.squiddev.cctweaks.mixins.late.TileCable_Accessor;
 
 import codechicken.lib.data.MCDataInput;
 import codechicken.lib.data.MCDataOutput;
@@ -53,17 +52,11 @@ public class PartModem extends PartSidedNetwork implements IPeripheralHost {
     }
 
     public PartModem(TileCable modem) {
-        try {
-            NBTTagCompound tag = new NBTTagCompound();
-            tag.setByte("node_direction", (byte) modem.getDirection());
-            tag.setInteger("modem_id", ComputerAccessor.cablePeripheralId.getInt(modem));
-            tag.setBoolean(
-                "modem_enabled",
-                (modem.getAnim() & BasicModem.MODEM_PERIPHERAL) == BasicModem.MODEM_PERIPHERAL);
-            load(tag);
-        } catch (Exception e) {
-            // DebugLogger.error("Cannot get modem from tile", e);
-        }
+        NBTTagCompound tag = new NBTTagCompound();
+        tag.setByte("node_direction", (byte) modem.getDirection());
+        tag.setInteger("modem_id", ((TileCable_Accessor) modem).getAttachedPeripheralID());
+        tag.setBoolean("modem_enabled", (modem.getAnim() & BasicModem.MODEM_PERIPHERAL) == BasicModem.MODEM_PERIPHERAL);
+        load(tag);
     }
 
     @SideOnly(Side.CLIENT)
@@ -233,18 +226,7 @@ public class PartModem extends PartSidedNetwork implements IPeripheralHost {
         public IIcon[] getIcons() {
             IIcon[] icons;
             if ((icons = PartModem.icons) == null) {
-
-                try {
-                    Field field = TileCable.class.getDeclaredField("s_modemIcons");
-                    field.setAccessible(true);
-                    icons = (IIcon[]) field.get(null);
-                } catch (IllegalAccessException e) {
-                    // DebugLogger.error("Cannot find TileCable texture", e);
-                    icons = new IIcon[8];
-                } catch (NoSuchFieldException e) {
-                    // DebugLogger.error("Cannot find TileCable texture", e);
-                    icons = new IIcon[8];
-                }
+                icons = TileCable_Accessor.getS_modemIcons();
                 PartModem.icons = icons;
             }
 

@@ -16,8 +16,9 @@ import net.minecraftforge.oredict.RecipeSorter;
 
 import org.squiddev.cctweaks.CCTweaks;
 import org.squiddev.cctweaks.core.utils.BlockNotifyFlags;
-import org.squiddev.cctweaks.core.utils.ComputerAccessor;
 import org.squiddev.cctweaks.core.utils.InventoryUtils;
+import org.squiddev.cctweaks.mixins.late.TileComputerBase_Invoker;
+import org.squiddev.cctweaks.mixins.late.TileTurtle_Accessor;
 
 import cpw.mods.fml.common.registry.GameRegistry;
 import cpw.mods.fml.relauncher.Side;
@@ -50,8 +51,8 @@ public class ItemComputerUpgrade extends ItemComputerAction {
         int x = computerTile.xCoord, y = computerTile.yCoord, z = computerTile.zCoord;
         World world = computerTile.getWorldObj();
 
-        // Check we can copy the tile and it is a normal computer
-        if (computerTile.getFamily() != ComputerFamily.Normal || ComputerAccessor.tileCopy == null) {
+        // Check it is a normal computer
+        if (computerTile.getFamily() != ComputerFamily.Normal) {
             return false;
         }
 
@@ -65,14 +66,8 @@ public class ItemComputerUpgrade extends ItemComputerAction {
             return false;
         }
 
-        // Why is it not public Dan?
         TileComputerBase newComputer = (TileComputerBase) newTile;
-        try {
-            ComputerAccessor.tileCopy.invoke(newComputer, computerTile);
-        } catch (Exception e) {
-            // DebugLogger.warn("Cannot copy tile in ItemComputerUpgrade", e);
-            return false;
-        }
+        ((TileComputerBase_Invoker) newComputer).invokeTransferStateFrom(computerTile);
 
         // Setup computer
         newComputer.createServerComputer()
@@ -105,12 +100,7 @@ public class ItemComputerUpgrade extends ItemComputerAction {
         }
 
         // If we set the turtle as moved, the destroy method won't drop the items
-        try {
-            ComputerAccessor.turtleTileMoved.setBoolean(computerTile, true);
-        } catch (Exception e) {
-            // DebugLogger.warn("Cannot set TurtleTile m_moved in ItemComputerUpgrade", e);
-            return false;
-        }
+        ((TileTurtle_Accessor) computerTile).setMoved(true);
 
         // Set block as AdvancedTurtle
         world.setBlock(x, y, z, ComputerCraft.Blocks.turtleAdvanced);

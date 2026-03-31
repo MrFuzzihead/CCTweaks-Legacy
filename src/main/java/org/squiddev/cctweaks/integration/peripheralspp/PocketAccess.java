@@ -1,6 +1,5 @@
 package org.squiddev.cctweaks.integration.peripheralspp;
 
-import java.lang.reflect.InvocationTargetException;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -13,7 +12,7 @@ import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.nbt.NBTTagList;
 import net.minecraftforge.common.util.Constants;
 
-import org.squiddev.cctweaks.core.utils.ComputerAccessor;
+import org.squiddev.cctweaks.mixins.late.ItemPocketComputer_Invoker;
 
 import com.austinv11.peripheralsplusplus.hooks.ComputerCraftHooks;
 import com.austinv11.peripheralsplusplus.hooks.ComputerCraftRegistry;
@@ -46,17 +45,8 @@ public class PocketAccess implements IPocketAccess {
         if (entity == null) return null;
 
         InventoryPlayer inventory = entity instanceof EntityPlayer ? ((EntityPlayer) entity).inventory : null;
-        try {
-            Object computer = ComputerAccessor.pocketServerComputer
-                .invoke(ComputerCraft.Items.pocketComputer, entity.worldObj, inventory, stack);
-            return computer == null ? null : (ServerComputer) computer;
-        } catch (InvocationTargetException e) {
-            // DebugLogger.error("Cannot find computer", e);
-            return null;
-        } catch (IllegalAccessException e) {
-            // DebugLogger.error("Cannot find computer", e);
-            return null;
-        }
+        return ((ItemPocketComputer_Invoker) ComputerCraft.Items.pocketComputer)
+            .invokeCreateServerComputer(entity.worldObj, inventory, stack);
     }
 
     @Override

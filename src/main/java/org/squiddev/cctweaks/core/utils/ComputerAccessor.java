@@ -8,7 +8,6 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.world.World;
 
 import dan200.computercraft.core.computer.Computer;
-import dan200.computercraft.core.lua.LuaJLuaMachine;
 import dan200.computercraft.shared.computer.blocks.TileComputerBase;
 import dan200.computercraft.shared.computer.core.ServerComputer;
 import dan200.computercraft.shared.peripheral.modem.TileCable;
@@ -48,13 +47,6 @@ public final class ComputerAccessor {
     public static Field computerMachine;
 
     /**
-     * The globals of a LuaMachine
-     *
-     * @see dan200.computercraft.core.lua.LuaJLuaMachine#m_globals
-     */
-    public static Field luaMachineGlobals;
-
-    /**
      * The peripheral ID of a wired modem
      *
      * @see TileCable#m_attachedPeripheralID
@@ -81,9 +73,6 @@ public final class ComputerAccessor {
 
             computerMachine = Computer.class.getDeclaredField("m_machine");
             computerMachine.setAccessible(true);
-
-            luaMachineGlobals = LuaJLuaMachine.class.getDeclaredField("m_globals");
-            luaMachineGlobals.setAccessible(true);
 
             cablePeripheralId = TileCable.class.getDeclaredField("m_attachedPeripheralID");
             cablePeripheralId.setAccessible(true);

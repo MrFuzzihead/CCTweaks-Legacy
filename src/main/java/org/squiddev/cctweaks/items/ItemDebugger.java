@@ -15,8 +15,6 @@ import net.minecraft.util.MovingObjectPosition;
 import net.minecraft.world.World;
 
 import org.apache.commons.lang3.StringUtils;
-import org.luaj.vm2.LuaValue;
-import org.luaj.vm2.lib.DebugLib;
 import org.squiddev.cctweaks.CCTweaks;
 import org.squiddev.cctweaks.api.IWorldPosition;
 import org.squiddev.cctweaks.api.network.INetworkController;
@@ -28,10 +26,13 @@ import org.squiddev.cctweaks.core.utils.ComputerAccessor;
 import org.squiddev.cctweaks.core.utils.WorldPosition;
 import org.squiddev.cctweaks.core.visualiser.NetworkPlayerWatcher;
 import org.squiddev.cctweaks.core.visualiser.VisualisationPacket;
+import org.squiddev.cctweaks.mixins.late.CobaltMachine_Accessor;
+import org.squiddev.cobalt.LuaState;
+import org.squiddev.cobalt.LuaTable;
+import org.squiddev.cobalt.lib.DebugLib;
 
 import dan200.computercraft.api.peripheral.IComputerAccess;
 import dan200.computercraft.api.peripheral.IPeripheral;
-import dan200.computercraft.core.lua.LuaJLuaMachine;
 import dan200.computercraft.shared.computer.blocks.TileComputerBase;
 import dan200.computercraft.shared.computer.core.ServerComputer;
 import dan200.computercraft.shared.util.PeripheralUtil;
@@ -90,21 +91,18 @@ public class ItemDebugger extends ItemComputerAction {
             Object computer = ComputerAccessor.serverComputerComputer.get(serverComputer);
             Object luaMachine = ComputerAccessor.computerMachine.get(computer);
 
-            if (!(luaMachine instanceof LuaJLuaMachine)) {
-                // DebugLogger.warn("Computer is not instance of LuaJLuaMachine, cannot get globals");
+            if (!(luaMachine instanceof CobaltMachine_Accessor accessor)) {
                 return false;
             }
 
-            LuaValue globals = (LuaValue) ComputerAccessor.luaMachineGlobals.get(luaMachine);
-            globals.load(new DebugLib());
+            LuaState state = accessor.getState();
+            LuaTable globals = accessor.getGlobals();
+            globals.load(state, new DebugLib());
         } catch (NullPointerException e) {
-            // DebugLogger.warn("Could not add DebugLib", e);
             return false;
         } catch (IllegalAccessException e) {
-            // DebugLogger.warn("Could not add DebugLib", e);
             return false;
         } catch (Exception e) {
-            // DebugLogger.error("Unknown error in injecting DebugLib", e);
             return false;
         }
 

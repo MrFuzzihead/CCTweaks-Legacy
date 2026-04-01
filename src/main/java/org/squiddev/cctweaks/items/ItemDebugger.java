@@ -22,11 +22,12 @@ import org.squiddev.cctweaks.api.network.INetworkNode;
 import org.squiddev.cctweaks.api.network.IWorldNetworkNode;
 import org.squiddev.cctweaks.api.network.NetworkAPI;
 import org.squiddev.cctweaks.blocks.debug.TileDebugPeripheral;
-import org.squiddev.cctweaks.core.utils.ComputerAccessor;
 import org.squiddev.cctweaks.core.utils.WorldPosition;
 import org.squiddev.cctweaks.core.visualiser.NetworkPlayerWatcher;
 import org.squiddev.cctweaks.core.visualiser.VisualisationPacket;
 import org.squiddev.cctweaks.mixins.late.CobaltMachine_Accessor;
+import org.squiddev.cctweaks.mixins.late.Computer_Accessor;
+import org.squiddev.cctweaks.mixins.late.ServerComputer_Accessor;
 import org.squiddev.cobalt.LuaState;
 import org.squiddev.cobalt.LuaTable;
 import org.squiddev.cobalt.lib.DebugLib;
@@ -88,8 +89,9 @@ public class ItemDebugger extends ItemComputerAction {
         if (serverComputer == null) return false;
 
         try {
-            Object computer = ComputerAccessor.serverComputerComputer.get(serverComputer);
-            Object luaMachine = ComputerAccessor.computerMachine.get(computer);
+            dan200.computercraft.core.computer.Computer computer = ((ServerComputer_Accessor) serverComputer)
+                .getComputer();
+            dan200.computercraft.core.lua.ILuaMachine luaMachine = ((Computer_Accessor) computer).getMachine();
 
             if (!(luaMachine instanceof CobaltMachine_Accessor accessor)) {
                 return false;
@@ -99,8 +101,6 @@ public class ItemDebugger extends ItemComputerAction {
             LuaTable globals = accessor.getGlobals();
             globals.load(state, new DebugLib());
         } catch (NullPointerException e) {
-            return false;
-        } catch (IllegalAccessException e) {
             return false;
         } catch (Exception e) {
             return false;

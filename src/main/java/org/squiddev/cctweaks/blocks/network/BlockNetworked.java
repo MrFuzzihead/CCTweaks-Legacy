@@ -1,6 +1,5 @@
 package org.squiddev.cctweaks.blocks.network;
 
-import java.lang.reflect.Field;
 import java.util.List;
 
 import net.minecraft.client.renderer.texture.IIconRegister;
@@ -19,13 +18,13 @@ import org.squiddev.cctweaks.blocks.IMultiBlock;
 import org.squiddev.cctweaks.blocks.TileBase;
 import org.squiddev.cctweaks.core.utils.Helpers;
 import org.squiddev.cctweaks.items.ItemMultiBlock;
+import org.squiddev.cctweaks.mixins.late.TileCable_Accessor;
 
 import cpw.mods.fml.common.registry.GameRegistry;
 import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
 import dan200.computercraft.shared.peripheral.PeripheralType;
 import dan200.computercraft.shared.peripheral.common.PeripheralItemFactory;
-import dan200.computercraft.shared.peripheral.modem.TileCable;
 
 /**
  * A bridge between two networks so they can communicate with each other
@@ -77,17 +76,9 @@ public class BlockNetworked extends BlockBase<TileBase> implements IMultiBlock {
         IIcon[] icons;
         if ((icons = modemIcons) == null) {
             icons = BlockNetworked.modemIcons = new IIcon[4];
-            try {
-                Field field = TileCable.class.getDeclaredField("s_modemIcons");
-                field.setAccessible(true);
-                IIcon[] modemIcons = (IIcon[]) field.get(null);
-                for (int i = 0; i < 4; i++) {
-                    icons[i] = modemIcons[i * 2];
-                }
-            } catch (IllegalAccessException e) {
-                // DebugLogger.error("Cannot find TileCable texture", e);
-            } catch (NoSuchFieldException e) {
-                // DebugLogger.error("Cannot find TileCable texture", e);
+            IIcon[] modemIcons = TileCable_Accessor.getS_modemIcons();
+            for (int i = 0; i < 4; i++) {
+                icons[i] = modemIcons[i * 2];
             }
         }
 

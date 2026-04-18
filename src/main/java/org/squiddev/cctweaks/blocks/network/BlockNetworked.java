@@ -2,7 +2,6 @@ package org.squiddev.cctweaks.blocks.network;
 
 import java.util.List;
 
-import dan200.computercraft.shared.peripheral.modem.TileCable;
 import net.minecraft.client.renderer.texture.IIconRegister;
 import net.minecraft.creativetab.CreativeTabs;
 import net.minecraft.init.Items;
@@ -19,6 +18,7 @@ import org.squiddev.cctweaks.blocks.IMultiBlock;
 import org.squiddev.cctweaks.blocks.TileBase;
 import org.squiddev.cctweaks.core.utils.Helpers;
 import org.squiddev.cctweaks.items.ItemMultiBlock;
+import org.squiddev.cctweaks.mixins.late.TileCable_Accessor;
 
 import cpw.mods.fml.common.registry.GameRegistry;
 import cpw.mods.fml.relauncher.Side;
@@ -76,7 +76,7 @@ public class BlockNetworked extends BlockBase<TileBase> implements IMultiBlock {
         IIcon[] icons;
         if ((icons = modemIcons) == null) {
             icons = BlockNetworked.modemIcons = new IIcon[4];
-            IIcon[] modemIcons = TileCable.getModemIcons();
+            IIcon[] modemIcons = TileCable_Accessor.getS_modemIcons();
             for (int i = 0; i < 4; i++) {
                 icons[i] = modemIcons[i * 2];
             }

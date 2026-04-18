@@ -5,7 +5,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 
-import dan200.computercraft.shared.peripheral.modem.TileCable;
 import net.minecraft.block.Block;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.ItemStack;
@@ -24,6 +23,7 @@ import org.squiddev.cctweaks.api.network.IWorldNetworkNodeHost;
 import org.squiddev.cctweaks.core.network.NetworkHelpers;
 import org.squiddev.cctweaks.core.network.cable.CableWithInternalSidedParts;
 import org.squiddev.cctweaks.integration.multipart.PartBase;
+import org.squiddev.cctweaks.mixins.late.TileCable_Accessor;
 
 import codechicken.lib.raytracer.IndexedCuboid6;
 import codechicken.lib.render.TextureUtils;
@@ -302,7 +302,7 @@ public class PartCable extends PartBase implements IWorldNetworkNodeHost, TSlott
         public IIcon[] getIcons() {
             IIcon[] icons;
             if ((icons = PartCable.icons) == null) {
-                icons = TileCable.getCableIcons();
+                icons = TileCable_Accessor.getS_cableIcons();
                 PartCable.icons = icons;
             }
 

@@ -10,21 +10,14 @@
     "BlockCable_Mixin",
     "CableBlockRenderingHandler_Mixin",
     "ClassMethodsComposer_Accessor",
-    "CobaltMachine_Accessor",
-    "Computer_Accessor",
     "ComposedMethodsFactory_Accessor",
     "ItemCable_Mixin",
-    "ItemPocketComputer_Invoker",
     "ModuleComputerCraft_Mixin",
     "PeripheralAPI_Accessor",
     "PeripheralAPI_Mixin",
     "PeripheralProxy_Mixin",
     "PeripheralWrapper_Accessor",
-    "ServerComputer_Accessor",
-    "TileCable_Accessor",
     "TileCable_Mixin",
-    "TileComputerBase_Invoker",
-    "TileTurtle_Accessor",
     "TurtleRefuelCommand_Mixin"
   ]
 }

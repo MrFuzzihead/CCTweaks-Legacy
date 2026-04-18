@@ -12,8 +12,6 @@ import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.nbt.NBTTagList;
 import net.minecraftforge.common.util.Constants;
 
-import org.squiddev.cctweaks.mixins.late.ItemPocketComputer_Invoker;
-
 import com.austinv11.peripheralsplusplus.hooks.ComputerCraftHooks;
 import com.austinv11.peripheralsplusplus.hooks.ComputerCraftRegistry;
 import com.austinv11.peripheralsplusplus.pocket.PocketPeripheralContainer;
@@ -23,7 +21,7 @@ import dan200.computercraft.api.peripheral.IPeripheral;
 import dan200.computercraft.shared.computer.core.ServerComputer;
 
 /**
- * Concrete implementation of https://github.com/austinv11/PeripheralsPlusPlus/issues/97
+ * Concrete implementation of <a href="https://github.com/austinv11/PeripheralsPlusPlus/issues/97">...</a>
  */
 public class PocketAccess implements IPocketAccess {
 
@@ -45,8 +43,8 @@ public class PocketAccess implements IPocketAccess {
         if (entity == null) return null;
 
         InventoryPlayer inventory = entity instanceof EntityPlayer ? ((EntityPlayer) entity).inventory : null;
-        return ((ItemPocketComputer_Invoker) ComputerCraft.Items.pocketComputer)
-            .invokeCreateServerComputer(entity.worldObj, inventory, stack);
+        return (ComputerCraft.Items.pocketComputer)
+            .createServerComputer(entity.worldObj, inventory, stack);
     }
 
     @Override

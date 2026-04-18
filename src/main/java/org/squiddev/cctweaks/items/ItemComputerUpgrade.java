@@ -17,8 +17,6 @@ import net.minecraftforge.oredict.RecipeSorter;
 import org.squiddev.cctweaks.CCTweaks;
 import org.squiddev.cctweaks.core.utils.BlockNotifyFlags;
 import org.squiddev.cctweaks.core.utils.InventoryUtils;
-import org.squiddev.cctweaks.mixins.late.TileComputerBase_Invoker;
-import org.squiddev.cctweaks.mixins.late.TileTurtle_Accessor;
 
 import cpw.mods.fml.common.registry.GameRegistry;
 import cpw.mods.fml.relauncher.Side;
@@ -62,12 +60,11 @@ public class ItemComputerUpgrade extends ItemComputerAction {
 
         TileEntity newTile = world.getTileEntity(x, y, z);
 
-        if (newTile == null || !(newTile instanceof TileComputerBase)) {
+        if (!(newTile instanceof TileComputerBase newComputer)) {
             return false;
         }
 
-        TileComputerBase newComputer = (TileComputerBase) newTile;
-        ((TileComputerBase_Invoker) newComputer).invokeTransferStateFrom(computerTile);
+        TileComputerBase.callTransferStateFrom(newComputer, computerTile);
 
         // Setup computer
         newComputer.createServerComputer()
@@ -100,7 +97,7 @@ public class ItemComputerUpgrade extends ItemComputerAction {
         }
 
         // If we set the turtle as moved, the destroy method won't drop the items
-        ((TileTurtle_Accessor) computerTile).setMoved(true);
+        computerTile.setMoved(true);
 
         // Set block as AdvancedTurtle
         world.setBlock(x, y, z, ComputerCraft.Blocks.turtleAdvanced);

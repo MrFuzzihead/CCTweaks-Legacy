@@ -2,9 +2,6 @@ package org.squiddev.cctweaks.turtle;
 
 import net.minecraft.block.Block;
 import net.minecraft.entity.Entity;
-import net.minecraft.entity.EntityLivingBase;
-import net.minecraft.entity.SharedMonsterAttributes;
-import net.minecraft.entity.ai.attributes.AttributeModifier;
 import net.minecraft.item.ItemBlock;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.MovingObjectPosition;
@@ -18,8 +15,6 @@ import net.minecraftforge.event.entity.player.PlayerInteractEvent;
 
 import org.squiddev.cctweaks.api.network.INetworkCompatiblePeripheral;
 import org.squiddev.cctweaks.core.turtle.TurtleRegistry;
-
-import com.google.common.collect.Multimap;
 
 import dan200.computercraft.api.lua.ILuaContext;
 import dan200.computercraft.api.lua.ILuaTask;
@@ -127,10 +122,7 @@ public class ToolManipulatorPeripheral implements IPeripheral, INetworkCompatibl
 
     public Object[] doUse(DelayedTask task, IComputerAccess computer, int direction, boolean sneak, int duration)
         throws LuaException {
-        player.updateInformation(access, direction);
-        player.posY += 1.5;
-        player.loadWholeInventory(access);
-        player.setSneaking(sneak);
+        player.load(access, direction, sneak);
 
         ForgeDirection fDirection = ForgeDirection.VALID_DIRECTIONS[direction];
         MovingObjectPosition hit = findHit(fDirection, 0.65);
@@ -192,8 +184,7 @@ public class ToolManipulatorPeripheral implements IPeripheral, INetworkCompatibl
             }
         } finally {
             player.clearItemInUse();
-            player.unloadWholeInventory(access);
-            player.setSneaking(false);
+            player.unload(access);
         }
 
         return new Object[] { false };
@@ -299,10 +290,7 @@ public class ToolManipulatorPeripheral implements IPeripheral, INetworkCompatibl
     }
 
     public TurtleCommandResult doSwing(IComputerAccess computer, int direction, boolean sneak) throws LuaException {
-        player.updateInformation(access, direction);
-        player.posY += 1.5;
-        player.loadWholeInventory(access);
-        player.setSneaking(sneak);
+        player.load(access, direction, sneak);
 
         ForgeDirection fDirection = ForgeDirection.VALID_DIRECTIONS[direction];
         ItemStack stack = player.getItem(access);
@@ -323,7 +311,7 @@ public class ToolManipulatorPeripheral implements IPeripheral, INetworkCompatibl
             if (hit != null) {
                 switch (hit.typeOfHit) {
                     case ENTITY: {
-                        TurtleCommandResult result = player.attack(access, direction);
+                        TurtleCommandResult result = player.attack(access, hit.entityHit);
                         if (result.isSuccess()) access.playAnimation(animation);
                         return result;
                     }
@@ -336,8 +324,7 @@ public class ToolManipulatorPeripheral implements IPeripheral, INetworkCompatibl
             }
         } finally {
             player.clearItemInUse();
-            player.unloadWholeInventory(access);
-            player.setSneaking(false);
+            player.unload(access);
         }
 
         return TurtleCommandResult.failure("Nothing to do here");
@@ -352,9 +339,7 @@ public class ToolManipulatorPeripheral implements IPeripheral, INetworkCompatibl
 
             @Override
             public Object[] execute() throws LuaException {
-                player.updateInformation(access, direction);
-                player.posY += 1.5;
-                player.loadWholeInventory(access);
+                player.load(access, direction, false);
 
                 ItemStack stack = player.getHeldItem();
                 ForgeDirection fDirection = ForgeDirection.VALID_DIRECTIONS[direction];
@@ -368,7 +353,7 @@ public class ToolManipulatorPeripheral implements IPeripheral, INetworkCompatibl
 
                     return new Object[] { false };
                 } finally {
-                    player.unloadWholeInventory(access);
+                    player.unload(access);
                 }
             }
         });
@@ -381,9 +366,7 @@ public class ToolManipulatorPeripheral implements IPeripheral, INetworkCompatibl
 
             @Override
             public Object[] execute() throws LuaException {
-                player.updateInformation(access, direction);
-                player.posY += 1.5;
-                player.loadWholeInventory(access);
+                player.load(access, direction, false);
 
                 ItemStack stack = player.getHeldItem();
                 ForgeDirection fDirection = ForgeDirection.VALID_DIRECTIONS[direction];
@@ -393,20 +376,13 @@ public class ToolManipulatorPeripheral implements IPeripheral, INetworkCompatibl
                     if (stack != null) {
                         boolean result = TurtleRegistry.instance.canSwing(access, player, stack, fDirection, hit);
                         if (result) return new Object[] { true };
-
-                        if (hit.entityHit != null) {
-                            @SuppressWarnings("unchecked")
-                            Multimap<String, AttributeModifier> map = stack.getAttributeModifiers();
-                            for (AttributeModifier modifier : map
-                                .get(SharedMonsterAttributes.attackDamage.getAttributeUnlocalizedName())) {
-                                if (modifier.getAmount() > 0) {
-                                    return new Object[] { true };
-                                }
-                            }
-                        }
                     }
 
-                    if (hit.typeOfHit == MovingObjectPosition.MovingObjectType.BLOCK) {
+                    // TiC (and other modded) weapons handle damage in onLeftClickEntity and do not
+                    // expose a vanilla attack-damage attribute. Any entity in range can be swung at.
+                    if (hit != null && hit.entityHit != null) return new Object[] { true };
+
+                    if (hit != null && hit.typeOfHit == MovingObjectPosition.MovingObjectType.BLOCK) {
                         Block block = access.getWorld()
                             .getBlock(hit.blockX, hit.blockY, hit.blockZ);
                         int meta = access.getWorld()
@@ -416,7 +392,7 @@ public class ToolManipulatorPeripheral implements IPeripheral, INetworkCompatibl
 
                     return new Object[] { false };
                 } finally {
-                    player.unloadWholeInventory(access);
+                    player.unload(access);
                 }
             }
         });
@@ -431,8 +407,9 @@ public class ToolManipulatorPeripheral implements IPeripheral, INetworkCompatibl
         MovingObjectPosition hit = player.worldObj.rayTraceBlocks(origin, target);
         Entity entity = WorldUtil.rayTraceEntities(player.worldObj, origin, target, 1.1);
 
-        if (entity instanceof EntityLivingBase
-            && (hit == null || origin.squareDistanceTo(blockCenter) > player.getDistanceSqToEntity(entity))) {
+        // WorldUtil already clips the entity trace against the block trace, so an entity
+        // which was found is in front of the block. Prefer it over the block hit.
+        if (entity != null) {
             return new MovingObjectPosition(entity);
         } else {
             return hit;

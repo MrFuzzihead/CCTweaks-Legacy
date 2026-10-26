@@ -48,13 +48,13 @@ public class ToolHostPlayer extends TurtlePlayer {
 
             @Override
             public void consumeDrop(ItemStack drop) {
-                ItemStack remainder = InventoryUtil.storeItems(
-                    drop,
-                    turtle.getInventory(),
-                    0,
-                    turtle.getInventory()
-                        .getSizeInventory(),
-                    turtle.getSelectedSlot());
+                if (drop == null || drop.stackSize <= 0) return;
+
+                // Store the drop in the fake player's inventory so it is written back to the
+                // turtle by unload(). Writing straight to the turtle here can be overwritten
+                // by the fake inventory when unload() runs.
+                ItemStack remainder = InventoryUtil
+                    .storeItems(drop, inventory, 0, inventory.getSizeInventory(), turtle.getSelectedSlot());
                 if (remainder != null) {
                     ChunkCoordinates position = getPlayerCoordinates();
                     WorldUtil.dropItemStack(
@@ -77,15 +77,19 @@ public class ToolHostPlayer extends TurtlePlayer {
             .addVector(rayDir.xCoord * 0.4, rayDir.yCoord * 0.4, rayDir.zCoord * 0.4);
 
         Entity hitEntity = WorldUtil.rayTraceEntities(turtle.getWorld(), rayStart, rayDir, 1.1);
+        return attack(turtle, hitEntity);
+    }
 
+    /**
+     * Attack an entity which has already been found. The player's position and inventory must
+     * already have been loaded with {@link #load(ITurtleAccess, int, boolean)}.
+     */
+    public TurtleCommandResult attack(ITurtleAccess turtle, Entity hitEntity) {
         if (hitEntity != null) {
-            loadInventory(getItem(turtle));
-
             McEvents.addEntityConsumer(hitEntity, getConsumer(turtle));
             attackTargetEntityWithCurrentItem(hitEntity);
             McEvents.removeEntityConsumer(hitEntity);
 
-            unloadInventory(turtle);
             return TurtleCommandResult.success();
         }
 
@@ -116,8 +120,6 @@ public class ToolHostPlayer extends TurtlePlayer {
             if (block == Blocks.bedrock || block.getBlockHardness(world, x, y, z) <= -1) {
                 return TurtleCommandResult.failure("Unbreakable block detected");
             }
-
-            loadInventory(getItem(turtle));
 
             ItemInWorldManager manager = theItemInWorldManager;
             for (int i = 0; i < CCTweaks.digFactor; i++) {
@@ -159,25 +161,45 @@ public class ToolHostPlayer extends TurtlePlayer {
     }
 
     /**
-     * Update the player information
+     * Update the player's position and rotation to match the turtle.
      */
     public void updateInformation(ITurtleAccess turtle, int direction) {
         ChunkCoordinates position = coordinates = turtle.getPosition();
 
         setPositionAndRotation(
             position.posX + 0.5 + 0.51 * Facing.offsetsXForSide[direction],
-            position.posY - 1.1 + 0.51 * Facing.offsetsYForSide[direction],
+            position.posY + 0.5 + 0.51 * Facing.offsetsYForSide[direction],
             position.posZ + 0.5 + 0.51 * Facing.offsetsZForSide[direction],
             direction > 2 ? DirectionUtil.toYawAngle(direction) : DirectionUtil.toYawAngle(turtle.getDirection()),
             direction > 2 ? 0 : DirectionUtil.toPitchAngle(direction));
-
-        ySize = -1.1f;
     }
 
-    public void loadWholeInventory(ITurtleAccess turtle) {
+    /**
+     * Prepare the fake player for an operation. This positions the player and copies the
+     * turtle's inventory into the fake player's inventory.
+     */
+    public void load(ITurtleAccess turtle, int direction, boolean sneaking) {
+        updateInformation(turtle, direction);
+        setSneaking(sneaking);
+        loadTurtleInventory(turtle);
+    }
+
+    /**
+     * Finish an operation, copying the fake player's inventory back to the turtle and
+     * clearing out any stale fake inventory slots.
+     */
+    public void unload(ITurtleAccess turtle) {
+        setSneaking(false);
+        unloadTurtleInventory(turtle);
+    }
+
+    private void loadTurtleInventory(ITurtleAccess turtle) {
         IInventory turtleInventory = turtle.getInventory();
         int size = turtleInventory.getSizeInventory();
         int largerSize = inventory.getSizeInventory();
+
+        // Make sure getHeldItem()/getCurrentEquippedItem() uses the turtle's selected slot.
+        inventory.currentItem = turtle.getSelectedSlot();
 
         for (int i = 0; i < size; i++) {
             inventory.setInventorySlotContents(i, turtleInventory.getStackInSlot(i));
@@ -187,7 +209,7 @@ public class ToolHostPlayer extends TurtlePlayer {
         }
     }
 
-    public void unloadWholeInventory(ITurtleAccess turtle) {
+    private void unloadTurtleInventory(ITurtleAccess turtle) {
         IInventory turtleInventory = turtle.getInventory();
         int size = turtleInventory.getSizeInventory();
         int largerSize = inventory.getSizeInventory();
@@ -195,12 +217,46 @@ public class ToolHostPlayer extends TurtlePlayer {
         for (int i = 0; i < size; i++) {
             ItemStack stack = inventory.getStackInSlot(i);
             turtleInventory.setInventorySlotContents(i, stack == null || stack.stackSize <= 0 ? null : stack);
+            inventory.setInventorySlotContents(i, null);
         }
 
-        McEvents.IDropConsumer consumer = getConsumer(turtle);
         for (int i = size; i < largerSize; i++) {
-            consumer.consumeDrop(inventory.getStackInSlot(i));
+            ItemStack stack = inventory.getStackInSlot(i);
+            if (stack != null && stack.stackSize > 0) storeItem(stack, turtle);
+            inventory.setInventorySlotContents(i, null);
         }
+    }
+
+    private void storeItem(ItemStack stack, ITurtleAccess turtle) {
+        IInventory turtleInventory = turtle.getInventory();
+        ItemStack remainder = InventoryUtil
+            .storeItems(stack, turtleInventory, 0, turtleInventory.getSizeInventory(), turtle.getSelectedSlot());
+        if (remainder != null) {
+            ChunkCoordinates position = turtle.getPosition();
+            WorldUtil.dropItemStack(
+                remainder,
+                worldObj,
+                position.posX,
+                position.posY,
+                position.posZ,
+                Facing.oppositeSide[turtle.getDirection()]);
+        }
+    }
+
+    /**
+     * @deprecated Use {@link #load(ITurtleAccess, int, boolean)} instead.
+     */
+    @Deprecated
+    public void loadWholeInventory(ITurtleAccess turtle) {
+        loadTurtleInventory(turtle);
+    }
+
+    /**
+     * @deprecated Use {@link #unload(ITurtleAccess)} instead.
+     */
+    @Deprecated
+    public void unloadWholeInventory(ITurtleAccess turtle) {
+        unloadTurtleInventory(turtle);
     }
 
     @Override

@@ -55,11 +55,18 @@ public class TurtleUpgradeToolHost implements ITurtleUpgrade {
     public TurtleCommandResult useTool(ITurtleAccess turtle, TurtleSide side, TurtleVerb verb, int direction) {
         if (!CCTweaks.thEnabled) return null;
 
-        switch (verb) {
-            case Attack:
-                return getPlayer(turtle).attack(turtle, direction);
-            case Dig:
-                return getPlayer(turtle).dig(turtle, direction);
+        ToolHostPlayer player = getPlayer(turtle);
+        player.load(turtle, direction, false);
+
+        try {
+            switch (verb) {
+                case Attack:
+                    return player.attack(turtle, direction);
+                case Dig:
+                    return player.dig(turtle, direction);
+            }
+        } finally {
+            player.unload(turtle);
         }
 
         return null;

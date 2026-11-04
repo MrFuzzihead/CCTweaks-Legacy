@@ -7,6 +7,7 @@ import net.minecraft.util.Vec3;
 
 import org.squiddev.cctweaks.api.IWorldPosition;
 import org.squiddev.cctweaks.api.network.INetworkController;
+import org.squiddev.cctweaks.core.utils.LuaResults;
 
 import dan200.computercraft.api.lua.IArguments;
 import dan200.computercraft.api.lua.IBinaryHandler;
@@ -138,7 +139,9 @@ public class BasicModemPeripheral<T extends BasicModem> extends ModemPeripheral
             // Get the peripheral and call it
             PeripheralAccess access = modem.getPeripheral(remoteName);
             if (access == null) throw new LuaException("No peripheral: " + remoteName);
-            return access.callMethod(context, methodName, arguments.subArgs(2));
+            // The remote peripheral may suspend: unwrap into the sentinel array instead of
+            // forcing an Object[] here.
+            return LuaResults.wrap(access.callMethod(context, methodName, arguments.subArgs(2)));
         } else {
             return callMethod(computer, context, method, arguments.asBinary());
         }

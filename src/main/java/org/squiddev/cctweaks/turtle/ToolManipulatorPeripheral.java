@@ -15,10 +15,12 @@ import net.minecraftforge.event.entity.player.PlayerInteractEvent;
 
 import org.squiddev.cctweaks.api.network.INetworkCompatiblePeripheral;
 import org.squiddev.cctweaks.core.turtle.TurtleRegistry;
+import org.squiddev.cctweaks.core.utils.LuaResults;
 
 import dan200.computercraft.api.lua.ILuaContext;
 import dan200.computercraft.api.lua.ILuaTask;
 import dan200.computercraft.api.lua.LuaException;
+import dan200.computercraft.api.lua.MethodResult;
 import dan200.computercraft.api.peripheral.IComputerAccess;
 import dan200.computercraft.api.peripheral.IPeripheral;
 import dan200.computercraft.api.turtle.ITurtleAccess;
@@ -64,11 +66,11 @@ public class ToolManipulatorPeripheral implements IPeripheral, INetworkCompatibl
             case 2:
                 return use(computer, context, InteractDirection.Down, args);
             case 3:
-                return canUse(computer, context, InteractDirection.Forward, args);
+                return LuaResults.wrap(canUse(computer, context, InteractDirection.Forward, args));
             case 4:
-                return canUse(computer, context, InteractDirection.Up, args);
+                return LuaResults.wrap(canUse(computer, context, InteractDirection.Up, args));
             case 5:
-                return canUse(computer, context, InteractDirection.Down, args);
+                return LuaResults.wrap(canUse(computer, context, InteractDirection.Down, args));
             case 6:
                 return swing(computer, context, InteractDirection.Forward, args);
             case 7:
@@ -76,11 +78,11 @@ public class ToolManipulatorPeripheral implements IPeripheral, INetworkCompatibl
             case 8:
                 return swing(computer, context, InteractDirection.Down, args);
             case 9:
-                return canSwing(computer, context, InteractDirection.Forward, args);
+                return LuaResults.wrap(canSwing(computer, context, InteractDirection.Forward, args));
             case 10:
-                return canSwing(computer, context, InteractDirection.Up, args);
+                return LuaResults.wrap(canSwing(computer, context, InteractDirection.Up, args));
             case 11:
-                return canSwing(computer, context, InteractDirection.Down, args);
+                return LuaResults.wrap(canSwing(computer, context, InteractDirection.Down, args));
         }
 
         return null;
@@ -332,8 +334,8 @@ public class ToolManipulatorPeripheral implements IPeripheral, INetworkCompatibl
     // endregion
 
     // region Can use
-    public Object[] canUse(final IComputerAccess computer, ILuaContext context, InteractDirection dir, Object[] args)
-        throws LuaException, InterruptedException {
+    public MethodResult canUse(final IComputerAccess computer, ILuaContext context, InteractDirection dir,
+        Object[] args) throws LuaException, InterruptedException {
         final int direction = dir.toWorldDir(access);
         return context.executeMainThreadTask(new ILuaTask() {
 
@@ -359,8 +361,8 @@ public class ToolManipulatorPeripheral implements IPeripheral, INetworkCompatibl
         });
     }
 
-    public Object[] canSwing(final IComputerAccess computer, ILuaContext context, InteractDirection dir, Object[] args)
-        throws LuaException, InterruptedException {
+    public MethodResult canSwing(final IComputerAccess computer, ILuaContext context, InteractDirection dir,
+        Object[] args) throws LuaException, InterruptedException {
         final int direction = dir.toWorldDir(access);
         return context.executeMainThreadTask(new ILuaTask() {
 

@@ -70,7 +70,20 @@ public class PeripheralAccess implements IComputerAccess {
         throw new LuaException("No such method " + methodName);
     }
 
-    public Object[] callMethod(ILuaContext context, String methodName, IArguments arguments)
+    /**
+     * Call a method, allowing the peripheral to suspend.
+     *
+     * <p>
+     * The result is either an {@code Object[]} of return values or a
+     * {@link dan200.computercraft.api.lua.MethodResult} the caller must hand back to ComputerCraft
+     * via {@link org.squiddev.cctweaks.core.utils.LuaResults#wrap(Object)}.
+     *
+     * @param context    The computer's Lua context.
+     * @param methodName The method to call.
+     * @param arguments  The method's arguments.
+     * @return The method's return values, or a {@code MethodResult} to suspend on.
+     */
+    public Object callMethod(ILuaContext context, String methodName, IArguments arguments)
         throws InterruptedException, LuaException {
         Integer method = methodMap.get(methodName);
         if (method != null) return ArgumentDelegator.delegatePeripheral(peripheral, this, context, method, arguments);

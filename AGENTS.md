@@ -14,7 +14,9 @@ architectural decisions are made.
 | Mod ID | `cctweaks` |
 | Root Package | `org.squiddev.cctweaks` |
 | Minecraft | 1.7.10 (Forge 10.13.4.1614) |
-| Hard dependency | ComputerCraft `[2.0.0,)` — the CC source lives in `dan200/` |
+| Hard dependency | ComputerCraft `[3.2.0,)` — the CC source lives in `dan200/` |
+| CC runtime requirement | Java 17+ with **lwjgl3ify** — CC 3.2.0 declares `required-after:lwjgl3ify` in `mcmod.info` |
+| Cobalt package | `dan200.computercraft.shadow.org.squiddev.cobalt.*` (CC 3.x shadows and relocates Cobalt 0.9.9) |
 | Mixin framework | GTNH UniMixins (`0.8.5-GTNH`) |
 | Mixin package | `org.squiddev.cctweaks.mixins` |
 | Mixin JSON (early) | `src/main/resources/mixins.cctweaks.json` — empty mixins list (package only) |
@@ -86,7 +88,7 @@ mixins. The Mixin enum declaration is in `mixins/Mixins.java`.
 | `TileTurtle_Accessor` | `TileTurtle` | `m_moved` (read + write) | `ItemComputerUpgrade` |
 | `ServerComputer_Accessor` | `ServerComputer` | `m_computer` → `Computer` | `ItemDebugger` |
 | `Computer_Accessor` | `Computer` | `m_machine` → `ILuaMachine` | `ItemDebugger` |
-| `CobaltMachine_Accessor` | `CobaltMachine` | `state` → `LuaState`; `globals` → `LuaTable` | `ItemDebugger` |
+| `CobaltMachine_Accessor` | `CobaltMachine` | `state` → shadowed `LuaState` (Cobalt 0.9.9 installs the debug library into `state.globals()`, so `globals` needs no accessor) | `ItemDebugger` |
 | `PeripheralAPI_Accessor` | `PeripheralAPI` | `m_environment` → `IAPIEnvironment` | `PeripheralAPI_Mixin` |
 | `PeripheralWrapper_Accessor` | `PeripheralAPI$PeripheralWrapper` | `m_peripheral` → `IPeripheral`; `this$0` → outer `PeripheralAPI` | `PeripheralAPI_Mixin` |
 | `ClassMethodsComposer_Accessor` | `ClassMethodsComposer` (OP) | `selector` → `Predicate<IMethodExecutor>` | `ModuleComputerCraft_Mixin` |
@@ -109,6 +111,47 @@ mixins. The Mixin enum declaration is in `mixins/Mixins.java`.
 
 ### Bytecode Manipulation
 > **None.** No `IClassTransformer`, ASM visitors, or FML core mod present.
+
+---
+
+## ComputerCraft 3.2.0 Compatibility
+
+CC 3.2.0 is built with `jvmDowngrader` (base classes are Java 8 class file version 52, no
+`META-INF/versions` overlay), so CCTweaks still builds with `enableModernJavaSyntax = jabel`.
+Four things differ from 2.x and must be preserved:
+
+1. **Cobalt is relocated and shadowed.** `org.squiddev.cobalt.*` does not exist on the classpath.
+   Import `dan200.computercraft.shadow.org.squiddev.cobalt.*`. Cobalt is now 0.9.9, where
+   `DebugLib` has a private constructor and is installed with `DebugLib.add(state)`
+   (`ItemDebugger`). `@Accessor("state")` still matches — the field descriptor follows the
+   relocation.
+2. **Blocking Lua is gone.** `ILuaContext` has `executeMainThreadTask` (returning `MethodResult`)
+   and `issueMainThreadTask` only — no `pullEvent`/`pullEventRaw`/`yield`. A method that waits
+   returns a `MethodResult`; the Lua bridge suspends the coroutine (see
+   `CobaltMachine.CobaltCallback`).
+3. **Delegated calls return `Object`.** `ArgumentDelegator.delegatePeripheral`/
+   `delegateLuaObject` return `Object[]` *or* a `MethodResult`.
+
+Because `callMethod` still declares `Object[]`, a suspension is carried in the single-element
+sentinel array `new Object[] { methodResult }`. `core/utils/LuaResults.wrap(Object)` does that
+(and mirrors CC's own `r instanceof Object[] ? r : new Object[] { r }` from
+`PeripheralAPI.callMethod`). Used by `ToolManipulatorPeripheral.canUse`/`canSwing` and the
+`getPeripheralsOnNetwork` call path in `BasicModemPeripheral` — a remote peripheral reached
+through the network now suspends correctly instead of being flattened to `Object[]`.
+
+### Development environment
+
+* Use `./gradlew runServer25` / `runClient25`, not `runServer`/`runClient`. The Java-8 run tasks
+  put no lwjgl3ify on the classpath and die at `MissingModsException: lwjgl3ify`.
+* `PeripheralsPlusPlus` is `compileOnly` in `dependencies.gradle`. P++ 2286103's coremod
+  transformer patches `ItemPocketComputer.createServerComputer` at hardcoded offsets that no
+  longer match CC 3.2.0's method body, producing `VerifyError: Bad local variable type` and
+  taking all of ComputerCraft down with it. Restore `devOnlyNonPublishable` when P++ ships a
+  CC 3.2.0 build.
+* Verified against `3.2.0`: all 20 mixins load and, of the 19 non-client targets, every one
+  applies without error when loaded (checked by forcing `Class.forName` on each target on a
+  dedicated server). `CableBlockRenderingHandler_Mixin` is client-only and needs an in-game
+  check.
 
 ---
 

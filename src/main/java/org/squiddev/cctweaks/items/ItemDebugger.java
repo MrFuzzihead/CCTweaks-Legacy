@@ -28,12 +28,11 @@ import org.squiddev.cctweaks.core.visualiser.VisualisationPacket;
 import org.squiddev.cctweaks.mixins.late.CobaltMachine_Accessor;
 import org.squiddev.cctweaks.mixins.late.Computer_Accessor;
 import org.squiddev.cctweaks.mixins.late.ServerComputer_Accessor;
-import org.squiddev.cobalt.LuaState;
-import org.squiddev.cobalt.LuaTable;
-import org.squiddev.cobalt.lib.DebugLib;
 
 import dan200.computercraft.api.peripheral.IComputerAccess;
 import dan200.computercraft.api.peripheral.IPeripheral;
+import dan200.computercraft.shadow.org.squiddev.cobalt.LuaState;
+import dan200.computercraft.shadow.org.squiddev.cobalt.lib.DebugLib;
 import dan200.computercraft.shared.computer.blocks.TileComputerBase;
 import dan200.computercraft.shared.computer.core.ServerComputer;
 import dan200.computercraft.shared.util.PeripheralUtil;
@@ -98,8 +97,7 @@ public class ItemDebugger extends ItemComputerAction {
             }
 
             LuaState state = accessor.getState();
-            LuaTable globals = accessor.getGlobals();
-            globals.load(state, new DebugLib());
+            DebugLib.add(state);
         } catch (NullPointerException e) {
             return false;
         } catch (Exception e) {

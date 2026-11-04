@@ -141,8 +141,10 @@ through the network now suspends correctly instead of being flattened to `Object
 
 ### Development environment
 
-* Use `./gradlew runServer25` / `runClient25`, not `runServer`/`runClient`. The Java-8 run tasks
-  put no lwjgl3ify on the classpath and die at `MissingModsException: lwjgl3ify`.
+* Use `./gradlew runServer25` / `runClient25` (or the plain `runServer`/`runClient`, which
+  `build.gradle.kts` aliases onto them). The Java-8 run tasks put no lwjgl3ify on the classpath and
+  die at `MissingModsException: lwjgl3ify` — the 1.7.10 Forge convention targets Java 8, but
+  ComputerCraft 3.2.0 requires lwjgl3ify, which requires Java 17+.
 * `PeripheralsPlusPlus` is `compileOnly` in `dependencies.gradle`. P++ 2286103's coremod
   transformer patches `ItemPocketComputer.createServerComputer` at hardcoded offsets that no
   longer match CC 3.2.0's method body, producing `VerifyError: Bad local variable type` and

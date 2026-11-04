@@ -3,12 +3,14 @@
 // lwjgl3ify on the classpath, so they die at MissingModsException before the game starts. Forward
 // them to the modern variants (which GTNHGradle wires to lwjgl3ify and a Java 17+/21/25 JVM), so
 // both `./gradlew runServer` and CI's server smoke test keep working.
+//
+// This file is applied before the convention plugin, so the run tasks do not exist yet: configure
+// them lazily and resolve the modern task by name when they are realised.
 mapOf("runServer" to "runServer25", "runClient" to "runClient25").forEach { (plain, modern) ->
-    val modernTask = tasks.findByName(modern)
-    if (modernTask != null) {
-        tasks.named(plain) {
+    tasks.matching { it.name == plain }.configureEach {
+        if (project.tasks.names.contains(modern)) {
             description = "Alias for $modern - ComputerCraft 3.2.0 requires lwjgl3ify, which needs Java 17+"
-            dependsOn(modernTask)
+            dependsOn(modern)
             onlyIf("the plain task forwards to $modern") { false }
         }
     }

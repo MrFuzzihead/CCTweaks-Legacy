@@ -9,9 +9,7 @@ import org.squiddev.cctweaks.client.render.RenderNetworkOverlay;
 import org.squiddev.cctweaks.core.peripheral.PeripheralHostProvider;
 import org.squiddev.cctweaks.core.turtle.DefaultTurtleProviders;
 import org.squiddev.cctweaks.core.visualiser.NetworkPlayerWatcher;
-import org.squiddev.cctweaks.integration.IndustrialCraftIntegration;
 import org.squiddev.cctweaks.integration.PortalGunIntegration;
-import org.squiddev.cctweaks.integration.RedstoneFluxIntegration;
 import org.squiddev.cctweaks.integration.multipart.MultipartIntegration;
 import org.squiddev.cctweaks.integration.openperipheral.OpenPeripheralIntegration;
 import org.squiddev.cctweaks.integration.peripheralspp.PeripheralsPlusPlusIntegration;
@@ -67,8 +65,6 @@ public final class Registry {
 
         addModule(new DefaultTurtleProviders());
         addModule(new TurtleUpgradeWirelessBridge());
-        addModule(new RedstoneFluxIntegration());
-        addModule(new IndustrialCraftIntegration());
         addModule(new PeripheralsPlusPlusIntegration());
         addModule(new PortalGunIntegration());
 

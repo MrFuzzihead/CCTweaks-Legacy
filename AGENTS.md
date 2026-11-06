@@ -20,7 +20,7 @@ architectural decisions are made.
 | Mixin framework | GTNH UniMixins (`0.8.5-GTNH`) |
 | Mixin package | `org.squiddev.cctweaks.mixins` |
 | Mixin JSON (early) | `src/main/resources/mixins.cctweaks.json` — empty mixins list (package only) |
-| Mixin JSON (late) | `src/main/resources/mixins.cctweaks.late.json` — all 20 mixins applied after CC loads |
+| Mixin JSON (late) | `src/main/resources/mixins.cctweaks.late.json` — all 10 mixins applied after CC loads |
 | Access Transformers | **None** (`accessTransformersFile =` is blank in `gradle.properties`) |
 | Bytecode / core mod | **None** |
 
@@ -37,7 +37,7 @@ architectural decisions are made.
 | 5 | **Computer Upgrade Item** — upgrades Normal computer → Advanced in-world (transfers state); Normal turtle → Advanced (costs 7 gold ingots) | `items/ItemComputerUpgrade.java` |
 | 6 | **Debug Wand** — displays tile/peripheral/network info in chat, injects Cobalt `DebugLib` into running computers, shows network visualiser overlay | `items/ItemDebugger.java`, `core/visualiser/NetworkPlayerWatcher.java`, `client/render/RenderNetworkOverlay.java` |
 | 7 | **Tool Host Turtle Upgrades** — Normal and Advanced variants; turtles hold and swing arbitrary tools as interactions | `turtle/TurtleUpgradeToolHost.java`, `turtle/TurtleUpgradeToolManipulator.java` |
-| 8 | **Extended Turtle Fuel** — IC2 EU items (`IElectricItem`) and CoFH RF items (`IEnergyContainerItem`) as fuel sources | `integration/RedstoneFluxIntegration.java`, `integration/IndustrialCraftIntegration.java`, `mixins/late/TurtleRefuelCommand_Mixin.java` |
+| 8 | **Extended Turtle Fuel** — ~~removed: CC 3.3.0 ships IC2/RF refuel handlers natively (`TurtleRefuelHandler` registry); CCTweaks fuel registry, integrations and `TurtleRefuelCommand_Mixin` deleted~~ | — |
 | 9 | **Full-block Wired Modem** (meta 1 of `BlockNetworked`) — directional modem replacement as a full cube | `blocks/network/TileNetworkedModem.java` |
 | 10 | **ForgeMultipart Integration** — cable and modem as multipart pieces; `ItemCable.onItemUse` tries multipart placement first | `mixins/late/ItemCable_Mixin.java`, `integration/multipart/network/PartCable.java`, `integration/multipart/network/PartModem.java` |
 | 11 | **OpenPeripheral Network Integration** — injects `INetworkAccess` into OP method calls; proxies attach/detach through `WrappedPeripheral` | `mixins/late/AdapterPeripheral_Mixin.java`, `mixins/late/ModuleComputerCraft_Mixin.java`, `mixins/late/PeripheralProxy_Mixin.java` |
@@ -55,7 +55,6 @@ architectural decisions are made.
 | Cable tile completely rewritten: peripheral enable/disable sync (`m_peripheralAccessAllowed`) for OpenPeripheral's `PeripheralProxy`, correct NBT round-trip, proper `destroy()`/`onChunkUnload()` sequencing, deferred `connect()` via `FmlEvents.schedule` to survive same-tick placement/removal | `mixins/late/TileCable_Mixin.java` |
 | `isCable` broadened so any `IWorldNetworkNode` registers as a connectable cable node (was CC-only hardcoded check) | `mixins/late/BlockCable_Mixin.java` |
 | Cable rendering uses `NetworkAPI.helpers().canConnect()` instead of CC-private block-state logic, fixing rendering for custom network nodes | `mixins/late/CableBlockRenderingHandler_Mixin.java` |
-| `TurtleRefuelCommand.execute` overwritten to route through CCTweaks fuel registry, fixing EU/RF items never being accepted as fuel | `mixins/late/TurtleRefuelCommand_Mixin.java` |
 | `PeripheralWrapper.detach` hook placed at `@At("HEAD")` (before CC fires its own cleanup) to prevent race condition | `mixins/late/PeripheralAPI_Mixin.java` |
 | Neighbor-change peripheral type captured in a `ThreadLocal` before the update runs and consumed after, preventing stale type reads during modem toggle | `mixins/late/TileCable_Mixin.java` — `StorePeripheralType` / `UsePeripheralType` |
 
@@ -66,7 +65,7 @@ architectural decisions are made.
 All mixins are **late phase** (applied after CC and OP are loaded). There are no early-phase
 mixins. The Mixin enum declaration is in `mixins/Mixins.java`.
 
-### Behavioral Mixins (9)
+### Behavioral Mixins (8)
 
 | Class | Target | Strategy | Purpose |
 |-------|--------|----------|---------|
@@ -74,32 +73,21 @@ mixins. The Mixin enum declaration is in `mixins/Mixins.java`.
 | `BlockCable_Mixin` | `dan200.computercraft.shared.peripheral.common.BlockCable` | `@Overwrite` (`isCable`) | Broadens cable connectivity to any network node |
 | `ItemCable_Mixin` | `dan200.computercraft.shared.peripheral.common.ItemCable` | `@Overwrite` (`onItemUse`) | Adds ForgeMultipart placement before vanilla placement |
 | `CableBlockRenderingHandler_Mixin` | `dan200.computercraft.client.proxy.ComputerCraftProxyClient$CableBlockRenderingHandler` | `@Overwrite` (`renderWorldBlock`) | Network-aware cable + modem rendering |
-| `PeripheralAPI_Mixin` | `dan200.computercraft.core.apis.PeripheralAPI$PeripheralWrapper` | `@Inject` on `attach`/`detach` + interface impl | Fires `INetworkedPeripheral` callbacks; implements `INetworkAccess.getPeripheralsOnNetwork` via `IAPIEnvironment.getPeripheral(int)` |
-| `TurtleRefuelCommand_Mixin` | `dan200.computercraft.shared.turtle.core.TurtleRefuelCommand` | `@Overwrite` (`execute`) | Routes refuel through CCTweaks `ITurtleFuelRegistry` |
+| `PeripheralAPI_Mixin` | `dan200.computercraft.core.apis.PeripheralAPI$PeripheralWrapper` | `@Inject` on `attach`/`detach` + interface impl | Fires `INetworkedPeripheral` callbacks; implements `INetworkAccess.getPeripheralsOnNetwork` via `getAvailablePeripherals()` |
 | `PeripheralProxy_Mixin` | `openperipheral.addons.peripheralproxy.WrappedPeripheral` | Interface impl (`INetworkedPeripheral`, `IPeripheralProxy`) | Delegates network events through OP's peripheral wrapper |
 | `AdapterPeripheral_Mixin` | `openperipheral.interfaces.cc.wrappers.AdapterPeripheral` | `@Overwrite` (`prepareCall`) + interface impl | Injects `INetworkAccess` environment into every OP method call |
 | `ModuleComputerCraft_Mixin` | `openperipheral.interfaces.cc.ModuleComputerCraft` | `@Inject` (`init`, `@At("RETURN")`) | Registers `INetworkAccess.class` as a OP provided environment via `MethodSelector.addProvidedEnv` |
 
-### Accessor Interfaces (9)
+### Accessor Interfaces (2, both OpenPeripheral)
 
 | Interface | Target Class | Exposed Members | Used By |
 |-----------|-------------|-----------------|---------|
-| `TileCable_Accessor` | `TileCable` | `m_attachedPeripheralID` (int); `s_cableIcons` (static); `s_modemIcons` (static) | `PartModem`, `PartCable`, `BlockNetworked` |
-| `TileTurtle_Accessor` | `TileTurtle` | `m_moved` (read + write) | `ItemComputerUpgrade` |
-| `ServerComputer_Accessor` | `ServerComputer` | `m_computer` → `Computer` | `ItemDebugger` |
-| `Computer_Accessor` | `Computer` | `m_machine` → `ILuaMachine` | `ItemDebugger` |
-| `CobaltMachine_Accessor` | `CobaltMachine` | `state` → shadowed `LuaState` (Cobalt 0.9.9 installs the debug library into `state.globals()`, so `globals` needs no accessor) | `ItemDebugger` |
-| `PeripheralAPI_Accessor` | `PeripheralAPI` | `m_environment` → `IAPIEnvironment` | `PeripheralAPI_Mixin` |
-| `PeripheralWrapper_Accessor` | `PeripheralAPI$PeripheralWrapper` | `m_peripheral` → `IPeripheral`; `this$0` → outer `PeripheralAPI` | `PeripheralAPI_Mixin` |
 | `ClassMethodsComposer_Accessor` | `ClassMethodsComposer` (OP) | `selector` → `Predicate<IMethodExecutor>` | `ModuleComputerCraft_Mixin` |
 | `ComposedMethodsFactory_Accessor` | `ComposedMethodsFactory` (OP) | `composer` → `ClassMethodsComposer` | `ModuleComputerCraft_Mixin` |
 
-### Invoker Interfaces (2)
+### Invoker Interfaces (0)
 
-| Interface | Target Class | Invoked Method | Used By |
-|-----------|-------------|----------------|---------|
-| `TileComputerBase_Invoker` | `TileComputerBase` | `transferStateFrom(TileComputerBase)` | `ItemComputerUpgrade.useComputer` |
-| `ItemPocketComputer_Invoker` | `ItemPocketComputer` | `createServerComputer(World, IInventory, ItemStack)` → `ServerComputer` | `PocketAccess.getComputer` |
+> None — both removed when CC 3.3.0 widened `transferStateFrom` and `createServerComputer` to public.
 
 ### Access Transformers
 > **None.** `accessTransformersFile` is blank in `gradle.properties`. All private access is
@@ -176,8 +164,6 @@ Registry (static initialiser — runs when CCTweaks.preInit is called)
   addModule(PeripheralHostProvider) core/peripheral/PeripheralHostProvider.java
   addModule(DefaultTurtleProviders) core/turtle/DefaultTurtleProviders.java
   addModule(TurtleUpgradeWireless)  turtle/TurtleUpgradeWirelessBridge.java
-  addModule(RedstoneFluxIntegration)
-  addModule(IndustrialCraftInteg.)
   addModule(PeripheralsPlusPlusInteg.)
   addModule(PortalGunIntegration)
   addModule(NetworkPlayerWatcher)   core/visualiser/NetworkPlayerWatcher.java
@@ -191,7 +177,7 @@ Registry (static initialiser — runs when CCTweaks.preInit is called)
 ```
 JVM Startup
   └─ Mixin subsystem (GTNH UniMixins)
-       Applies all 20 late-phase mixins to CC + OP class bytecode
+       Applies all 10 late-phase mixins to CC + OP class bytecode
        before any CC/OP class is first used.
 
 FMLPreInitializationEvent  →  CCTweaks.preInit()
@@ -211,7 +197,7 @@ FMLInitializationEvent  →  CCTweaks.init()
        └─ IModule.init() for each module
             • Crafting recipes added
             • ComputerCraft.registerTurtleUpgrade(...)
-            • Fuel providers added to CCTweaksAPI.fuelRegistry()
+            • 
             • P++ pocket upgrade registered
 
 FMLPostInitializationEvent  →  CCTweaks.postInit()
@@ -289,7 +275,6 @@ RenderNetworkOverlay  (IClientModule, clientInit registers renderer)
 | `INetworkHelpers` | Utility — can two positions connect? |
 | `INetworkRegistry` | Singleton — maps world positions to nodes, fires `isNode` / `getNode` |
 | `Packet` | Value object: channel, replyChannel, payload, senderObject |
-| `ITurtleFuelRegistry` | Registry of `ITurtleFuelProvider` implementations |
 | `ITurtleRegistry` | Registry of `ITurtleInteraction` implementations |
 | `IDataCard` | Item that can store a network binding (UUID + optional integer ID) |
 
@@ -323,8 +308,6 @@ OP injection) has no automated coverage and requires in-game integration testing
 | `pocketEnabled` | true | Enable Wireless Bridge pocket upgrade (P++) |
 | `thEnabled` | true | Enable Tool Host turtle upgrade |
 | `advanced` | true | Enable Advanced Tool Host variant |
-| `euRefuelAmount` | 25 | EU per turtle fuel unit |
-| `fluxRefuelAmount` | 100 | RF per turtle fuel unit |
 
 ---
 

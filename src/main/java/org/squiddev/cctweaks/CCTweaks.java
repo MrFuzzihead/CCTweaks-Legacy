@@ -77,8 +77,6 @@ public class CCTweaks {
     public static boolean extendedControllerValidation = false;
     // endregion
     // region turtle
-    public static int euRefuelAmount = 25;
-    public static int fluxRefuelAmount = 100;
     // region toolhost
     public static boolean advanced = true;
     public static int advancedUpgradeId = 333;
@@ -196,12 +194,6 @@ public class CCTweaks {
         extendedControllerValidation = prop.getBoolean(extendedControllerValidation);
         // endregion
         // region turtle
-        prop = config.get("turtle", "euRefuelAmount", 25);
-        prop.comment = "The amount of EU a single refuel action provides.";
-        euRefuelAmount = prop.getInt(euRefuelAmount);
-        prop = config.get("turtle", "fluxRefuelAmount", 100);
-        prop.comment = "The amount of Flux a single refuel action provides.";
-        fluxRefuelAmount = prop.getInt(fluxRefuelAmount);
         // region toolhost
         prop = config.get("turtle.toolhost", "advanced", true);
         prop.comment = "Enable the Advanced Tool Host upgrade.";

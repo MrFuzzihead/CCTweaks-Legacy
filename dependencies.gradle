@@ -51,10 +51,8 @@ dependencies {
     // Restore this to devOnlyNonPublishable once P++ ships a build for CC 3.2.0.
     compileOnly(rfg.deobf("curse.maven:PeripheralsPlusPlus-226687:2286103"))
 
-    devOnlyNonPublishable("curse.maven:cofh-core-69162:2388751")
     devOnlyNonPublishable(rfg.deobf("curse.maven:PortalGun-229084:2480016"))
     devOnlyNonPublishable("curse.maven:iChunUtil-229060:2338149")
-    devOnlyNonPublishable("net.industrial-craft:industrialcraft-2:2.2.828-experimental:dev")
 
     testCompile("junit:junit:4.13.1")
 }

@@ -25,12 +25,11 @@ import org.squiddev.cctweaks.blocks.debug.TileDebugPeripheral;
 import org.squiddev.cctweaks.core.utils.WorldPosition;
 import org.squiddev.cctweaks.core.visualiser.NetworkPlayerWatcher;
 import org.squiddev.cctweaks.core.visualiser.VisualisationPacket;
-import org.squiddev.cctweaks.mixins.late.CobaltMachine_Accessor;
-import org.squiddev.cctweaks.mixins.late.Computer_Accessor;
-import org.squiddev.cctweaks.mixins.late.ServerComputer_Accessor;
 
 import dan200.computercraft.api.peripheral.IComputerAccess;
 import dan200.computercraft.api.peripheral.IPeripheral;
+import dan200.computercraft.core.computer.Computer;
+import dan200.computercraft.core.lua.lib.cobalt.CobaltMachine;
 import dan200.computercraft.shadow.org.squiddev.cobalt.LuaState;
 import dan200.computercraft.shadow.org.squiddev.cobalt.lib.DebugLib;
 import dan200.computercraft.shared.computer.blocks.TileComputerBase;
@@ -88,15 +87,14 @@ public class ItemDebugger extends ItemComputerAction {
         if (serverComputer == null) return false;
 
         try {
-            dan200.computercraft.core.computer.Computer computer = ((ServerComputer_Accessor) serverComputer)
-                .getComputer();
-            dan200.computercraft.core.lua.ILuaMachine luaMachine = ((Computer_Accessor) computer).getMachine();
+            Computer computer = serverComputer.getComputer();
+            dan200.computercraft.core.lua.ILuaMachine luaMachine = computer.getLuaMachine();
 
-            if (!(luaMachine instanceof CobaltMachine_Accessor accessor)) {
+            if (!(luaMachine instanceof CobaltMachine machine)) {
                 return false;
             }
 
-            LuaState state = accessor.getState();
+            LuaState state = machine.getLuaState();
             DebugLib.add(state);
         } catch (NullPointerException e) {
             return false;

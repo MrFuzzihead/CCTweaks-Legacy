@@ -20,7 +20,6 @@ import org.squiddev.cctweaks.api.peripheral.IPeripheralHost;
 import org.squiddev.cctweaks.core.network.modem.BasicModem;
 import org.squiddev.cctweaks.core.network.modem.DirectionalPeripheralModem;
 import org.squiddev.cctweaks.core.utils.Helpers;
-import org.squiddev.cctweaks.mixins.late.TileCable_Accessor;
 
 import codechicken.lib.data.MCDataInput;
 import codechicken.lib.data.MCDataOutput;
@@ -54,7 +53,7 @@ public class PartModem extends PartSidedNetwork implements IPeripheralHost {
     public PartModem(TileCable modem) {
         NBTTagCompound tag = new NBTTagCompound();
         tag.setByte("node_direction", (byte) modem.getDirection());
-        tag.setInteger("modem_id", ((TileCable_Accessor) modem).getAttachedPeripheralID());
+        tag.setInteger("modem_id", modem.getAttachedPeripheralID());
         tag.setBoolean("modem_enabled", (modem.getAnim() & BasicModem.MODEM_PERIPHERAL) == BasicModem.MODEM_PERIPHERAL);
         load(tag);
     }
@@ -226,8 +225,11 @@ public class PartModem extends PartSidedNetwork implements IPeripheralHost {
         public IIcon[] getIcons() {
             IIcon[] icons;
             if ((icons = PartModem.icons) == null) {
-                icons = TileCable_Accessor.getS_modemIcons();
-                PartModem.icons = icons;
+                icons = PartModem.icons = new IIcon[8];
+                for (int i = 0; i < 4; i++) {
+                    icons[i * 2] = TileCable.getModemFaceTexture(i);
+                    icons[i * 2 + 1] = TileCable.getModemSideTexture(i);
+                }
             }
 
             return icons;

@@ -13,7 +13,6 @@ public enum Mixins implements IMixins {
     // You should declare all of your mixins early and late in this same enum
     CCMIXINS(new MixinBuilder().setPhase(Phase.LATE)
         .addCommonMixins(
-            "TurtleRefuelCommand_Mixin",
             "BlockCable_Mixin",
             "CableBlockRenderingHandler_Mixin",
             "ItemCable_Mixin",

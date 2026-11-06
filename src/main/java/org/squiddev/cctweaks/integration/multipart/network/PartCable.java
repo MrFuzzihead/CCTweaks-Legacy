@@ -23,7 +23,6 @@ import org.squiddev.cctweaks.api.network.IWorldNetworkNodeHost;
 import org.squiddev.cctweaks.core.network.NetworkHelpers;
 import org.squiddev.cctweaks.core.network.cable.CableWithInternalSidedParts;
 import org.squiddev.cctweaks.integration.multipart.PartBase;
-import org.squiddev.cctweaks.mixins.late.TileCable_Accessor;
 
 import codechicken.lib.raytracer.IndexedCuboid6;
 import codechicken.lib.render.TextureUtils;
@@ -38,6 +37,7 @@ import dan200.computercraft.ComputerCraft;
 import dan200.computercraft.client.render.FixedRenderBlocks;
 import dan200.computercraft.shared.peripheral.PeripheralType;
 import dan200.computercraft.shared.peripheral.common.PeripheralItemFactory;
+import dan200.computercraft.shared.peripheral.modem.TileCable;
 
 public class PartCable extends PartBase implements IWorldNetworkNodeHost, TSlottedPart, ISidedHollowConnect {
 
@@ -302,8 +302,8 @@ public class PartCable extends PartBase implements IWorldNetworkNodeHost, TSlott
         public IIcon[] getIcons() {
             IIcon[] icons;
             if ((icons = PartCable.icons) == null) {
-                icons = TileCable_Accessor.getS_cableIcons();
-                PartCable.icons = icons;
+                icons = PartCable.icons = new IIcon[] { TileCable.getCableItemTexture(0),
+                    TileCable.getCableItemTexture(2) };
             }
 
             return icons;

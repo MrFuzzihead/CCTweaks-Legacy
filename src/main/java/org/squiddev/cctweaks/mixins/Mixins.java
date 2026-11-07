@@ -2,8 +2,6 @@ package org.squiddev.cctweaks.mixins;
 
 import javax.annotation.Nonnull;
 
-import org.squiddev.cctweaks.CCTweaks;
-
 import com.gtnewhorizon.gtnhmixins.builders.IMixins;
 import com.gtnewhorizon.gtnhmixins.builders.MixinBuilder;
 
@@ -12,18 +10,9 @@ public enum Mixins implements IMixins {
     // Read the Javadoc of IMixins and MixinBuilder for further information
     // You should declare all of your mixins early and late in this same enum
     CCMIXINS(new MixinBuilder().setPhase(Phase.LATE)
-        .addCommonMixins(
-            "BlockCable_Mixin",
-            "CableBlockRenderingHandler_Mixin",
-            "ItemCable_Mixin",
-            "PeripheralAPI_Mixin",
-            "TileCable_Mixin")),
+        .addCommonMixins("BlockCable_Mixin", "TileCable_Mixin")),
     OPENPERIPHERAL(new MixinBuilder().setPhase(Phase.LATE)
-        .addCommonMixins("PeripheralProxy_Mixin", "AdapterPeripheral_Mixin", "ModuleComputerCraft_Mixin")),
-    MULTIPART(new MixinBuilder().setPhase(Phase.LATE)
-        .addRequiredMod(TargetMods.MULTIPART)
-        .setApplyIf(() -> CCTweaks.cbMultipart)
-        .addCommonMixins("ItemCable_Mixin"));
+        .addCommonMixins("PeripheralProxy_Mixin", "AdapterPeripheral_Mixin", "ModuleComputerCraft_Mixin"));
 
     private final MixinBuilder builder;
 

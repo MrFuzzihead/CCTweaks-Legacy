@@ -5,7 +5,9 @@ import java.util.Map;
 import org.squiddev.cctweaks.api.network.INetworkAccess;
 import org.squiddev.cctweaks.api.network.INetworkedPeripheral;
 import org.squiddev.cctweaks.api.network.Packet;
+import org.squiddev.cctweaks.core.network.ComputerNetworkAccess;
 
+import dan200.computercraft.api.peripheral.IComputerAccess;
 import dan200.computercraft.api.peripheral.IPeripheral;
 
 /**
@@ -27,6 +29,20 @@ public class TileDebugNetworkedPeripheral extends TileDebugPeripheral {
         @Override
         public String getType() {
             return "networked";
+        }
+
+        @Override
+        public void attach(IComputerAccess computer) {
+            super.attach(computer);
+            ComputerNetworkAccess network = new ComputerNetworkAccess(computer);
+            attachToNetwork(network, network.getName());
+        }
+
+        @Override
+        public void detach(IComputerAccess computer) {
+            ComputerNetworkAccess network = new ComputerNetworkAccess(computer);
+            detachFromNetwork(network, network.getName());
+            super.detach(computer);
         }
 
         @Override

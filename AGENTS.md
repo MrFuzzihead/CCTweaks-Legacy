@@ -20,7 +20,7 @@ architectural decisions are made.
 | Mixin framework | GTNH UniMixins (`0.8.5-GTNH`) |
 | Mixin package | `org.squiddev.cctweaks.mixins` |
 | Mixin JSON (early) | `src/main/resources/mixins.cctweaks.json` — empty mixins list (package only) |
-| Mixin JSON (late) | `src/main/resources/mixins.cctweaks.late.json` — all 10 mixins applied after CC loads |
+| Mixin JSON (late) | `src/main/resources/mixins.cctweaks.late.json` — all 7 mixins applied after CC loads |
 | Access Transformers | **None** (`accessTransformersFile =` is blank in `gradle.properties`) |
 | Bytecode / core mod | **None** |
 
@@ -31,7 +31,6 @@ architectural decisions are made.
 | # | Feature | Key Source Files |
 |---|---------|-----------------|
 | 1 | **Wired Network Extension** — replaces CC's cable topology with a generic `INetworkNode` graph so any block can join a cable network | `mixins/late/TileCable_Mixin.java`, `mixins/late/BlockCable_Mixin.java`, `core/network/controller/NetworkController.java`, `core/network/NetworkRegistry.java` |
-| 2 | **Network-Aware Cable Rendering** — cable arms extend to any `IWorldNetworkNode`, not just CC tiles | `mixins/late/CableBlockRenderingHandler_Mixin.java` |
 | 3 | **Wireless Bridge Block** (meta 0 of `BlockNetworked`) — UUID/integer-bound block that wirelessly links two wired networks; `ItemDataCard` persists bindings | `blocks/network/TileNetworkedWirelessBridge.java`, `core/network/bridge/NetworkBinding.java`, `items/ItemDataCard.java` |
 | 4 | **Wireless Bridge Turtle Upgrade** — turtle peripheral with `bindFromCard`/`bindToCard`/`bindToBlock`/`bindFromBlock` Lua API | `turtle/TurtleUpgradeWirelessBridge.java` |
 | 5 | **Computer Upgrade Item** — upgrades Normal computer → Advanced in-world (transfers state); Normal turtle → Advanced (costs 7 gold ingots) | `items/ItemComputerUpgrade.java` |
@@ -39,12 +38,12 @@ architectural decisions are made.
 | 7 | **Tool Host Turtle Upgrades** — Normal and Advanced variants; turtles hold and swing arbitrary tools as interactions | `turtle/TurtleUpgradeToolHost.java`, `turtle/TurtleUpgradeToolManipulator.java` |
 | 8 | **Extended Turtle Fuel** — ~~removed: CC 3.3.0 ships IC2/RF refuel handlers natively (`TurtleRefuelHandler` registry); CCTweaks fuel registry, integrations and `TurtleRefuelCommand_Mixin` deleted~~ | — |
 | 9 | **Full-block Wired Modem** (meta 1 of `BlockNetworked`) — directional modem replacement as a full cube | `blocks/network/TileNetworkedModem.java` |
-| 10 | **ForgeMultipart Integration** — cable and modem as multipart pieces; `ItemCable.onItemUse` tries multipart placement first | `mixins/late/ItemCable_Mixin.java`, `integration/multipart/network/PartCable.java`, `integration/multipart/network/PartModem.java` |
+| 10 | **ForgeMultipart Integration** — cable and modem as multipart pieces (placed via the multipart converter, not the cable item) | `integration/multipart/network/PartCable.java`, `integration/multipart/network/PartModem.java` |
 | 11 | **OpenPeripheral Network Integration** — injects `INetworkAccess` into OP method calls; proxies attach/detach through `WrappedPeripheral` | `mixins/late/AdapterPeripheral_Mixin.java`, `mixins/late/ModuleComputerCraft_Mixin.java`, `mixins/late/PeripheralProxy_Mixin.java` |
 | 12 | **OpenPeripheral Inventory Adapter** — registers `AdapterNetworkedInventory` so OP exposes networked inventories | `integration/openperipheral/OpenPeripheralIntegration.java`, `integration/openperipheral/AdapterNetworkedInventory.java` |
 | 13 | **Peripherals++ Pocket Wireless Bridge** — wireless bridge pocket upgrade via P++ registry | `integration/peripheralspp/PocketWirelessBinding.java`, `integration/peripheralspp/PocketAccess.java` |
 | 14 | **Portal Gun Turtle Interaction** — registers portal gun item as a swing/use turtle tool interaction | `integration/PortalGunIntegration.java` |
-| 15 | **PeripheralAPI Network Injection** — hooks `PeripheralWrapper.attach`/`detach` so CC peripherals receive `INetworkedPeripheral` events | `mixins/late/PeripheralAPI_Mixin.java` |
+| 15 | **Peripheral Lifecycle Hookup** — peripherals receive `INetworkedPeripheral` events from CC's own `IPeripheral.attach`/`detach` (no mixin onto CC's peripheral wrapper) | `core/network/ComputerNetworkAccess.java` |
 
 ---
 
@@ -54,8 +53,6 @@ architectural decisions are made.
 |-----|----------|
 | Cable tile completely rewritten: peripheral enable/disable sync (`m_peripheralAccessAllowed`) for OpenPeripheral's `PeripheralProxy`, correct NBT round-trip, proper `destroy()`/`onChunkUnload()` sequencing, deferred `connect()` via `FmlEvents.schedule` to survive same-tick placement/removal | `mixins/late/TileCable_Mixin.java` |
 | `isCable` broadened so any `IWorldNetworkNode` registers as a connectable cable node (was CC-only hardcoded check) | `mixins/late/BlockCable_Mixin.java` |
-| Cable rendering uses `NetworkAPI.helpers().canConnect()` instead of CC-private block-state logic, fixing rendering for custom network nodes | `mixins/late/CableBlockRenderingHandler_Mixin.java` |
-| `PeripheralWrapper.detach` hook placed at `@At("HEAD")` (before CC fires its own cleanup) to prevent race condition | `mixins/late/PeripheralAPI_Mixin.java` |
 | Neighbor-change peripheral type captured in a `ThreadLocal` before the update runs and consumed after, preventing stale type reads during modem toggle | `mixins/late/TileCable_Mixin.java` — `StorePeripheralType` / `UsePeripheralType` |
 
 ---
@@ -65,17 +62,14 @@ architectural decisions are made.
 All mixins are **late phase** (applied after CC and OP are loaded). There are no early-phase
 mixins. The Mixin enum declaration is in `mixins/Mixins.java`.
 
-### Behavioral Mixins (8)
+### Behavioral Mixins (5)
 
 | Class | Target | Strategy | Purpose |
 |-------|--------|----------|---------|
 | `TileCable_Mixin` | `dan200.computercraft.shared.peripheral.modem.TileCable` | 14× `@Overwrite` + 2× `@Inject` | Full rewrite of CC cable tile; implements `IWorldNetworkNodeHost`, `IWorldPosition` |
 | `BlockCable_Mixin` | `dan200.computercraft.shared.peripheral.common.BlockCable` | `@Overwrite` (`isCable`) | Broadens cable connectivity to any network node |
-| `ItemCable_Mixin` | `dan200.computercraft.shared.peripheral.common.ItemCable` | `@Overwrite` (`onItemUse`) | Adds ForgeMultipart placement before vanilla placement |
-| `CableBlockRenderingHandler_Mixin` | `dan200.computercraft.client.proxy.ComputerCraftProxyClient$CableBlockRenderingHandler` | `@Overwrite` (`renderWorldBlock`) | Network-aware cable + modem rendering |
-| `PeripheralAPI_Mixin` | `dan200.computercraft.core.apis.PeripheralAPI$PeripheralWrapper` | `@Inject` on `attach`/`detach` + interface impl | Fires `INetworkedPeripheral` callbacks; implements `INetworkAccess.getPeripheralsOnNetwork` via `getAvailablePeripherals()` |
-| `PeripheralProxy_Mixin` | `openperipheral.addons.peripheralproxy.WrappedPeripheral` | Interface impl (`INetworkedPeripheral`, `IPeripheralProxy`) | Delegates network events through OP's peripheral wrapper |
-| `AdapterPeripheral_Mixin` | `openperipheral.interfaces.cc.wrappers.AdapterPeripheral` | `@Overwrite` (`prepareCall`) + interface impl | Injects `INetworkAccess` environment into every OP method call |
+| `PeripheralProxy_Mixin` | `openperipheral.addons.peripheralproxy.WrappedPeripheral` | Interface impl (`INetworkedPeripheral`, `IPeripheralProxy`) + `@Inject` on `attach`/`detach` | Delegates network events through OP's peripheral wrapper |
+| `AdapterPeripheral_Mixin` | `openperipheral.interfaces.cc.wrappers.AdapterPeripheral` | `@Overwrite` (`prepareCall`) + `@Inject` on `attach`/`detach` + interface impl | Injects `INetworkAccess` environment into every OP method call; feeds the direct-side network in from `attach` |
 | `ModuleComputerCraft_Mixin` | `openperipheral.interfaces.cc.ModuleComputerCraft` | `@Inject` (`init`, `@At("RETURN")`) | Registers `INetworkAccess.class` as a OP provided environment via `MethodSelector.addProvidedEnv` |
 
 ### Accessor Interfaces (2, both OpenPeripheral)
@@ -140,8 +134,7 @@ through the network now suspends correctly instead of being flattened to `Object
   CC 3.2.0 build.
 * Verified against `3.2.0`: all 20 mixins load and, of the 19 non-client targets, every one
   applies without error when loaded (checked by forcing `Class.forName` on each target on a
-  dedicated server). `CableBlockRenderingHandler_Mixin` is client-only and needs an in-game
-  check.
+  dedicated server).
 
 ---
 
@@ -177,7 +170,7 @@ Registry (static initialiser — runs when CCTweaks.preInit is called)
 ```
 JVM Startup
   └─ Mixin subsystem (GTNH UniMixins)
-       Applies all 10 late-phase mixins to CC + OP class bytecode
+       Applies all 7 late-phase mixins to CC + OP class bytecode
        before any CC/OP class is first used.
 
 FMLPreInitializationEvent  →  CCTweaks.preInit()
@@ -240,11 +233,12 @@ NetworkController  (core/network/controller/NetworkController.java)
   └─ transmitPacket(sender, packet)
        └─ route Packet to every IReceiver in range via node graph
 
-PeripheralAPI_Mixin  (per CC computer, fires inside CC tick)
-  ├─ PeripheralWrapper.attach @TAIL
-  │    └─ INetworkedPeripheral.attachToNetwork(this=INetworkAccess, side)
-  └─ PeripheralWrapper.detach @HEAD
-       └─ INetworkedPeripheral.detachFromNetwork(this=INetworkAccess, side)
+Peripheral direct-side callbacks  (CC calls IPeripheral.attach/detach itself)
+  ├─ IPeripheral.attach(IComputerAccess)
+  │    └─ INetworkedPeripheral.attachToNetwork(ComputerNetworkAccess(computer), attachmentName)
+  │         • TileDebugNetworkedPeripheral, OP AdapterPeripheral (@Inject TAIL), OP WrappedPeripheral (@Inject TAIL)
+  └─ IPeripheral.detach(IComputerAccess)  (network callback first, then CC cleanup)
+       └─ INetworkedPeripheral.detachFromNetwork(ComputerNetworkAccess(computer), attachmentName)
 
 ─── Client Runtime ──────────────────────────────────────────────────
 
@@ -269,7 +263,7 @@ RenderNetworkOverlay  (IClientModule, clientInit registers renderer)
 | `IWorldNetworkNode` | `INetworkNode` + world position |
 | `IWorldNetworkNodeHost` | TileEntity / part that owns an `IWorldNetworkNode` |
 | `INetworkController` | The controller for a connected component; manages peripheral map + packet routing |
-| `INetworkAccess` | View of the network given to a peripheral (peripherals-on-network, transmit) |
+| `INetworkAccess` | View of the network given to a peripheral (peripherals-on-network, transmit); `ComputerNetworkAccess` is the direct-side implementation |
 | `INetworkedPeripheral` | Peripheral that wants attach/detach/invalidate callbacks |
 | `INetworkCompatiblePeripheral` | Marker — peripheral can be included in a network's peripheral map |
 | `INetworkHelpers` | Utility — can two positions connect? |

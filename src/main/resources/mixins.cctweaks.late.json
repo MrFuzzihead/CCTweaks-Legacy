@@ -8,12 +8,9 @@
   "mixins": [
     "AdapterPeripheral_Mixin",
     "BlockCable_Mixin",
-    "CableBlockRenderingHandler_Mixin",
     "ClassMethodsComposer_Accessor",
     "ComposedMethodsFactory_Accessor",
-    "ItemCable_Mixin",
     "ModuleComputerCraft_Mixin",
-    "PeripheralAPI_Mixin",
     "PeripheralProxy_Mixin",
     "TileCable_Mixin"
   ]

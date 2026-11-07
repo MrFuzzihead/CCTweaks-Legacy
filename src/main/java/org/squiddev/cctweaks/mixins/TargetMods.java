@@ -11,8 +11,7 @@ public enum TargetMods implements ITargetMod {
     // Add to this enum information about the mods you need to identify during runtime
     COMPUTERCRAFT("dan200.computercraft.ComputerCraft", "ComputerCraft"),
     OPENPERIPHERALADDONS("openperipheral.addons.OpenPeripheralAddons", "OpenPeripheral"),
-    OPENPERIPHERALCORE("openperipheral.OpenPeripheralCore", "OpenPeripheralCore"),
-    MULTIPART("codechicken.multipart.minecraft.MinecraftMultipartMod", "McMultipart");
+    OPENPERIPHERALCORE("openperipheral.OpenPeripheralCore", "OpenPeripheralCore");
 
     private final TargetModBuilder builder;
 

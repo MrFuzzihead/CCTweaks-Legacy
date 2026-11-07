@@ -7,10 +7,14 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Overwrite;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.squiddev.cctweaks.api.network.INetworkAccess;
 import org.squiddev.cctweaks.api.network.INetworkedPeripheral;
 import org.squiddev.cctweaks.api.network.Packet;
 import org.squiddev.cctweaks.api.peripheral.IPeripheralEnvironments;
+import org.squiddev.cctweaks.core.network.ComputerNetworkAccess;
 import org.squiddev.cctweaks.core.network.NetworkAccessDelegate;
 
 import dan200.computercraft.api.lua.ILuaContext;
@@ -53,6 +57,17 @@ public abstract class AdapterPeripheral_Mixin implements IPeripheralTargeted, IN
         call = ModuleComputerCraft.ENV.addPeripheralArgs(call, computer, context);
         call.setEnv(IPeripheralEnvironments.ARG_NETWORK, cCTweaks_Legacy$getNetworkAccess());
         return call;
+    }
+
+    @Inject(at = @At("TAIL"), method = "attach", remap = false)
+    public void cCTweaks_Legacy$attach(IComputerAccess computer, CallbackInfo ci) {
+        ComputerNetworkAccess network = new ComputerNetworkAccess(computer);
+        cCTweaks_Legacy$getNetworkAccess().add(network);
+    }
+
+    @Inject(at = @At("HEAD"), method = "detach", remap = false)
+    public void cCTweaks_Legacy$detach(IComputerAccess computer, CallbackInfo ci) {
+        cCTweaks_Legacy$getNetworkAccess().remove(new ComputerNetworkAccess(computer));
     }
 
     @Override

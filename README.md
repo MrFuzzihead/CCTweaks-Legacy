@@ -89,9 +89,9 @@ Please read [AGENTS.md](AGENTS.md) before making structural changes.
 
 ## License
 
-**Mozilla Public License 2.0 (MPL-2.0)** — inherited from upstream
-[CCTweaks](https://github.com/SquidDev-CC/CCTweaks). ComputerCraft itself is distributed under
-the ComputerCraft Public License; see
+**MIT License** — see [LICENSE](LICENSE), inherited verbatim from upstream
+[CCTweaks](https://github.com/SquidDev-CC/CCTweaks) (Copyright (c) 2015-2017 SquidDev).
+ComputerCraft itself is distributed under the ComputerCraft Public License; see
 [Computercraft-Legacy](https://github.com/MrFuzzihead/Computercraft-Legacy) for its terms.
 
 ## Credit

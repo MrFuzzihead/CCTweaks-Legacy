@@ -36,7 +36,7 @@ public class CCTweaks {
     public static final String MODID = "cctweaks";
     public static final String NAME = "CCTweaks";
     public static final String VERSION = Tags.VERSION;
-    public static final String DEPENDENCIES = "required-after:ComputerCraft@[2.0.0,)";
+    public static final String DEPENDENCIES = "required-after:ComputerCraft@[3.3.0,)";
     public static final Logger logger = LogManager.getLogger();
 
     public static final String ROOT_NAME = "org.squiddev.cctweaks.";

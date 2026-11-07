@@ -4,20 +4,12 @@ import java.util.HashSet;
 import java.util.Set;
 
 import org.squiddev.cctweaks.blocks.debug.BlockDebug;
-import org.squiddev.cctweaks.blocks.network.BlockNetworked;
-import org.squiddev.cctweaks.client.render.RenderNetworkOverlay;
 import org.squiddev.cctweaks.core.peripheral.PeripheralHostProvider;
 import org.squiddev.cctweaks.core.turtle.DefaultTurtleProviders;
-import org.squiddev.cctweaks.core.visualiser.NetworkPlayerWatcher;
 import org.squiddev.cctweaks.integration.PortalGunIntegration;
-import org.squiddev.cctweaks.integration.multipart.MultipartIntegration;
-import org.squiddev.cctweaks.integration.openperipheral.OpenPeripheralIntegration;
-import org.squiddev.cctweaks.integration.peripheralspp.PeripheralsPlusPlusIntegration;
 import org.squiddev.cctweaks.items.ItemComputerUpgrade;
-import org.squiddev.cctweaks.items.ItemDataCard;
 import org.squiddev.cctweaks.items.ItemDebugger;
 import org.squiddev.cctweaks.items.ItemToolHost;
-import org.squiddev.cctweaks.turtle.TurtleUpgradeWirelessBridge;
 
 import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
@@ -29,10 +21,7 @@ public final class Registry {
 
     public static final ItemComputerUpgrade itemComputerUpgrade;
     public static final ItemDebugger itemDebugger;
-    public static final ItemDataCard itemDataCard;
     public static final ItemToolHost itemToolHost;
-
-    public static final BlockNetworked blockNetworked;
 
     private static final Set<IModule> modules = new HashSet<IModule>();
 
@@ -45,13 +34,7 @@ public final class Registry {
         addModule(itemDebugger = new ItemDebugger());
         addModule(itemToolHost = new ItemToolHost());
 
-        addModule(itemDataCard = new ItemDataCard());
-        addModule(blockNetworked = new BlockNetworked());
-
         addModule(new BlockDebug());
-
-        addModule(new MultipartIntegration());
-        addModule(new OpenPeripheralIntegration());
 
         addModule(new PeripheralHostProvider());
         /*
@@ -64,12 +47,8 @@ public final class Registry {
          */
 
         addModule(new DefaultTurtleProviders());
-        addModule(new TurtleUpgradeWirelessBridge());
-        addModule(new PeripheralsPlusPlusIntegration());
         addModule(new PortalGunIntegration());
 
-        addModule(new NetworkPlayerWatcher());
-        addModule(new RenderNetworkOverlay());
     }
 
     public static void addModule(IModule module) {

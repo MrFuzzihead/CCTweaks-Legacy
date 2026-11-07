@@ -2,29 +2,18 @@ package org.squiddev.cctweaks.items;
 
 import java.util.Set;
 
-import net.minecraft.entity.Entity;
 import net.minecraft.entity.player.EntityPlayer;
-import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.item.ItemStack;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.ChatComponentText;
 import net.minecraft.util.ChatStyle;
 import net.minecraft.util.EnumChatFormatting;
 import net.minecraft.util.IChatComponent;
-import net.minecraft.util.MovingObjectPosition;
 import net.minecraft.world.World;
 
 import org.apache.commons.lang3.StringUtils;
 import org.squiddev.cctweaks.CCTweaks;
-import org.squiddev.cctweaks.api.IWorldPosition;
-import org.squiddev.cctweaks.api.network.INetworkController;
-import org.squiddev.cctweaks.api.network.INetworkNode;
-import org.squiddev.cctweaks.api.network.IWorldNetworkNode;
-import org.squiddev.cctweaks.api.network.NetworkAPI;
 import org.squiddev.cctweaks.blocks.debug.TileDebugPeripheral;
-import org.squiddev.cctweaks.core.utils.WorldPosition;
-import org.squiddev.cctweaks.core.visualiser.NetworkPlayerWatcher;
-import org.squiddev.cctweaks.core.visualiser.VisualisationPacket;
 
 import dan200.computercraft.api.peripheral.IComputerAccess;
 import dan200.computercraft.api.peripheral.IPeripheral;
@@ -46,39 +35,6 @@ public class ItemDebugger extends ItemComputerAction {
     public boolean onItemUseFirst(ItemStack stack, EntityPlayer player, World world, int x, int y, int z, int side,
         float hitX, float hitY, float hitZ) {
         return CCTweaks.debugWandEnabled && super.onItemUseFirst(stack, player, world, x, y, z, side, hitX, hitY, hitZ);
-    }
-
-    @Override
-    public ItemStack onItemRightClick(ItemStack stack, World world, EntityPlayer player) {
-        // Allow manually refreshing the network
-        if (player.isSneaking() && !world.isRemote && player instanceof EntityPlayerMP && CCTweaks.debugWandEnabled) {
-            handleWatcher((EntityPlayerMP) player, NetworkPlayerWatcher.get(player), true);
-        }
-
-        return super.onItemRightClick(stack, world, player);
-    }
-
-    protected void handleWatcher(EntityPlayerMP player, NetworkPlayerWatcher.Watcher watcher, boolean force) {
-        if (watcher == null) return;
-        if (watcher.changed() || force) VisualisationPacket.send(watcher.controller, player);
-        if (watcher.controller == null) NetworkPlayerWatcher.remove(player);
-    }
-
-    @Override
-    public void onUpdate(ItemStack stack, World world, Entity entity, int p_77663_4_, boolean p_77663_5_) {
-        super.onUpdate(stack, world, entity, p_77663_4_, p_77663_5_);
-
-        if (!world.isRemote && entity instanceof EntityPlayerMP && CCTweaks.debugWandEnabled) {
-            EntityPlayerMP player = ((EntityPlayerMP) entity);
-            if (player.getHeldItem() == stack) {
-                MovingObjectPosition position = getMovingObjectPositionFromPlayer(world, player, false);
-                if (position == null || position.typeOfHit != MovingObjectPosition.MovingObjectType.BLOCK) return;
-                handleWatcher(
-                    player,
-                    NetworkPlayerWatcher.update(player, position.blockX, position.blockY, position.blockZ),
-                    false);
-            }
-        }
     }
 
     @Override
@@ -107,8 +63,6 @@ public class ItemDebugger extends ItemComputerAction {
 
     @Override
     protected boolean useGeneric(ItemStack stack, EntityPlayer player, TileEntity tile, int side) {
-        IWorldPosition position = new WorldPosition(tile);
-
         player.addChatMessage(
             withColor("Tile: ", EnumChatFormatting.DARK_PURPLE).appendSibling(
                 info(
@@ -149,43 +103,6 @@ public class ItemDebugger extends ItemComputerAction {
                     }
 
                     player.addChatMessage(boundList);
-                }
-            }
-        }
-
-        {
-            INetworkNode node = NetworkAPI.registry()
-                .getNode(tile);
-            INetworkController controller = node != null ? node.getAttachedNetwork() : null;
-            if (controller != null) {
-                player.addChatMessage(withColor("Network", EnumChatFormatting.LIGHT_PURPLE));
-                Set<INetworkNode> nodes = controller.getNodesOnNetwork();
-                player.addChatMessage(
-                    withColor(" Size: ", EnumChatFormatting.AQUA).appendSibling(info(nodes.size() + " nodes")));
-
-                boolean writtenHeader = false;
-                for (INetworkNode remoteNode : nodes) {
-                    if (remoteNode == node || (remoteNode instanceof IWorldNetworkNode
-                        && position.equals(((IWorldNetworkNode) remoteNode).getPosition()))) {
-                        Set<String> peripherals = remoteNode.getConnectedPeripherals()
-                            .keySet();
-                        if (!peripherals.isEmpty()) {
-                            if (!writtenHeader) {
-                                writtenHeader = true;
-                                player.addChatMessage(withColor(" Locals: ", EnumChatFormatting.AQUA));
-                            }
-                            player.addChatMessage(
-                                withColor("  " + remoteNode.toString() + " ", EnumChatFormatting.DARK_AQUA)
-                                    .appendSibling(info(peripherals)));
-                        }
-                    }
-                }
-
-                Set<String> remotes = controller.getPeripheralsOnNetwork()
-                    .keySet();
-                if (!remotes.isEmpty()) {
-                    player
-                        .addChatMessage(withColor(" Remotes: ", EnumChatFormatting.AQUA).appendSibling(info(remotes)));
                 }
             }
         }

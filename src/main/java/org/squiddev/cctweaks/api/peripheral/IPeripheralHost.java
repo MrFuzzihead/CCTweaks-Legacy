@@ -6,8 +6,7 @@ import dan200.computercraft.api.peripheral.IPeripheral;
  * An object that hosts a {@link IPeripheral}.
  *
  * Instead of implementing {@link IPeripheral} and delegating methods to it,
- * you can implement this interface instead. This is supported for TileEntities
- * and multiparts.
+ * you can implement this interface instead. This is supported for TileEntities.
  */
 public interface IPeripheralHost {
 

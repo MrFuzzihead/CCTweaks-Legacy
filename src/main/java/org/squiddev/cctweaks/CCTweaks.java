@@ -25,12 +25,7 @@ import cpw.mods.fml.relauncher.Side;
 import dan200.computercraft.ComputerCraft;
 import dan200.computercraft.core.lua.lib.DelayedTasks;
 
-@Mod(
-    modid = CCTweaks.MODID,
-    name = CCTweaks.NAME,
-    version = CCTweaks.VERSION,
-    dependencies = CCTweaks.DEPENDENCIES,
-    guiFactory = CCTweaks.GUI_FACTORY)
+@Mod(modid = CCTweaks.MODID, name = CCTweaks.NAME, version = CCTweaks.VERSION, dependencies = CCTweaks.DEPENDENCIES)
 public class CCTweaks {
 
     public static final String MODID = "cctweaks";
@@ -38,9 +33,6 @@ public class CCTweaks {
     public static final String VERSION = Tags.VERSION;
     public static final String DEPENDENCIES = "required-after:ComputerCraft@[3.3.0,)";
     public static final Logger logger = LogManager.getLogger();
-
-    public static final String ROOT_NAME = "org.squiddev.cctweaks.";
-    public static final String GUI_FACTORY = ROOT_NAME + "client.gui.GuiConfigFactory";
 
     public static SimpleNetworkWrapper NETWORK;
 

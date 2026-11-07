@@ -13,7 +13,7 @@ complete runtime flow of the mod. Update this file whenever features or architec
 | Mod ID | `cctweaks` |
 | Root Package | `org.squiddev.cctweaks` |
 | Minecraft | 1.7.10 (Forge 10.13.4.1614) |
-| Hard dependency | ComputerCraft `[2.0.0,)` — the CC source lives in `dan200/` |
+| Hard dependency | ComputerCraft `[3.3.0,)` — the CC source lives in `dan200/` |
 | CC runtime requirement | Java 17+ with **lwjgl3ify** — CC 3.x declares `required-after:lwjgl3ify` in its `mcmod.info` |
 | Cobalt package | `dan200.computercraft.shadow.org.squiddev.cobalt.*` (CC 3.x shadows and relocates Cobalt 0.9.9) |
 | **Mixins** | **None.** `usesMixins = false`; no `mixins.*.json`, no `@Mixin`, no `TargetMods`/`Mixins` enum, no UniMixins dependency |
@@ -147,7 +147,7 @@ Registry (static initialiser — runs when CCTweaks.preInit is called)
 
 ```
 JVM Startup
-  └─ No mixin subsystem, no core mod, no ATs. CCTweaks is an ordinary Forge mod.
+  └─ No mixin subsystem, no core mod. One AT (`CCTweaks_at.cfg`). CCTweaks is otherwise an ordinary Forge mod.
 
 FMLPreInitializationEvent  →  CCTweaks.preInit()
   ├─ Load config file → populate CCTweaks.* static config fields
@@ -237,9 +237,9 @@ Removed with their features: `cbMultipart`, `openPeripheralInventories`, `wbEnab
 
 ## Known Fragile Points
 
-1. **No mixins, no ATs, no reflection.** A CC or Forge update can only break CCTweaks through
+1. **No mixins, no reflection, one AT.** A CC or Forge update can only break CCTweaks through
    normal API changes (peripheral API, turtle upgrade API, `ItemInWorldManager`, Cobalt internals
-   used by `ItemDebugger`).
+   used by `ItemDebugger`) plus the single AT below.
 2. **The AT is the only remaining bytecode-level coupling** — a name/visibility change to
    `ItemInWorldManager.durabilityRemainingOnBlock` breaks `ToolHostPlayer` at compile time (the AT
    will simply stop matching).
@@ -251,9 +251,9 @@ Removed with their features: `cbMultipart`, `openPeripheralInventories`, `wbEnab
 4. **`ToolHostPlayer` emulates `ItemInWorldManager`** (including
    `durabilityRemainingOnBlock`), so a Forge/vanilla mining-behaviour change affects tool host dig
    speed and durability.
-5. **`CCTweaks.GUI_FACTORY` points at `org.squiddev.cctweaks.client.gui.GuiConfigFactory`, which
-   does not exist** — pre-existing; opening the mod's config GUI from the mod list will fail.
-   Either add the class or blank the attribute.
+5. **No in-game config GUI.** `guiFactory` was blanked: it pointed at a non-existent
+   `client.gui.GuiConfigFactory`. Config is edited via `config/cctweaks.cfg` directly; the
+   `gui.config.cctweaks.*` lang keys are kept for a future factory.
 
 ---
 

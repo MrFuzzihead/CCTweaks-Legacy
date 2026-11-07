@@ -16,7 +16,6 @@ import dan200.computercraft.api.turtle.ITurtleAccess;
 import dan200.computercraft.api.turtle.TurtleCommandResult;
 import portalgun.common.core.EntityHelper;
 import portalgun.common.item.ItemPortalGun;
-import portalgun.common.item.ItemPortalGunBlue;
 
 /**
  * Adds turtle interaction for the portal gun mod
@@ -38,10 +37,26 @@ public class PortalGunIntegration extends ModIntegration {
         registry.registerInteraction(new AbstractTurtleInteraction() {
 
             @Override
+            public boolean canSwing(ITurtleAccess turtle, FakePlayer player, ItemStack stack, ForgeDirection direction,
+                MovingObjectPosition hit) {
+                return stack != null && stack.getItem() instanceof ItemPortalGun;
+            }
+
+            @Override
+            public boolean canUse(ITurtleAccess turtle, FakePlayer player, ItemStack stack, ForgeDirection direction,
+                MovingObjectPosition hit) {
+                return stack != null && stack.getItem() instanceof ItemPortalGun;
+            }
+
+            @Override
             public TurtleCommandResult swing(ITurtleAccess turtle, IComputerAccess computer, FakePlayer player,
                 ItemStack stack, ForgeDirection direction, MovingObjectPosition hit) throws LuaException {
                 if (!(stack.getItem() instanceof ItemPortalGun)) return null;
 
+                // PortalGun's mouse semantics are left click = blue portal (1), right click =
+                // orange portal (2), regardless of which gun item is held. swing is the left
+                // click, use is the right click, so mirror that here. Keying off the held item
+                // (blue gun -> 1) made both actions fire blue with a blue gun.
                 EntityHelper.shootPortal(player, stack, 1);
                 return TurtleCommandResult.success(new Object[] { "portal" });
             }
@@ -51,7 +66,7 @@ public class PortalGunIntegration extends ModIntegration {
                 ItemStack stack, ForgeDirection direction, MovingObjectPosition hit) throws LuaException {
                 if (!(stack.getItem() instanceof ItemPortalGun)) return null;
 
-                EntityHelper.shootPortal(player, stack, stack.getItem() instanceof ItemPortalGunBlue ? 1 : 2);
+                EntityHelper.shootPortal(player, stack, 2);
                 return TurtleCommandResult.success(new Object[] { "portal" });
             }
         });

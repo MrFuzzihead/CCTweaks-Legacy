@@ -11,7 +11,6 @@ import net.minecraft.util.EnumChatFormatting;
 import net.minecraft.util.IChatComponent;
 import net.minecraft.world.World;
 
-import org.apache.commons.lang3.StringUtils;
 import org.squiddev.cctweaks.CCTweaks;
 import org.squiddev.cctweaks.blocks.debug.TileDebugPeripheral;
 
@@ -39,6 +38,8 @@ public class ItemDebugger extends ItemComputerAction {
 
     @Override
     protected boolean useComputer(ItemStack stack, EntityPlayer player, TileComputerBase computerTile, int side) {
+        if (!computerTile.isUsable(player, false)) return false;
+
         ServerComputer serverComputer = computerTile.getServerComputer();
         if (serverComputer == null) return false;
 
@@ -52,9 +53,10 @@ public class ItemDebugger extends ItemComputerAction {
 
             LuaState state = machine.getLuaState();
             DebugLib.add(state);
-        } catch (NullPointerException e) {
-            return false;
         } catch (Exception e) {
+            // The computer may be off (no Lua machine) or mid-restart (state being replaced).
+            // This is a debug tool: log at debug and leave the wand usable.
+            CCTweaks.logger.debug("Could not inject the Cobalt debug library", e);
             return false;
         }
 
@@ -62,14 +64,22 @@ public class ItemDebugger extends ItemComputerAction {
     }
 
     @Override
+    protected boolean shouldConsume(ItemStack stack, EntityPlayer player) {
+        // The debug wand is a reusable inspection tool, not a one-shot upgrade.
+        return false;
+    }
+
+    @Override
     protected boolean useGeneric(ItemStack stack, EntityPlayer player, TileEntity tile, int side) {
+        String blockName = tile.getBlockType() == null ? "<unknown>"
+            : tile.getBlockType()
+                .getLocalizedName();
         player.addChatMessage(
             withColor("Tile: ", EnumChatFormatting.DARK_PURPLE).appendSibling(
                 info(
                     tile.getClass()
                         .getSimpleName() + ": "
-                        + tile.getBlockType()
-                            .getLocalizedName())));
+                        + blockName)));
 
         {
             IPeripheral peripheral = PeripheralUtil
@@ -112,10 +122,6 @@ public class ItemDebugger extends ItemComputerAction {
 
     private static IChatComponent withColor(String message, EnumChatFormatting color) {
         return new ChatComponentText(message).setChatStyle(new ChatStyle().setColor(color));
-    }
-
-    private static IChatComponent info(Iterable<String> message) {
-        return info(StringUtils.join(message, ", "));
     }
 
     private static IChatComponent info(String message) {

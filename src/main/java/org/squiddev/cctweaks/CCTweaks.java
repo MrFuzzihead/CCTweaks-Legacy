@@ -15,12 +15,11 @@ import cpw.mods.fml.common.FMLCommonHandler;
 import cpw.mods.fml.common.Mod;
 import cpw.mods.fml.common.Mod.EventHandler;
 import cpw.mods.fml.common.event.FMLInitializationEvent;
+import cpw.mods.fml.common.event.FMLMissingMappingsEvent;
 import cpw.mods.fml.common.event.FMLPostInitializationEvent;
 import cpw.mods.fml.common.event.FMLPreInitializationEvent;
 import cpw.mods.fml.common.event.FMLServerStartedEvent;
 import cpw.mods.fml.common.event.FMLServerStoppedEvent;
-import cpw.mods.fml.common.network.NetworkRegistry;
-import cpw.mods.fml.common.network.simpleimpl.SimpleNetworkWrapper;
 import cpw.mods.fml.relauncher.Side;
 import dan200.computercraft.ComputerCraft;
 import dan200.computercraft.core.lua.lib.DelayedTasks;
@@ -32,9 +31,7 @@ public class CCTweaks {
     public static final String NAME = "CCTweaks";
     public static final String VERSION = Tags.VERSION;
     public static final String DEPENDENCIES = "required-after:ComputerCraft@[3.3.0,)";
-    public static final Logger logger = LogManager.getLogger();
-
-    public static SimpleNetworkWrapper NETWORK;
+    public static final Logger logger = LogManager.getLogger(MODID);
 
     public static CreativeTabs getCreativeTab() {
         return ComputerCraft.mainCreativeTab;
@@ -48,7 +45,6 @@ public class CCTweaks {
     // endregion
     // endregion
     // region testing
-    public static boolean debug = false;
     public static boolean debugItems = false;
     // endregion
     // region turtle
@@ -76,9 +72,17 @@ public class CCTweaks {
             .register(new FmlEvents());
         MinecraftForge.EVENT_BUS.register(new McEvents());
 
-        NETWORK = NetworkRegistry.INSTANCE.newSimpleChannel(MODID);
-
         Registry.preInit();
+    }
+
+    @EventHandler
+    public void onMissingMappings(FMLMissingMappingsEvent event) {
+        for (FMLMissingMappingsEvent.MissingMapping mapping : event.getAll()) {
+            if (mapping.name.startsWith("cctweaks:")) {
+                logger.warn("Discarding removed CCTweaks mapping '{}' (block/item was removed in 3.x)", mapping.name);
+                mapping.warn();
+            }
+        }
     }
 
     @EventHandler
@@ -95,6 +99,8 @@ public class CCTweaks {
     public void onServerStart(FMLServerStartedEvent event) {
         if (FMLCommonHandler.instance()
             .getEffectiveSide() == Side.SERVER) {
+            FmlEvents.reset();
+            McEvents.reset();
             DelayedTasks.reset();
         }
     }
@@ -103,6 +109,8 @@ public class CCTweaks {
     public void onServerStopped(FMLServerStoppedEvent event) {
         if (FMLCommonHandler.instance()
             .getEffectiveSide() == Side.SERVER) {
+            FmlEvents.reset();
+            McEvents.reset();
             DelayedTasks.reset();
         }
     }
@@ -122,9 +130,6 @@ public class CCTweaks {
         // endregion
         // endregion
         // region testing
-        prop = config.get("testing", "debug", false);
-        prop.comment = "Enable debug mode.";
-        debug = prop.getBoolean(debug);
         prop = config.get("testing", "debugItems", false);
         prop.comment = "Enable debug items.";
         debugItems = prop.getBoolean(debugItems);
@@ -151,5 +156,32 @@ public class CCTweaks {
         upgradeId = prop.getInt(upgradeId);
         // endregion
         // endregion
+
+        validateToolHostConfig();
+    }
+
+    static void validateToolHostConfig() {
+        if (digFactor < 1) {
+            logger.warn("turtle.toolhost.digFactor must be at least 1; using 1 (configured {})", digFactor);
+            digFactor = 1;
+        } else if (digFactor > 100) {
+            logger.warn("turtle.toolhost.digFactor is unreasonably high; using 100 (configured {})", digFactor);
+            digFactor = 100;
+        }
+
+        if (upgradeId < 64 || upgradeId > 32767) {
+            logger.error(
+                "turtle.toolhost.upgradeId {} is outside CC's custom range 64..32767; disabling Tool Host",
+                upgradeId);
+            thEnabled = false;
+        }
+
+        if (advancedUpgradeId < 64 || advancedUpgradeId > 32767 || advancedUpgradeId == upgradeId) {
+            logger.error(
+                "turtle.toolhost.advancedUpgradeId {} is invalid or duplicates upgradeId {}; disabling the advanced manipulator",
+                advancedUpgradeId,
+                upgradeId);
+            advanced = false;
+        }
     }
 }

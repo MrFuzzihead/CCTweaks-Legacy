@@ -29,6 +29,19 @@ public class McEvents {
     private static final Map<Entity, IDropConsumer> entityConsumers = new HashMap<Entity, IDropConsumer>();
 
     /**
+     * Drop all transient consumers. Called when a server stops: the maps hold strong references to
+     * entities and tiles from the old world, and leaving `captureDrops` set would suppress loot
+     * for an entity that somehow survives the reload.
+     */
+    public static void reset() {
+        blockConsumers.clear();
+        for (Entity entity : entityConsumers.keySet()) {
+            entity.captureDrops = false;
+        }
+        entityConsumers.clear();
+    }
+
+    /**
      * Add a consumer for entity drops
      *
      * @param entity   The entity whose drops to consume
@@ -75,7 +88,7 @@ public class McEvents {
             IDropConsumer consumer = blockConsumers.get(new WorldPosition(event.world, event.x, event.y, event.z));
             if (consumer != null) {
                 for (ItemStack item : event.drops) {
-                    if (event.world.rand.nextFloat() < event.dropChance) {
+                    if (event.world.rand.nextFloat() <= event.dropChance) {
                         consumer.consumeDrop(item);
                     }
                 }
@@ -87,6 +100,10 @@ public class McEvents {
 
     @SubscribeEvent(priority = EventPriority.LOWEST)
     public void onEntityLivingDrops(LivingDropsEvent event) {
+        // A protection/anti-grief mod may cancel the event. Consuming the drops anyway would
+        // bypass that decision and put the items in the turtle.
+        if (event.isCanceled()) return;
+
         IDropConsumer consumer = entityConsumers.get(event.entity);
         if (consumer != null) {
             for (EntityItem item : event.drops) {

@@ -53,7 +53,7 @@ public abstract class BlockBase<T extends TileBase> extends BlockContainer imple
 
         super.breakBlock(world, x, y, z, block, damage);
 
-        if (tile != null) tile.destroy();
+        if (tile != null) tile.destroyOnce();
     }
 
     @Override

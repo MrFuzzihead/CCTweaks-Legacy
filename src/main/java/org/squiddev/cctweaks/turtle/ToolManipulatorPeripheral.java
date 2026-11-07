@@ -16,6 +16,7 @@ import net.minecraftforge.event.entity.player.PlayerInteractEvent;
 import org.squiddev.cctweaks.core.turtle.TurtleRegistry;
 import org.squiddev.cctweaks.core.utils.LuaResults;
 
+import dan200.computercraft.ComputerCraft;
 import dan200.computercraft.api.lua.ILuaContext;
 import dan200.computercraft.api.lua.ILuaTask;
 import dan200.computercraft.api.lua.LuaException;
@@ -32,6 +33,9 @@ import dan200.computercraft.shared.turtle.core.InteractDirection;
 import dan200.computercraft.shared.util.WorldUtil;
 
 public class ToolManipulatorPeripheral implements IPeripheral {
+
+    private static final String[] METHOD_NAMES = new String[] { "use", "useUp", "useDown", "canUse", "canUseUp",
+        "canUseDown", "swing", "swingUp", "swingDown", "canSwing", "canSwingUp", "canSwingDown", };
 
     private final ITurtleAccess access;
     private final ToolHostPlayer player;
@@ -50,8 +54,7 @@ public class ToolManipulatorPeripheral implements IPeripheral {
 
     @Override
     public String[] getMethodNames() {
-        return new String[] { "use", "useUp", "useDown", "canUse", "canUseUp", "canUseDown", "swing", "swingUp",
-            "swingDown", "canSwing", "canSwingUp", "canSwingDown", };
+        return METHOD_NAMES;
     }
 
     @Override
@@ -84,32 +87,46 @@ public class ToolManipulatorPeripheral implements IPeripheral {
                 return LuaResults.wrap(canSwing(computer, context, InteractDirection.Down, args));
         }
 
-        return null;
+        throw new LuaException("No such method " + method);
+    }
+
+    static int parseDuration(Object[] args) throws LuaException {
+        if (args.length <= 0 || args[0] == null) return 0;
+        if (!(args[0] instanceof Number)) throw new LuaException("Expected number for argument #1");
+
+        int duration = ((Number) args[0]).intValue();
+        if (duration < 0) throw new LuaException("Duration must be >= 0");
+        return duration;
+    }
+
+    static boolean parseSneak(Object[] args, int index) throws LuaException {
+        if (args.length <= index || args[index] == null) return false;
+        if (args[index] instanceof Boolean) return (Boolean) args[index];
+        throw new LuaException("Expected boolean for argument #" + (index + 1));
+    }
+
+    static boolean isActionDisabled(String action) {
+        return isActionDisabled(action, ComputerCraft.turtleDisabledActions);
+    }
+
+    static boolean isActionDisabled(String action, String[] disabledActions) {
+        for (String disabled : disabledActions) {
+            if (disabled != null && disabled.equalsIgnoreCase(action)) return true;
+        }
+        return false;
+    }
+
+    static Object[] disabled(String action) {
+        return new Object[] { false, "Turtle action \"" + action + "\" is disabled" };
     }
 
     // region Use
     public Object[] use(final IComputerAccess computer, ILuaContext context, InteractDirection direction, Object[] args)
         throws LuaException, InterruptedException {
-        final int duration;
-        final boolean sneak;
-        if (args.length <= 0 || args[0] == null) {
-            duration = 0;
-        } else if (args[0] instanceof Number) {
-            duration = ((Number) args[0]).intValue();
+        if (isActionDisabled("tool")) return disabled("tool");
 
-            if (duration < 0) throw new LuaException("Duration must be >= 0");
-        } else {
-            throw new LuaException("Expected number for argument #1");
-        }
-
-        if (args.length <= 1 || args[1] == null) {
-            sneak = false;
-        } else if (args[1] instanceof Boolean) {
-            sneak = (Boolean) args[1];
-        } else {
-            throw new LuaException("Expected boolean for argument #2");
-        }
-
+        final int duration = parseDuration(args);
+        final boolean sneak = parseSneak(args, 1);
         final int dir = direction.toWorldDir(access);
 
         return new DelayedTask() {
@@ -165,14 +182,11 @@ public class ToolManipulatorPeripheral implements IPeripheral {
                 duration = Math.min(duration, stack.getMaxItemUseDuration());
                 ItemStack old = stack.copy();
                 ItemStack result = stack.useItemRightClick(player.worldObj, player);
-                task.delay = duration;
 
                 boolean using = player.isUsingItem();
-                if (using && !ForgeEventFactory.onUseItemStop(player, player.itemInUse, duration)) {
-                    player.itemInUse.onPlayerStoppedUsing(
-                        player.worldObj,
-                        player,
-                        player.itemInUse.getMaxItemUseDuration() - duration);
+                ItemStack inUse = player.getItemInUse();
+                if (using && inUse != null && !ForgeEventFactory.onUseItemStop(player, inUse, duration)) {
+                    inUse.onPlayerStoppedUsing(player.worldObj, player, inUse.getMaxItemUseDuration() - duration);
                     player.clearItemInUse();
                 }
 
@@ -197,6 +211,10 @@ public class ToolManipulatorPeripheral implements IPeripheral {
         int z = hit.blockZ;
         if (!world.getBlock(x, y, z)
             .isAir(world, x, y, z)) {
+            if (ComputerCraft.turtlesObeyBlockProtection && !ComputerCraft.isBlockEditable(world, x, y, z, player)) {
+                return new Object[] { false, "Cannot use protected block" };
+            }
+
             if (ForgeEventFactory
                 .onPlayerInteract(player, PlayerInteractEvent.Action.RIGHT_CLICK_BLOCK, x, y, z, side, world)
                 .isCanceled()) {
@@ -234,18 +252,31 @@ public class ToolManipulatorPeripheral implements IPeripheral {
         if (stack == null) return null;
 
         if (stack.getItem() instanceof ItemBlock) {
+            if (isActionDisabled("place")) return disabled("place");
+
             ItemBlock itemBlock = (ItemBlock) stack.getItem();
 
             ForgeDirection direction = ForgeDirection.VALID_DIRECTIONS[side];
-            if (!world.canPlaceEntityOnSide(
-                itemBlock.field_150939_a,
-                x + direction.offsetX,
-                y + direction.offsetY,
-                z + direction.offsetZ,
-                false,
-                side,
-                null,
-                stack)) {
+            int placeX = x + direction.offsetX;
+            int placeY = y + direction.offsetY;
+            int placeZ = z + direction.offsetZ;
+
+            // Mirrors ItemBlock's own rule: a replaceable block (tall grass, snow layer) is
+            // replaced in place instead of placing against its side.
+            if (world.getBlock(x, y, z)
+                .isReplaceable(world, x, y, z)) {
+                placeX = x;
+                placeY = y;
+                placeZ = z;
+            }
+
+            if (ComputerCraft.turtlesObeyBlockProtection
+                && !ComputerCraft.isBlockEditable(world, placeX, placeY, placeZ, player)) {
+                return new Object[] { false, "Cannot place protected block" };
+            }
+
+            if (!world
+                .canPlaceEntityOnSide(itemBlock.field_150939_a, placeX, placeY, placeZ, false, side, null, stack)) {
                 return null;
             }
         }
@@ -265,16 +296,9 @@ public class ToolManipulatorPeripheral implements IPeripheral {
     // region Swing
     public Object[] swing(final IComputerAccess computer, ILuaContext context, InteractDirection direction,
         Object[] args) throws LuaException, InterruptedException {
-        final boolean sneak;
+        if (isActionDisabled("tool")) return new Object[] { false, "Turtle action \"tool\" is disabled" };
 
-        if (args.length <= 0 || args[0] == null) {
-            sneak = false;
-        } else if (args[0] instanceof Boolean) {
-            sneak = (Boolean) args[0];
-        } else {
-            throw new LuaException("Expected boolean");
-        }
-
+        final boolean sneak = parseSneak(args, 0);
         final int dir = direction.toWorldDir(access);
 
         return access.executeCommand(context, new ITurtleCommand() {
@@ -312,11 +336,17 @@ public class ToolManipulatorPeripheral implements IPeripheral {
             if (hit != null) {
                 switch (hit.typeOfHit) {
                     case ENTITY: {
+                        if (isActionDisabled("attack"))
+                            return TurtleCommandResult.failure("Turtle action \"attack\" is disabled");
+
                         TurtleCommandResult result = player.attack(access, hit.entityHit);
                         if (result.isSuccess()) access.playAnimation(animation);
                         return result;
                     }
                     case BLOCK: {
+                        if (isActionDisabled("dig"))
+                            return TurtleCommandResult.failure("Turtle action \"dig\" is disabled");
+
                         TurtleCommandResult result = player.dig(access, direction);
                         if (result.isSuccess()) access.playAnimation(animation);
                         return result;
@@ -335,6 +365,8 @@ public class ToolManipulatorPeripheral implements IPeripheral {
     // region Can use
     public MethodResult canUse(final IComputerAccess computer, ILuaContext context, InteractDirection dir,
         Object[] args) throws LuaException, InterruptedException {
+        if (isActionDisabled("tool")) return MethodResult.of(false);
+
         final int direction = dir.toWorldDir(access);
         return context.executeMainThreadTask(new ILuaTask() {
 
@@ -362,6 +394,8 @@ public class ToolManipulatorPeripheral implements IPeripheral {
 
     public MethodResult canSwing(final IComputerAccess computer, ILuaContext context, InteractDirection dir,
         Object[] args) throws LuaException, InterruptedException {
+        if (isActionDisabled("tool")) return MethodResult.of(false);
+
         final int direction = dir.toWorldDir(access);
         return context.executeMainThreadTask(new ILuaTask() {
 
@@ -374,6 +408,12 @@ public class ToolManipulatorPeripheral implements IPeripheral {
                 MovingObjectPosition hit = findHit(fDirection, 0.65);
 
                 try {
+                    if (hit != null) {
+                        if (hit.entityHit != null && isActionDisabled("attack")) return new Object[] { false };
+                        if (hit.typeOfHit == MovingObjectPosition.MovingObjectType.BLOCK && isActionDisabled("dig"))
+                            return new Object[] { false };
+                    }
+
                     if (stack != null) {
                         boolean result = TurtleRegistry.instance.canSwing(access, player, stack, fDirection, hit);
                         if (result) return new Object[] { true };
@@ -406,10 +446,16 @@ public class ToolManipulatorPeripheral implements IPeripheral {
         Vec3 target = blockCenter.addVector(facing.offsetX * range, facing.offsetY * range, facing.offsetZ * range);
 
         MovingObjectPosition hit = player.worldObj.rayTraceBlocks(origin, target);
-        Entity entity = WorldUtil.rayTraceEntities(player.worldObj, origin, target, 1.1);
 
-        // WorldUtil already clips the entity trace against the block trace, so an entity
-        // which was found is in front of the block. Prefer it over the block hit.
+        // WorldUtil treats its third argument as a direction and multiplies it by the distance,
+        // so passing the endpoint here traces a ray into the distance instead of towards the
+        // target block. Pass the relative vector and a distance of 1 instead.
+        Vec3 direction = Vec3.createVectorHelper(
+            target.xCoord - origin.xCoord,
+            target.yCoord - origin.yCoord,
+            target.zCoord - origin.zCoord);
+        Entity entity = WorldUtil.rayTraceEntities(player.worldObj, origin, direction, 1.0);
+
         if (entity != null) {
             return new MovingObjectPosition(entity);
         } else {
@@ -425,13 +471,14 @@ public class ToolManipulatorPeripheral implements IPeripheral {
 
     @Override
     public boolean equals(Object other) {
-        return other == this || (other instanceof ToolManipulatorPeripheral
-            && access.equals(((ToolManipulatorPeripheral) other).access));
+        return other == this
+            || (other instanceof ToolManipulatorPeripheral && side == ((ToolManipulatorPeripheral) other).side
+                && access.equals(((ToolManipulatorPeripheral) other).access));
     }
 
     @Override
     public int hashCode() {
-        return access.hashCode();
+        return 31 * access.hashCode() + side.hashCode();
     }
 
     @Override
@@ -452,7 +499,7 @@ public class ToolManipulatorPeripheral implements IPeripheral {
             }
         } else {
             String message = result.getErrorMessage();
-            return message == null ? new Object[] { false } : new Object[] { false, result.getErrorMessage() };
+            return message == null ? new Object[] { false } : new Object[] { false, message };
         }
     }
 }

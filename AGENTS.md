@@ -31,7 +31,7 @@ was deleted. OpenPeripheral is no longer required or touched.
 
 | # | Feature | Key Source Files |
 |---|---------|-----------------|
-| 1 | **Computer Upgrade Item** — upgrades Normal computer → Advanced in-world (transfers state); Normal turtle → Advanced (costs 7 gold ingots) | `items/ItemComputerUpgrade.java`, `items/CraftingComputerUpgrade.java` |
+| 1 | **Computer Upgrade Item** — upgrades Normal computer → Advanced in place (metadata family bit; ID, label and on-state kept; the running program restarts); Normal turtle → Advanced, transferring the brain/inventory/fuel/overlays and recreating the Advanced ServerComputer (costs 7 gold ingots) | `items/ItemComputerUpgrade.java`, `items/CraftingComputerUpgrade.java` |
 | 2 | **Debug Wand** — prints tile/peripheral/peripheral-binding info in chat; right-clicking a computer injects Cobalt's `DebugLib` into its running Lua state | `items/ItemDebugger.java`, `blocks/debug/TileDebugPeripheral.java` |
 | 3 | **Debug Block** — one debug peripheral tile (`meta 0`, `debugPeripheral`), gated by `debugItems` | `blocks/debug/BlockDebug.java` |
 | 4 | **Tool Host Turtle Upgrades** — Normal (`Gripping`) and Advanced (`Manipulative`) variants; turtles hold and swing arbitrary tools as interactions | `turtle/TurtleUpgradeToolHost.java`, `turtle/TurtleUpgradeToolManipulator.java`, `turtle/ToolHostPlayer.java`, `turtle/ToolManipulatorPeripheral.java` |
@@ -57,9 +57,19 @@ was deleted. OpenPeripheral is no longer required or touched.
 
 ## Bugfixes Made
 
-> None remain. Every fix CCTweaks once carried (cable tile rewrite, `isCable` broadening,
-> neighbour-change type capture, `PeripheralWrapper.detach` race, turtle refuel routing) lived in
-> a mixin that CC 3.x has since made unnecessary.
+The original mixin-era fixes (cable tile rewrite, `isCable` broadening, neighbour-change type
+capture, `PeripheralWrapper.detach` race, turtle refuel routing) are gone with the mixins. The
+current tree still carries these ordinary-source fixes:
+
+- Tool Host/Manipulator: entity ray direction, held-item attribute modifiers, drop capture for
+  instant-break blocks, `isBlockEditable` and `turtleDisabledActions` checks, consumer cleanup in
+  `finally`, world-change cache invalidation, side-aware peripheral equality.
+- Upgrade items: Advanced turtle/computer `ServerComputer` family/colour recreation, turtle
+  overlay/hat and pocket upgrade NBT preservation, unsupported-`IComputerItem` rejection,
+  protection checks and rollback on failed block swaps.
+- Debug wand: no longer consumed, uses the real player range check, logs injection failures.
+- Events/lifecycle: cancelled `LivingDropsEvent` is respected; `McEvents`/`FmlEvents` reset on
+  server stop; `TileBase` destroys exactly once; `PeripheralHelpers` stops on proxy cycles.
 
 ---
 
@@ -69,7 +79,7 @@ was deleted. OpenPeripheral is no longer required or touched.
 |-----------|--------|
 | Mixins | **None.** Deleted: `mixins/` package, `mixins.cctweaks.json`, `mixins.cctweaks.late.json`, UniMixins `LateMixinsLoader`, `Mixins` enum, `TargetMods` enum. `usesMixins = false` in `gradle.properties`. |
 | Access Transformers | **One**, load-bearing: `META-INF/CCTweaks_at.cfg` widens `ItemInWorldManager.field_73094_o` (`durabilityRemainingOnBlock`) to public for `ToolHostPlayer`. `gradle.properties` sets `accessTransformersFile = CCTweaks_at.cfg` so FML emits `FMLAT` in the jar manifest — **do not delete the file or blank that property**: `ToolHostPlayer` stops compiling, and (if the property is blanked while the file remains) production builds ship without `FMLAT` and fail at runtime with `IllegalAccessError`. |
-| Reflection | **None.** Zero `import java.lang.reflect` in the tree. |
+| Reflection | **No `java.lang.reflect` imports.** `CCTweaksAPI` still loads `core.API` through `Class.forName`, as it must to keep the API jar optional. |
 | Bytecode / core mod | **None.** |
 
 If a future feature genuinely needs to patch CC, re-enable `usesMixins`, re-add the GTNH
@@ -204,15 +214,34 @@ ClientTickEvent (Phase.START)
 
 ## Test Coverage
 
-| Test Class | What Is Tested |
-|------------|----------------|
-| `core/peripheral/PeripheralHelpersTest.java` | `PeripheralHelpers` unwrapping: base-peripheral chains, targeted peripherals, proxy + target combinations, null-target fallbacks |
+| Suite | What Is Tested |
+|-------|----------------|
+| `ApiSurfaceTest` | Public API signatures and `@Mod` dependency string |
+| `BuildArtifactTest` | AT resource is shipped; `dependencies.gradle` CC version matches `CCTweaks.DEPENDENCIES` |
+| `CCTweaksConfigTest` | Tool Host config clamping/ID validation |
+| `core.FmlEventsTest` | Tick scheduling, exception isolation, reset, CC `DelayedTasks` tick, missing-mapping resolution |
+| `core.McEventsTest` | Block/entity drop consumers, drop chance, cancellation, reset |
+| `core.peripheral.PeripheralHelpersTest` | Chains, targets, nulls, proxy cycles |
+| `core.peripheral.PeripheralProxyTest` | Lazy creation, attach replay, detach, default type, equality |
+| `core.turtle.TurtleRegistryTest` | Item-before-generic dispatch, first-result wins, null handling, registration guards |
+| `core.utils.InventoryUtilsTest` / `LuaResultsTest` / `WorldPositionTest` | Extraction/counting, Lua suspension wrapping, positions |
+| `blocks.TileBaseLifecycleTest` | `create`/`destroy` exactly once across validate/invalidate/chunk unload |
+| `blocks.debug.TileDebugPeripheralTest` | Per-side cache, bounds, `getSide`, computer tracking |
+| `items.CraftingComputerUpgradeTest` | Matching, gold-slot semantics, unsupported items, pocket NBT preservation |
+| `items.ItemComputerActionTest` | Client suppression, consumption hook, debug wand non-consumption |
+| `items.ItemToolHostTest` | Creative subtype gating |
+| `items.UpgradeItemTest` | In-place computer metadata/family recreation, turtle transfer/recreation, failed-swap rollback |
+| `turtle.ToolManipulatorPeripheralTest` | Argument parsing, disabled actions, result shape, method table, side equality |
+| `turtle.ToolManipulatorFindHitTest` | Entity ray ends at the target, not beyond it |
+| `harness.HeadlessTurtleHarnessTest` | Stub turtle + stub computer drive the real registry with no server/world |
+
+`./gradlew test` runs the JUnit 5 suite headlessly (83 tests at the time of writing). `./gradlew
+build` also runs Spotless and Checkstyle. `runServer25` is the headless server smoke test used in
+CI; the real in-world interactions (tool host mining/placement, debug wand injection, NEI GUI)
+still need a dev client.
 
 Removed with their subjects: `NetworkTest`, `PacketTest`, `ComputerNetworkAccessTest`,
 `core/network/mock`.
-
-**Gap:** in-world behaviour (computer upgrade, tool host, debug wand) has no automated coverage
-and needs integration testing in a dev client.
 
 ---
 
@@ -227,7 +256,9 @@ and needs integration testing in a dev client.
 | `thEnabled` | true | Enable Tool Host turtle upgrade |
 | `advanced` | true | Enable the Advanced Tool Manipulator variant |
 | `thCrafting` | true | Enable Tool Host crafting |
-| `advancedUpgradeId` | 333 | Advanced tool manipulator upgrade id |
+| `upgradeId` | 332 | Tool Host upgrade id (must be 64..32767) |
+| `advancedUpgradeId` | 333 | Advanced tool manipulator upgrade id (must be distinct, 64..32767) |
+| `digFactor` | 10 | Dig progress per Tool Host call (clamped to 1..100) |
 
 Removed with their features: `cbMultipart`, `openPeripheralInventories`, `wbEnabled`,
 `wbCrafting`, `turtleEnabled`, `pocketEnabled`, `pocketId`, `fullBlockModemCrafting`,
@@ -237,21 +268,25 @@ Removed with their features: `cbMultipart`, `openPeripheralInventories`, `wbEnab
 
 ## Known Fragile Points
 
-1. **No mixins, no reflection, one AT.** A CC or Forge update can only break CCTweaks through
-   normal API changes (peripheral API, turtle upgrade API, `ItemInWorldManager`, Cobalt internals
-   used by `ItemDebugger`) plus the single AT below.
-2. **The AT is the only remaining bytecode-level coupling** — a name/visibility change to
+1. **CCTweaks is the only ticker of CC's `DelayedTasks` list.** `FmlEvents.onServerTick` calls
+   `DelayedTasks.update()`; CC 3.3.0's proxy ticks `MainThread` but not `DelayedTasks`. If CC
+   starts ticking it too, every delayed task runs twice and delays halve. Keep the single call
+   (and the `FmlEventsTest` assertion) until CC owns it.
+2. **No mixins, no reflection imports, one AT.** A CC or Forge update can only break CCTweaks
+   through normal API changes (peripheral API, turtle upgrade API, `ItemInWorldManager`, Cobalt
+   internals used by `ItemDebugger`) plus the single AT below.
+3. **The AT is the only remaining bytecode-level coupling** — a name/visibility change to
    `ItemInWorldManager.durabilityRemainingOnBlock` breaks `ToolHostPlayer` at compile time (the AT
    will simply stop matching).
 
-3. **`ItemDebugger` reaches into Cobalt** (`CobaltMachine.getLuaState()` → `DebugLib.add(state)`).
+4. **`ItemDebugger` reaches into Cobalt** (`CobaltMachine.getLuaState()` → `DebugLib.add(state)`).
    That is the one remaining "internal" dependency: if CC changes its Lua machine or Cobalt's
    `DebugLib` visibility again, only the debug wand's injector breaks (guarded by
    `instanceof`/try-catch, returns `false`).
-4. **`ToolHostPlayer` emulates `ItemInWorldManager`** (including
+5. **`ToolHostPlayer` emulates `ItemInWorldManager`** (including
    `durabilityRemainingOnBlock`), so a Forge/vanilla mining-behaviour change affects tool host dig
    speed and durability.
-5. **No in-game config GUI.** `guiFactory` was blanked: it pointed at a non-existent
+6. **No in-game config GUI.** `guiFactory` was blanked: it pointed at a non-existent
    `client.gui.GuiConfigFactory`. Config is edited via `config/cctweaks.cfg` directly; the
    `gui.config.cctweaks.*` lang keys are kept for a future factory.
 
@@ -261,7 +296,10 @@ Removed with their features: `cbMultipart`, `openPeripheralInventories`, `wbEnab
 
 | File | Contents |
 |------|----------|
-| `docs/remove-reflection.md` | Completed migration plan: 13 reflection sites → mixins (mixins since deleted) |
-| `docs/remove-luaj.md` | Completed migration plan: LuaJ → Cobalt in `ItemDebugger` |
-| `docs/migrate-mixins-to-source.md` | Historical: move late-phase mixins into native CC / OP source — **superseded**, all mixins are now deleted |
 | `AGENTS.md` | **This file** — comprehensive agent reference |
+| `README.md` | User-facing overview, features and build instructions |
+| `AUDIT.md` | Codebase audit (bugs, refactors, test/dependency plan) |
+| `src/test/java/**` | Executable specification for the pure/headless behaviour |
+
+There is no `docs/` directory in this repository; older links to `docs/*.md` referred to the
+pre-3.x history.

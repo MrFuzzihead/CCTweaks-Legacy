@@ -1,3 +1,11 @@
+import org.gradle.api.tasks.testing.Test
+
+// JUnit 5 is not detected by the Gradle test task unless the platform is requested explicitly.
+// Without this the suite compiles but silently executes zero tests.
+tasks.withType<Test>().configureEach {
+    useJUnitPlatform()
+}
+
 // ComputerCraft 3.2.0 declares `required-after:lwjgl3ify` in its mcmod.info, and lwjgl3ify needs a
 // modern JVM. GTNHGradle's plain runServer/runClient use the Java 8 toolchain and carry no
 // lwjgl3ify on the classpath, so they die at MissingModsException before the game starts. Forward

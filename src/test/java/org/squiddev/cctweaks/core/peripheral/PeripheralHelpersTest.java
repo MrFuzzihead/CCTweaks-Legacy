@@ -1,8 +1,9 @@
 package org.squiddev.cctweaks.core.peripheral;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import org.squiddev.cctweaks.api.CCTweaksAPI;
 import org.squiddev.cctweaks.api.peripheral.IPeripheralHelpers;
 import org.squiddev.cctweaks.api.peripheral.IPeripheralProxy;
@@ -19,7 +20,7 @@ public class PeripheralHelpersTest {
         .peripheralHelpers();
 
     @Test
-    public void testGetBasePeripheral() throws Exception {
+    public void testGetBasePeripheral() {
         BasePeripheral base = new BasePeripheral();
         Proxy empty = new Proxy(null);
 
@@ -27,10 +28,19 @@ public class PeripheralHelpersTest {
         assertProxy("Nested: 3", base, new Proxy(new Proxy(new Proxy(base))));
 
         assertProxy("Null getBasePeripheral", empty, new Proxy(new Proxy(empty)));
+        assertNull(helpers.getBasePeripheral(null), "Null input");
     }
 
     @Test
-    public void testGetTarget() throws Exception {
+    public void testGetBasePeripheralStopsOnCycle() {
+        SelfProxy cycle = new SelfProxy();
+
+        assertProxy("Self cycle", cycle, cycle);
+        assertProxy("Cycle reached through a chain", cycle, new Proxy(cycle));
+    }
+
+    @Test
+    public void testGetTarget() {
         IPeripheral base = new BasePeripheral();
         Object target = new Object();
         Targeted empty = new Targeted(null);
@@ -48,12 +58,20 @@ public class PeripheralHelpersTest {
         assertTarget("Return parent on null target", empty, new Proxy(new Proxy(empty)));
     }
 
+    @Test
+    public void testGetTargetStopsOnCycle() {
+        SelfProxy cycle = new SelfProxy();
+
+        assertTarget("Self cycle", cycle, cycle);
+        assertTarget("Cycle reached through a chain", cycle, new Proxy(cycle));
+    }
+
     public static void assertProxy(String message, IPeripheral target, IPeripheral start) {
-        assertEquals(message, target, helpers.getBasePeripheral(start));
+        assertEquals(target, helpers.getBasePeripheral(start), message);
     }
 
     public static void assertTarget(String message, Object target, IPeripheral start) {
-        assertEquals(message, target, helpers.getTarget(start));
+        assertEquals(target, helpers.getTarget(start), message);
     }
 
     public static class Targeted extends BasePeripheral implements IPeripheralTargeted {
@@ -81,6 +99,14 @@ public class PeripheralHelpersTest {
         @Override
         public IPeripheral getBasePeripheral() {
             return base;
+        }
+    }
+
+    public static class SelfProxy extends BasePeripheral implements IPeripheralProxy {
+
+        @Override
+        public IPeripheral getBasePeripheral() {
+            return this;
         }
     }
 

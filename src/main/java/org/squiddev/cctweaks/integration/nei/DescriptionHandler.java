@@ -116,6 +116,7 @@ public class DescriptionHandler implements ICraftingHandler, IUsageHandler {
     }
 
     @Override
+    @SuppressWarnings("deprecation") // No replacement in NEI 2.9; docs need one page per screen.
     public int recipiesPerPage() {
         return 1;
     }

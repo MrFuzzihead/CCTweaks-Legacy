@@ -15,6 +15,8 @@ import org.squiddev.cctweaks.api.IWorldPosition;
  */
 public abstract class TileBase extends TileEntity implements IWorldPosition {
 
+    private boolean destroyed;
+
     @Override
     public int getX() {
         return xCoord;
@@ -47,6 +49,8 @@ public abstract class TileBase extends TileEntity implements IWorldPosition {
 
     @Override
     public void validate() {
+        super.validate();
+        destroyed = false;
         if (worldObj == null || !worldObj.isRemote) {
             create();
         }
@@ -56,7 +60,7 @@ public abstract class TileBase extends TileEntity implements IWorldPosition {
     public void onChunkUnload() {
         super.onChunkUnload();
         if (worldObj == null || !worldObj.isRemote) {
-            destroy();
+            destroyOnce();
         }
     }
 
@@ -64,6 +68,18 @@ public abstract class TileBase extends TileEntity implements IWorldPosition {
     public void invalidate() {
         super.invalidate();
         if (worldObj == null || !worldObj.isRemote) {
+            destroyOnce();
+        }
+    }
+
+    /**
+     * Destroy this tile exactly once. Chunk unload, block removal and {@link #invalidate()} can all
+     * fire for the same tile; callers that need to destroy explicitly should use this instead of
+     * {@link #destroy()}.
+     */
+    public final void destroyOnce() {
+        if (!destroyed) {
+            destroyed = true;
             destroy();
         }
     }
@@ -104,6 +120,7 @@ public abstract class TileBase extends TileEntity implements IWorldPosition {
      * Improvement over {@link #markDirty()}
      */
     public void markForUpdate() {
+        if (worldObj == null) return;
         markDirty();
         worldObj.markBlockForUpdate(xCoord, yCoord, zCoord);
     }

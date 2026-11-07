@@ -16,7 +16,6 @@ gui.config.cctweaks.computer.computerUpgradeCrafting=Computer Upgrade Crafting
 gui.config.cctweaks.computer.debugWandEnabled=Debug Wand Enabled
 
 gui.config.cctweaks.testing=Testing
-gui.config.cctweaks.testing.debug=Debug Logging
 gui.config.cctweaks.testing.debugItems=Debug Items
 
 gui.config.cctweaks.turtle.toolhost=Tool Host

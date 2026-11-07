@@ -224,6 +224,26 @@ public class InventoryUtils {
     }
 
     /**
+     * Count up to {@code max} items of a type across an inventory without modifying it.
+     *
+     * @param inventory The inventory to scan
+     * @param item      The item to count
+     * @param max       Stop counting once this many have been found
+     * @return The number found, capped at {@code max}
+     */
+    public static int countItems(IInventory inventory, Item item, int max) {
+        int count = 0;
+        int size = inventory.getSizeInventory();
+        for (int i = 0; i < size && count < max; i++) {
+            ItemStack stack = inventory.getStackInSlot(i);
+            if (stack != null && stack.getItem() == item && stack.stackSize > 0) {
+                count += stack.stackSize;
+            }
+        }
+        return Math.min(count, max);
+    }
+
+    /**
      * Extract n items
      *
      * @param inventory The inventory to extract from

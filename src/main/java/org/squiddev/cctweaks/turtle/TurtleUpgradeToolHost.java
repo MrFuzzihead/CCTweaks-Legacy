@@ -53,7 +53,7 @@ public class TurtleUpgradeToolHost implements ITurtleUpgrade {
 
     @Override
     public TurtleCommandResult useTool(ITurtleAccess turtle, TurtleSide side, TurtleVerb verb, int direction) {
-        if (!CCTweaks.thEnabled) return null;
+        if (!CCTweaks.thEnabled) return TurtleCommandResult.failure("Tool Host is disabled");
 
         ToolHostPlayer player = getPlayer(turtle);
         player.load(turtle, direction, false);
@@ -69,7 +69,8 @@ public class TurtleUpgradeToolHost implements ITurtleUpgrade {
             player.unload(turtle);
         }
 
-        return null;
+        // TurtleToolCommand dereferences the result, so a null here would NPE in CC.
+        return TurtleCommandResult.failure("Unsupported tool action");
     }
 
     public static ItemStack getItem(ITurtleAccess turtle) {
@@ -79,7 +80,12 @@ public class TurtleUpgradeToolHost implements ITurtleUpgrade {
 
     public static ToolHostPlayer getPlayer(ITurtleAccess turtle) {
         ToolHostPlayer player = players.get(turtle);
-        if (player == null) players.put(turtle, player = new ToolHostPlayer(turtle));
+        // The turtle brain survives a dimension change, but the fake player is bound to one
+        // WorldServer for its lifetime. Rebuild it when the turtle has moved worlds.
+        if (player == null || player.worldObj != turtle.getWorld()) {
+            player = new ToolHostPlayer(turtle);
+            players.put(turtle, player);
+        }
         return player;
     }
 

@@ -1,6 +1,7 @@
 package org.squiddev.cctweaks.core.registry;
 
-import java.util.HashSet;
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.Set;
 
 import org.squiddev.cctweaks.blocks.debug.BlockDebug;
@@ -23,7 +24,7 @@ public final class Registry {
     public static final ItemDebugger itemDebugger;
     public static final ItemToolHost itemToolHost;
 
-    private static final Set<IModule> modules = new HashSet<IModule>();
+    private static final Set<IModule> modules = new LinkedHashSet<IModule>();
 
     private static boolean preInit = false;
     private static boolean init = false;
@@ -70,7 +71,7 @@ public final class Registry {
     public static void preInit() {
         if (preInit) throw new IllegalStateException("Attempting to preInit twice");
         preInit = true;
-        for (IModule module : modules) {
+        for (IModule module : new ArrayList<IModule>(modules)) {
             if (module.canLoad()) module.preInit();
         }
     }
@@ -80,7 +81,7 @@ public final class Registry {
         if (init) throw new IllegalStateException("Attempting to init twice");
 
         init = true;
-        for (IModule module : modules) {
+        for (IModule module : new ArrayList<IModule>(modules)) {
             if (module.canLoad()) module.init();
         }
     }
@@ -91,7 +92,7 @@ public final class Registry {
         if (postInit) throw new IllegalStateException("Attempting to postInit twice");
 
         postInit = true;
-        for (IModule module : modules) {
+        for (IModule module : new ArrayList<IModule>(modules)) {
             if (module.canLoad()) module.postInit();
         }
     }

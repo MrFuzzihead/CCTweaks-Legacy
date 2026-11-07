@@ -30,10 +30,11 @@ record and why each was dropped.
 
 ## Features
 
-- **Computer Upgrade Item** — upgrades a Normal computer to Advanced in-world, transferring all
-  state; upgrades a Normal turtle to Advanced (costs 7 gold ingots).
+- **Computer Upgrade Item** — upgrades a Normal computer to Advanced in place (ID, label and
+  on-state are kept; the running program restarts); upgrades a Normal turtle to Advanced,
+  preserving its brain, inventory, fuel, colour and overlays (costs 7 gold ingots).
 - **Debug Wand** — prints tile/peripheral/peripheral-binding info in chat, and injects Cobalt's
-  `DebugLib` into a running computer's Lua state.
+  `DebugLib` into a running computer's Lua state. It is reused rather than consumed.
 - **Debug Block** — a debug peripheral tile for testing peripheral bindings.
 - **Tool Host Turtle Upgrades** — Normal (`Gripping`) and Advanced (`Manipulative`) variants;
   turtles can hold and swing arbitrary tools as interactions.
@@ -69,8 +70,9 @@ IntelliJ and run `./gradlew build`, or use the wrapper from the command line:
 ./gradlew spotlessApply  # apply formatting
 ```
 
-Java 17 is required to build; the mod itself targets Java 8 bytecode (via Jabel). The output
-jar is placed in `build/libs/`.
+The Gradle daemon is pinned to Java 25 (see `.java-version`); the mod itself targets Java 8
+bytecode (via Jabel). The output jar is placed in `build/libs/`. `./gradlew test` runs the
+headless JUnit 5 suite; `./gradlew runServer25` is the server smoke test.
 
 ## Configuration
 

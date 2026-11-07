@@ -17,7 +17,7 @@ import dan200.computercraft.api.peripheral.IPeripheral;
  */
 public abstract class PeripheralProxy implements IPeripheral, IPeripheralProxy {
 
-    protected IPeripheral instance;
+    protected volatile IPeripheral instance;
     protected final Set<IComputerAccess> mounts = new HashSet<IComputerAccess>();
 
     protected String defaultType = null;
@@ -31,10 +31,15 @@ public abstract class PeripheralProxy implements IPeripheral, IPeripheralProxy {
     protected abstract IPeripheral createPeripheral();
 
     @Override
-    public IPeripheral getBasePeripheral() {
+    public synchronized IPeripheral getBasePeripheral() {
         IPeripheral instance = this.instance;
         if (instance == null) {
-            this.instance = instance = createPeripheral();
+            instance = createPeripheral();
+            if (instance == null) {
+                throw new IllegalStateException(getClass().getName() + " returned a null base peripheral");
+            }
+
+            this.instance = instance;
             for (IComputerAccess mount : mounts) {
                 instance.attach(mount);
             }
@@ -60,20 +65,20 @@ public abstract class PeripheralProxy implements IPeripheral, IPeripheralProxy {
     }
 
     @Override
-    public void attach(IComputerAccess access) {
+    public synchronized void attach(IComputerAccess access) {
         if (instance == null) {
             // We want to be as lazy as possible with loading
             mounts.add(access);
         } else {
-            getBasePeripheral().attach(access);
+            instance.attach(access);
         }
     }
 
     @Override
-    public void detach(IComputerAccess access) {
+    public synchronized void detach(IComputerAccess access) {
         mounts.remove(access);
         if (instance != null) {
-            getBasePeripheral().detach(access);
+            instance.detach(access);
         }
     }
 

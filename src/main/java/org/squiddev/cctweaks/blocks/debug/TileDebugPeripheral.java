@@ -24,6 +24,7 @@ public class TileDebugPeripheral extends TileBase implements IPeripheralHost {
 
     @Override
     public IPeripheral getPeripheral(int side) {
+        if (side < 0 || side >= sides.length) return null;
         if (sides[side] != null) return sides[side];
         return sides[side] = createPeripheral(side);
     }

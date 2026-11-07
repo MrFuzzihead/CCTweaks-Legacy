@@ -24,24 +24,29 @@ public class TurtleRegistry implements ITurtleRegistry, ITurtleInteraction {
 
     public static final TurtleRegistry instance = new TurtleRegistry();
 
-    private Multimap<Item, ITurtleInteraction> itemInteractions = MultimapBuilder.hashKeys()
+    private final Multimap<Item, ITurtleInteraction> itemInteractions = MultimapBuilder.hashKeys()
         .arrayListValues()
         .build();
-    private List<ITurtleInteraction> genericInteractions = new ArrayList<ITurtleInteraction>();
+    private final List<ITurtleInteraction> genericInteractions = new ArrayList<ITurtleInteraction>();
 
     @Override
     public void registerInteraction(ITurtleInteraction interaction) {
+        if (interaction == null) throw new IllegalArgumentException("interaction cannot be null");
         genericInteractions.add(interaction);
     }
 
     @Override
     public void registerInteraction(Item item, ITurtleInteraction interaction) {
+        if (item == null) throw new IllegalArgumentException("item cannot be null");
+        if (interaction == null) throw new IllegalArgumentException("interaction cannot be null");
         itemInteractions.put(item, interaction);
     }
 
     @Override
     public TurtleCommandResult swing(ITurtleAccess turtle, IComputerAccess computer, FakePlayer player, ItemStack stack,
         ForgeDirection direction, MovingObjectPosition hit) throws LuaException {
+        if (stack == null || stack.getItem() == null) return null;
+
         for (ITurtleInteraction interaction : itemInteractions.get(stack.getItem())) {
             TurtleCommandResult result = interaction.swing(turtle, computer, player, stack, direction, hit);
             if (result != null) return result;
@@ -58,6 +63,8 @@ public class TurtleRegistry implements ITurtleRegistry, ITurtleInteraction {
     @Override
     public TurtleCommandResult use(ITurtleAccess turtle, IComputerAccess computer, FakePlayer player, ItemStack stack,
         ForgeDirection direction, MovingObjectPosition hit) throws LuaException {
+        if (stack == null || stack.getItem() == null) return null;
+
         for (ITurtleInteraction interaction : itemInteractions.get(stack.getItem())) {
             TurtleCommandResult result = interaction.use(turtle, computer, player, stack, direction, hit);
             if (result != null) return result;
@@ -74,6 +81,8 @@ public class TurtleRegistry implements ITurtleRegistry, ITurtleInteraction {
     @Override
     public boolean canUse(ITurtleAccess turtle, FakePlayer player, ItemStack stack, ForgeDirection direction,
         MovingObjectPosition hit) {
+        if (stack == null || stack.getItem() == null) return false;
+
         for (ITurtleInteraction interaction : itemInteractions.get(stack.getItem())) {
             boolean result = interaction.canUse(turtle, player, stack, direction, hit);
             if (result) return true;
@@ -90,6 +99,8 @@ public class TurtleRegistry implements ITurtleRegistry, ITurtleInteraction {
     @Override
     public boolean canSwing(ITurtleAccess turtle, FakePlayer player, ItemStack stack, ForgeDirection direction,
         MovingObjectPosition hit) {
+        if (stack == null || stack.getItem() == null) return false;
+
         for (ITurtleInteraction interaction : itemInteractions.get(stack.getItem())) {
             boolean result = interaction.canSwing(turtle, player, stack, direction, hit);
             if (result) return true;

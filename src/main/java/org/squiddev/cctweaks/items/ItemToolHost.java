@@ -35,8 +35,10 @@ public class ItemToolHost extends ItemBase {
     @Override
     @SuppressWarnings({ "unchecked", "rawtypes" })
     public void getSubItems(Item item, CreativeTabs tab, List list) {
+        if (!CCTweaks.thEnabled) return;
+
         list.add(new ItemStack(this, 1, 0));
-        list.add(new ItemStack(this, 1, 1));
+        if (CCTweaks.advanced) list.add(new ItemStack(this, 1, 1));
     }
 
     @Override

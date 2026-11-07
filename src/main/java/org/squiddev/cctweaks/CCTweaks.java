@@ -9,9 +9,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.squiddev.cctweaks.core.FmlEvents;
 import org.squiddev.cctweaks.core.McEvents;
-import org.squiddev.cctweaks.core.network.bridge.NetworkBindings;
 import org.squiddev.cctweaks.core.registry.Registry;
-import org.squiddev.cctweaks.core.visualiser.NetworkPlayerWatcher;
 
 import cpw.mods.fml.common.FMLCommonHandler;
 import cpw.mods.fml.common.Mod;
@@ -27,22 +25,14 @@ import cpw.mods.fml.relauncher.Side;
 import dan200.computercraft.ComputerCraft;
 import dan200.computercraft.core.lua.lib.DelayedTasks;
 
-@Mod(
-    modid = CCTweaks.MODID,
-    name = CCTweaks.NAME,
-    version = CCTweaks.VERSION,
-    dependencies = CCTweaks.DEPENDENCIES,
-    guiFactory = CCTweaks.GUI_FACTORY)
+@Mod(modid = CCTweaks.MODID, name = CCTweaks.NAME, version = CCTweaks.VERSION, dependencies = CCTweaks.DEPENDENCIES)
 public class CCTweaks {
 
     public static final String MODID = "cctweaks";
     public static final String NAME = "CCTweaks";
     public static final String VERSION = Tags.VERSION;
-    public static final String DEPENDENCIES = "required-after:ComputerCraft@[2.0.0,);after:CCTurtle;after:ForgeMultipart;after:OpenPeripheralCore;after:OpenPeripheral";
+    public static final String DEPENDENCIES = "required-after:ComputerCraft@[3.3.0,)";
     public static final Logger logger = LogManager.getLogger();
-
-    public static final String ROOT_NAME = "org.squiddev.cctweaks.";
-    public static final String GUI_FACTORY = ROOT_NAME + "client.gui.GuiConfigFactory";
 
     public static SimpleNetworkWrapper NETWORK;
 
@@ -56,29 +46,12 @@ public class CCTweaks {
     public static boolean computerUpgradeCrafting = true;
     public static boolean debugWandEnabled = true;
     // endregion
-    // region integration
-    public static boolean cbMultipart = true;
-    public static boolean openPeripheralInventories = true;
-    // endregion
-    // region network
-    public static boolean fullBlockModemCrafting = true;
-    // region wirelessbridge
-    public static boolean wbCrafting = true;
-    public static boolean wbEnabled = true;
-    public static boolean pocketEnabled = true;
-    public static int pocketId = 331;
-    public static boolean turtleEnabled = true;
-    public static int turtleId = 331;
-    // endregion
     // endregion
     // region testing
     public static boolean debug = false;
     public static boolean debugItems = false;
-    public static boolean extendedControllerValidation = false;
     // endregion
     // region turtle
-    public static int euRefuelAmount = 25;
-    public static int fluxRefuelAmount = 100;
     // region toolhost
     public static boolean advanced = true;
     public static int advancedUpgradeId = 333;
@@ -123,8 +96,6 @@ public class CCTweaks {
         if (FMLCommonHandler.instance()
             .getEffectiveSide() == Side.SERVER) {
             DelayedTasks.reset();
-            NetworkBindings.reset();
-            NetworkPlayerWatcher.reset();
         }
     }
 
@@ -133,8 +104,6 @@ public class CCTweaks {
         if (FMLCommonHandler.instance()
             .getEffectiveSide() == Side.SERVER) {
             DelayedTasks.reset();
-            NetworkBindings.reset();
-            NetworkPlayerWatcher.reset();
         }
     }
 
@@ -151,38 +120,6 @@ public class CCTweaks {
         prop.comment = "Enable using the debug wand.";
         debugWandEnabled = prop.getBoolean(debugWandEnabled);
         // endregion
-        // region integration
-        prop = config.get("integration", "cbMultipart", true);
-        prop.comment = "Enable compatibility with ChickenBones' Multipart mod.";
-        cbMultipart = prop.getBoolean(cbMultipart);
-        prop = config.get("integration", "openPeripheralInventories", true);
-        prop.comment = "Enable compatibility with OpenPeripheral's inventory modules.";
-        openPeripheralInventories = prop.getBoolean(openPeripheralInventories);
-        // endregion
-        // region network
-        prop = config.get("network", "fullBlockModemCrafting", true);
-        prop.comment = "Enable crafting full block modems.";
-        fullBlockModemCrafting = prop.getBoolean(fullBlockModemCrafting);
-        // region wirelessbridge
-        prop = config.get("network.wirelessbridge", "wbCrafting", true);
-        prop.comment = "Enable crafting the wireless bridge.";
-        wbCrafting = prop.getBoolean(wbCrafting);
-        prop = config.get("network.wirelessbridge", "wbEnabled", true);
-        prop.comment = "Enable the wireless bridge.";
-        wbEnabled = prop.getBoolean(wbEnabled);
-        prop = config.get("network.wirelessbridge", "pocketEnabled", true);
-        prop.comment = "Enable the Wireless Bridge upgrade for pocket computers. Requires Peripherals++";
-        pocketEnabled = prop.getBoolean(pocketEnabled);
-        prop = config.get("network.wirelessbridge", "pocketId", 331);
-        prop.comment = "The pocket upgrade Id. Requires Peripherals++";
-        pocketId = prop.getInt(pocketId);
-        prop = config.get("network.wirelessbridge", "turtleEnabled", true);
-        prop.comment = "Enable the Wireless Bridge upgrade for turtles. Requires Peripherals++";
-        turtleEnabled = prop.getBoolean(turtleEnabled);
-        prop = config.get("network.wirelessbridge", "turtleId", 331);
-        prop.comment = "The turtle upgrade Id. Requires Peripherals++";
-        turtleId = prop.getInt(turtleId);
-        // endregion
         // endregion
         // region testing
         prop = config.get("testing", "debug", false);
@@ -191,17 +128,8 @@ public class CCTweaks {
         prop = config.get("testing", "debugItems", false);
         prop.comment = "Enable debug items.";
         debugItems = prop.getBoolean(debugItems);
-        prop = config.get("testing", "extendedControllerValidation", false);
-        prop.comment = "Enable extended controller validation.";
-        extendedControllerValidation = prop.getBoolean(extendedControllerValidation);
         // endregion
         // region turtle
-        prop = config.get("turtle", "euRefuelAmount", 25);
-        prop.comment = "The amount of EU a single refuel action provides.";
-        euRefuelAmount = prop.getInt(euRefuelAmount);
-        prop = config.get("turtle", "fluxRefuelAmount", 100);
-        prop.comment = "The amount of Flux a single refuel action provides.";
-        fluxRefuelAmount = prop.getInt(fluxRefuelAmount);
         // region toolhost
         prop = config.get("turtle.toolhost", "advanced", true);
         prop.comment = "Enable the Advanced Tool Host upgrade.";

@@ -26,8 +26,6 @@ import cpw.mods.fml.relauncher.SideOnly;
 public class BlockDebug extends BlockBase<TileBase> implements IMultiBlock {
 
     private IIcon peripheralIcon;
-    private IIcon networkedPeripheralIcon;
-    private IIcon nodeIcon;
 
     public BlockDebug() {
         super("debugBlock", TileBase.class);
@@ -37,8 +35,6 @@ public class BlockDebug extends BlockBase<TileBase> implements IMultiBlock {
     @SuppressWarnings({ "unchecked", "rawtypes" })
     public void getSubBlocks(Item item, CreativeTabs tab, List itemStacks) {
         itemStacks.add(new ItemStack(this, 1, 0));
-        itemStacks.add(new ItemStack(this, 1, 1));
-        itemStacks.add(new ItemStack(this, 1, 2));
     }
 
     @Override
@@ -46,37 +42,17 @@ public class BlockDebug extends BlockBase<TileBase> implements IMultiBlock {
     public void registerBlockIcons(IIconRegister register) {
         blockIcon = register.registerIcon(CCTweaks.MODID + ":debugTemplate");
         peripheralIcon = register.registerIcon(CCTweaks.MODID + ":debugPeripheral");
-        networkedPeripheralIcon = register.registerIcon(CCTweaks.MODID + ":debugNetworkedPeripheral");
-        nodeIcon = register.registerIcon(CCTweaks.MODID + ":debugNode");
     }
 
     @Override
     public TileEntity createNewTileEntity(World world, int meta) {
-        switch (meta) {
-            case 0:
-                return new TileDebugPeripheral();
-            case 1:
-                return new TileDebugNetworkedPeripheral();
-            case 2:
-                return new TileDebugNode();
-        }
-
-        return null;
+        return meta == 0 ? new TileDebugPeripheral() : null;
     }
 
     @Override
     @SideOnly(Side.CLIENT)
     public IIcon getIcon(int side, int meta) {
-        switch (meta) {
-            case 0:
-                return peripheralIcon;
-            case 1:
-                return networkedPeripheralIcon;
-            case 2:
-                return nodeIcon;
-        }
-
-        return null;
+        return meta == 0 ? peripheralIcon : null;
     }
 
     @Override
@@ -86,23 +62,13 @@ public class BlockDebug extends BlockBase<TileBase> implements IMultiBlock {
 
     @Override
     public String getUnlocalizedName(int meta) {
-        switch (meta) {
-            case 0:
-                return getUnlocalizedName() + ".peripheral";
-            case 1:
-                return getUnlocalizedName() + ".networkedPeripheral";
-            case 2:
-                return getUnlocalizedName() + ".node";
-        }
-        return getUnlocalizedName();
+        return meta == 0 ? getUnlocalizedName() + ".peripheral" : getUnlocalizedName();
     }
 
     @Override
     public void preInit() {
         GameRegistry.registerBlock(this, ItemMultiBlock.class, name);
         GameRegistry.registerTileEntity(TileDebugPeripheral.class, "debugPeripheral");
-        GameRegistry.registerTileEntity(TileDebugNetworkedPeripheral.class, "debugNetworkedPeripheral");
-        GameRegistry.registerTileEntity(TileDebugNode.class, "debugNode");
     }
 
     @Override

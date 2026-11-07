@@ -13,7 +13,6 @@ import net.minecraftforge.event.ForgeEventFactory;
 import net.minecraftforge.event.entity.player.PlayerDestroyItemEvent;
 import net.minecraftforge.event.entity.player.PlayerInteractEvent;
 
-import org.squiddev.cctweaks.api.network.INetworkCompatiblePeripheral;
 import org.squiddev.cctweaks.core.turtle.TurtleRegistry;
 import org.squiddev.cctweaks.core.utils.LuaResults;
 
@@ -32,7 +31,7 @@ import dan200.computercraft.core.lua.lib.DelayedTask;
 import dan200.computercraft.shared.turtle.core.InteractDirection;
 import dan200.computercraft.shared.util.WorldUtil;
 
-public class ToolManipulatorPeripheral implements IPeripheral, INetworkCompatiblePeripheral {
+public class ToolManipulatorPeripheral implements IPeripheral {
 
     private final ITurtleAccess access;
     private final ToolHostPlayer player;

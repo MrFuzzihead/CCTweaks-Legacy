@@ -12,9 +12,6 @@ import org.squiddev.cctweaks.items.ItemComputerUpgrade;
 import org.squiddev.cctweaks.items.ItemDebugger;
 import org.squiddev.cctweaks.items.ItemToolHost;
 
-import cpw.mods.fml.relauncher.Side;
-import cpw.mods.fml.relauncher.SideOnly;
-
 /**
  * The proxy class
  */
@@ -53,10 +50,6 @@ public final class Registry {
     }
 
     public static void addModule(IModule module) {
-        if (module instanceof IClientModule) {
-            module = new RegisterWrapperClient((IClientModule) module);
-        }
-
         modules.add(module);
 
         if (preInit && module.canLoad()) {
@@ -97,52 +90,4 @@ public final class Registry {
         }
     }
 
-    /**
-     * Magic classes to allow calling client only methods
-     */
-    private static class RegisterWrapper implements IModule {
-
-        protected final IClientModule base;
-
-        private RegisterWrapper(IClientModule base) {
-            this.base = base;
-        }
-
-        @Override
-        public boolean canLoad() {
-            return base.canLoad();
-        }
-
-        @Override
-        public void preInit() {
-            base.preInit();
-        }
-
-        @Override
-        public void init() {
-            base.init();
-        }
-
-        @Override
-        public void postInit() {
-            base.postInit();
-        }
-    }
-
-    /**
-     * Magic classes to allow calling client only methods
-     */
-    private static class RegisterWrapperClient extends RegisterWrapper {
-
-        private RegisterWrapperClient(IClientModule base) {
-            super(base);
-        }
-
-        @Override
-        @SideOnly(Side.CLIENT)
-        public void init() {
-            super.init();
-            base.clientInit();
-        }
-    }
 }

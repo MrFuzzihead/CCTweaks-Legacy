@@ -34,13 +34,14 @@ record and why each was dropped.
   on-state are kept; the running program restarts); upgrades a Normal turtle to Advanced,
   preserving its brain, inventory, fuel, colour and overlays (costs 7 gold ingots).
 - **Debug Wand** — prints tile/peripheral/peripheral-binding info in chat, and injects Cobalt's
-  `DebugLib` into a running computer's Lua state. It is reused rather than consumed.
+  `DebugLib` into a running computer's Lua state (shift-right-click), telling you in chat whether it
+  worked and why it did not. It is reused rather than consumed.
 - **Debug Block** — a debug peripheral tile for testing peripheral bindings.
 - **Tool Host Turtle Upgrades** — Normal (`Gripping`) and Advanced (`Manipulative`) variants;
   turtles can hold and swing arbitrary tools as interactions.
 - **Portal Gun Turtle Interaction** — registers the portal gun item as a swing/use turtle tool.
-- **NEI Documentation** — language-file-backed documentation rendered in Not Enough Items
-  recipe pages.
+- **NEI Documentation** — per-item documentation pages (`assets/cctweaks/docs/**`) rendered in Not
+  Enough Items usage/recipe pages.
 
 Removed features (do not re-add without a ComputerCraft gap to fill): the CCTweaks wired network
 graph and all its nodes (full-block wired modem, wireless bridge block/turtle/pocket upgrades,

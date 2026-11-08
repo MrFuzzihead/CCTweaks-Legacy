@@ -413,7 +413,7 @@ Implemented on this branch (with 83 headless tests, `./gradlew build` clean, and
   `FmlEvents` exception isolation; `PeripheralHelpers` cycle guard; `PeripheralProxy` locking;
   `PortalGunIntegration.canUse`/`canSwing`; config
   validation; `FMLMissingMappingsEvent` handler for removed 2.x names.
-- **Build/tests:** JUnit 5 + Mockito, `useJUnitPlatform`, 20 test classes/83 tests, headless
+- **Build/tests:** JUnit 5 + Mockito, `useJUnitPlatform`, 26 test classes/103 tests, headless
   `StubTurtleAccess`/`StubComputerAccess` harness, API/AT/dependency guard tests.
 - **Dependencies:** NEI 2.9.2-GTNH, CodeChickenCore 1.4.22, JUnit 5.13.4, Mockito 4.11.0.
 
@@ -433,3 +433,34 @@ integration coverage (tool host mining/placement, debug wand injection, NEI GUI)
 - **Portal gun click semantics:** `swing` now fires portal type 1 and `use` type 2, matching
   PortalGun's left=blue/right=orange keybind semantics. Previously `use` keyed off the held item
   (`ItemPortalGunBlue` → 1), so both actions fired blue with a blue gun.
+
+## Batch 2 implementation status
+
+- **Debug wand (D1–D4):** every failure path now reports a distinct chat message (out of range,
+  not started, switched off, unsupported Lua machine, injection error) and success names the
+  computer id, so a silent wand is diagnosable in-game. Added `computer.debugWandRequiresOp`
+  (default false) as the op gate for D2; D3 (the `LuaState` write racing the computer thread) is
+  documented in `AGENTS.md` rather than "fixed", because CC exposes no "run on the computer thread"
+  hook. The NEI doc text no longer describes the deleted network visualiser.
+- **T7 `use(duration)`:** `DelayedTask` never worked (it reads `delay` after the task has run, and
+  `LuaEnvironment.sleep` drops the `MethodResult` that `executeTask` returns). `use` now chains two
+  suspensions — the main-thread task, then a no-op delayed task — via `MethodResult.pullEvent`, so
+  `duration` really holds the Lua call for that many ticks.
+- **T12 `canUse`:** now mirrors `use`: registered interactions, an entity in range with an item,
+  placeable item blocks (with `isBlockEditable`), and tile-entity blocks (block activation cannot be
+  probed without side effects, which is documented on the method).
+- **T13 opposite-side fallback:** gone. `resolveSide` keeps `hit.sideHit` when valid and otherwise
+  derives the face from the hit vector, so a ray that starts inside a block no longer activates or
+  places against the far face or fires twice.
+- **NEI documentation:** added `ResourceDocProvider`, reading
+  `assets/cctweaks/docs/<lang>/{item,tile}/<name>.txt` with `***` page breaks and `${**}`/`${*}`
+  markup. This is the provider the shipped docs were written for; without it the NEI page was
+  always empty because `en_US.lang` has no `.information.N` keys.
+- **Dead code:** deleted `IterableIterator`, `EntityPosition`, `TurtlePosition`, `LuaDirection`,
+  `TileLazyNBT`, `IClientModule` + the `Registry` client wrappers, the unused half of
+  `InventoryUtils`/`Helpers`, `ItemBase.getTag`, `ItemToolHost.getMetadata`,
+  `ToolHostPlayer.loadWholeInventory`/`unloadWholeInventory`, `TurtleUpgradeToolHost.getItem`, and
+  the orphaned `src/test/resources` fixtures.
+
+Still open: E9 (`IPeripheralHost` inventory shadowing — documented, needs a CC-side fix), config GUI,
+and real in-world integration coverage.

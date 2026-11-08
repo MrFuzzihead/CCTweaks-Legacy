@@ -15,6 +15,10 @@ public class DescriptionHelpers {
     private static final List<IDocProvider> providers = new ArrayList<IDocProvider>();
 
     static {
+        // Resource docs win: they are the files the mod ships, and the language-file keys are only
+        // a fallback for packs that want to translate documentation without shipping a jar
+        // resource.
+        add(new ResourceDocProvider());
         add(new LanguageDocProvider());
     }
 

@@ -73,11 +73,6 @@ public class TurtleUpgradeToolHost implements ITurtleUpgrade {
         return TurtleCommandResult.failure("Unsupported tool action");
     }
 
-    public static ItemStack getItem(ITurtleAccess turtle) {
-        return turtle.getInventory()
-            .getStackInSlot(turtle.getSelectedSlot());
-    }
-
     public static ToolHostPlayer getPlayer(ITurtleAccess turtle) {
         ToolHostPlayer player = players.get(turtle);
         // The turtle brain survives a dimension change, but the fake player is bound to one

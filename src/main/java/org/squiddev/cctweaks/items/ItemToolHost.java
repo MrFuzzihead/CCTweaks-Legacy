@@ -53,11 +53,6 @@ public class ItemToolHost extends ItemBase {
     }
 
     @Override
-    public int getMetadata(int metadata) {
-        return metadata;
-    }
-
-    @Override
     @SideOnly(Side.CLIENT)
     public void registerIcons(IIconRegister register) {
         super.registerIcons(register);

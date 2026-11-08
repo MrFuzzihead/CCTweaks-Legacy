@@ -18,6 +18,7 @@ import org.squiddev.cctweaks.core.utils.LuaResults;
 
 import dan200.computercraft.ComputerCraft;
 import dan200.computercraft.api.lua.ILuaContext;
+import dan200.computercraft.api.lua.ILuaEnvironment;
 import dan200.computercraft.api.lua.ILuaTask;
 import dan200.computercraft.api.lua.LuaException;
 import dan200.computercraft.api.lua.MethodResult;
@@ -28,7 +29,7 @@ import dan200.computercraft.api.turtle.ITurtleCommand;
 import dan200.computercraft.api.turtle.TurtleAnimation;
 import dan200.computercraft.api.turtle.TurtleCommandResult;
 import dan200.computercraft.api.turtle.TurtleSide;
-import dan200.computercraft.core.lua.lib.DelayedTask;
+import dan200.computercraft.core.lua.lib.LuaEnvironment;
 import dan200.computercraft.shared.turtle.core.InteractDirection;
 import dan200.computercraft.shared.util.WorldUtil;
 
@@ -36,6 +37,17 @@ public class ToolManipulatorPeripheral implements IPeripheral {
 
     private static final String[] METHOD_NAMES = new String[] { "use", "useUp", "useDown", "canUse", "canUseUp",
         "canUseDown", "swing", "swingUp", "swingDown", "canSwing", "canSwingUp", "canSwingDown", };
+
+    /**
+     * A task that does nothing, used only to obtain a delayed completion event.
+     */
+    private static final ILuaTask NOOP_TASK = new ILuaTask() {
+
+        @Override
+        public Object[] execute() {
+            return null;
+        }
+    };
 
     private final ITurtleAccess access;
     private final ToolHostPlayer player;
@@ -129,17 +141,59 @@ public class ToolManipulatorPeripheral implements IPeripheral {
         final boolean sneak = parseSneak(args, 1);
         final int dir = direction.toWorldDir(access);
 
-        return new DelayedTask() {
+        MethodResult result = context.executeMainThreadTask(new ILuaTask() {
 
             @Override
             public Object[] execute() throws LuaException {
-                return doUse(this, computer, dir, sneak, duration);
+                return doUse(computer, dir, sneak, duration);
             }
-        }.execute(computer, context);
+        });
+
+        // DelayedTask only applies its delay *after* the task has already run and, because
+        // LuaEnvironment.sleep() discards the MethodResult that executeTask() returns, it never
+        // suspended at all. Chain the wait onto the task result ourselves instead.
+        return LuaResults.wrap(afterDelay(computer, result, duration));
     }
 
-    public Object[] doUse(DelayedTask task, IComputerAccess computer, int direction, boolean sneak, int duration)
-        throws LuaException {
+    /**
+     * Chain a {@code duration}-tick wait onto the result of a main-thread task.
+     *
+     * <p>
+     * The Lua bridge resumes a suspended call from its {@code MethodResult} callback, and accepts
+     * another {@code MethodResult} from that callback to keep suspending -- so waiting for the task
+     * and then for the delay is expressed as two nested waits.
+     * </p>
+     *
+     * @param computer The computer to queue the delay task on
+     * @param result   The result of the action, which may itself still be suspended
+     * @param duration The number of ticks to wait afterwards, or 0 for no wait
+     * @return A result that yields {@code result}'s values once the delay has elapsed
+     */
+    static MethodResult afterDelay(IComputerAccess computer, MethodResult result, int duration) throws LuaException {
+        if (duration <= 0) return result;
+
+        if (result.isImmediate()) return waitThen(computer, duration, result.getResults());
+
+        return MethodResult.pullEvent(event -> {
+            MethodResult next = result.resumeWith(event);
+            // Not our event yet: keep waiting on the original result.
+            if (next == null) return null;
+            // A nested wait we did not set up; let it finish rather than dropping it.
+            if (!next.isImmediate()) return next;
+            return waitThen(computer, duration, next.getResults());
+        });
+    }
+
+    /**
+     * Wait {@code duration} ticks by queueing a no-op delayed task, then yield {@code values}.
+     */
+    private static MethodResult waitThen(IComputerAccess computer, int duration, Object[] values) throws LuaException {
+        long id = LuaEnvironment.instance.issueTask(computer, NOOP_TASK, duration);
+        return MethodResult.pullEvent(
+            event -> MethodResult.matches(event, ILuaEnvironment.EVENT_NAME, id) ? MethodResult.of(values) : null);
+    }
+
+    public Object[] doUse(IComputerAccess computer, int direction, boolean sneak, int duration) throws LuaException {
         player.load(access, direction, sneak);
 
         ForgeDirection fDirection = ForgeDirection.VALID_DIRECTIONS[direction];
@@ -162,11 +216,7 @@ public class ToolManipulatorPeripheral implements IPeripheral {
                         }
                         break;
                     case BLOCK: {
-                        // When right next to a block the hit direction gets inverted. Try both to see if one works.
-                        Object[] result = tryUseOnBlock(world, hit, stack, hit.sideHit);
-                        if (result != null) return result;
-
-                        result = tryUseOnBlock(world, hit, stack, ForgeDirection.OPPOSITES[hit.sideHit]);
+                        Object[] result = tryUseOnBlock(world, hit, stack, resolveSide(hit));
                         if (result != null) return result;
                     }
                 }
@@ -384,12 +434,90 @@ public class ToolManipulatorPeripheral implements IPeripheral {
                         if (result) return new Object[] { true };
                     }
 
-                    return new Object[] { false };
+                    if (hit == null) {
+                        // Nothing to click: only an item that does something on a right-click counts.
+                        return new Object[] { stack != null && hasRightClickBehaviour(stack) };
+                    }
+
+                    switch (hit.typeOfHit) {
+                        case ENTITY:
+                            return new Object[] { stack != null && hit.entityHit != null };
+                        case BLOCK:
+                            return new Object[] { canUseOnBlock(hit, stack, resolveSide(hit)) };
+                        default:
+                            return new Object[] { false };
+                    }
                 } finally {
                     player.unload(access);
                 }
             }
         });
+    }
+
+    /**
+     * Whether {@link #onPlayerRightClick} would do something with this block and stack.
+     *
+     * <p>
+     * Block activation cannot be probed without side effects -- {@code onBlockActivated} opens the
+     * GUI it is asked about -- so a block only counts as usable if it has a tile entity (which is
+     * what makes an interaction worth starting), or as placeable if we are holding an item block.
+     * </p>
+     */
+    boolean canUseOnBlock(MovingObjectPosition hit, ItemStack stack, int side) {
+        World world = player.worldObj;
+        int x = hit.blockX, y = hit.blockY, z = hit.blockZ;
+        Block block = world.getBlock(x, y, z);
+
+        if (block == null || block.isAir(world, x, y, z)) return false;
+        if (ComputerCraft.turtlesObeyBlockProtection && !ComputerCraft.isBlockEditable(world, x, y, z, player)) {
+            return false;
+        }
+
+        if (stack != null && stack.getItem() instanceof ItemBlock) {
+            ForgeDirection direction = ForgeDirection.VALID_DIRECTIONS[side];
+            int placeX = x + direction.offsetX;
+            int placeY = y + direction.offsetY;
+            int placeZ = z + direction.offsetZ;
+
+            if (block.isReplaceable(world, x, y, z)) {
+                placeX = x;
+                placeY = y;
+                placeZ = z;
+            }
+
+            if (ComputerCraft.turtlesObeyBlockProtection
+                && !ComputerCraft.isBlockEditable(world, placeX, placeY, placeZ, player)) {
+                return false;
+            }
+
+            ItemBlock itemBlock = (ItemBlock) stack.getItem();
+            if (world
+                .canPlaceEntityOnSide(itemBlock.field_150939_a, placeX, placeY, placeZ, false, side, null, stack)) {
+                return true;
+            }
+        }
+
+        if (!player.isSneaking() || stack == null
+            || stack.getItem()
+                .doesSneakBypassUse(world, x, y, z, player)) {
+            int metadata = world.getBlockMetadata(x, y, z);
+            return block.hasTileEntity(metadata);
+        }
+
+        return false;
+    }
+
+    /**
+     * Whether an item has right-click behaviour when there is no block in front of the turtle.
+     *
+     * <p>
+     * Vanilla offers no way to ask an item without running it, so this only rules out the case we
+     * can be certain about: an item block needs a surface to place against, and there is none.
+     * </p>
+     */
+    static boolean hasRightClickBehaviour(ItemStack stack) {
+        if (stack == null || stack.getItem() == null) return false;
+        return !(stack.getItem() instanceof ItemBlock);
     }
 
     public MethodResult canSwing(final IComputerAccess computer, ILuaContext context, InteractDirection dir,
@@ -439,6 +567,42 @@ public class ToolManipulatorPeripheral implements IPeripheral {
         });
     }
     // endregion
+
+    /**
+     * The face of the hit block that the interaction should use.
+     *
+     * <p>
+     * {@link MovingObjectPosition#sideHit} is normally correct, but it is {@code -1} when the ray
+     * started inside a block (a turtle pressed against a full block). Deriving the face from the
+     * hit vector is the only reliable answer then. The old code retried with
+     * {@link ForgeDirection#OPPOSITES} instead, which could activate or place against the far face
+     * of the block, or fire twice.
+     * </p>
+     *
+     * @param hit The block hit to inspect
+     * @return A {@link ForgeDirection} ordinal, 0-5
+     */
+    static int resolveSide(MovingObjectPosition hit) {
+        if (hit.sideHit >= 0 && hit.sideHit < ForgeDirection.VALID_DIRECTIONS.length) return hit.sideHit;
+        if (hit.hitVec == null) return ForgeDirection.UP.ordinal();
+
+        double x = hit.hitVec.xCoord - hit.blockX;
+        double y = hit.hitVec.yCoord - hit.blockY;
+        double z = hit.hitVec.zCoord - hit.blockZ;
+
+        // Nearest face wins; the ray inside the block is closest to the face it entered through.
+        double distance = Math.min(Math.min(x, 1 - x), Math.min(y, 1 - y));
+        int side = distance == x ? ForgeDirection.WEST.ordinal()
+            : distance == 1 - x ? ForgeDirection.EAST.ordinal()
+                : distance == y ? ForgeDirection.DOWN.ordinal() : ForgeDirection.UP.ordinal();
+
+        double zDistance = Math.min(z, 1 - z);
+        if (zDistance < distance) {
+            side = zDistance == z ? ForgeDirection.NORTH.ordinal() : ForgeDirection.SOUTH.ordinal();
+        }
+
+        return side;
+    }
 
     public MovingObjectPosition findHit(ForgeDirection facing, double range) {
         Vec3 origin = Vec3.createVectorHelper(player.posX, player.posY, player.posZ);

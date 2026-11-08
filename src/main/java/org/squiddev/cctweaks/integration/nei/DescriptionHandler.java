@@ -22,7 +22,7 @@ import codechicken.nei.recipe.IUsageHandler;
  */
 public class DescriptionHandler implements ICraftingHandler, IUsageHandler {
 
-    public final int WIDTH = 166;
+    public static final int WIDTH = 166;
 
     protected List<String> pages;
     protected ItemStack stack;

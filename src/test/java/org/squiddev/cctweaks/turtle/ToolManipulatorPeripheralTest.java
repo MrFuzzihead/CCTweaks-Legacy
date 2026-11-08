@@ -4,17 +4,29 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemBlock;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.MovingObjectPosition;
+import net.minecraft.util.Vec3;
+import net.minecraftforge.common.util.ForgeDirection;
+
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
+import org.squiddev.cctweaks.testsupport.StubComputerAccess;
 
+import dan200.computercraft.api.lua.ILuaEnvironment;
 import dan200.computercraft.api.lua.LuaException;
+import dan200.computercraft.api.lua.MethodResult;
 import dan200.computercraft.api.turtle.ITurtleAccess;
 import dan200.computercraft.api.turtle.TurtleCommandResult;
 import dan200.computercraft.api.turtle.TurtleSide;
+import dan200.computercraft.core.lua.lib.DelayedTasks;
 
 public class ToolManipulatorPeripheralTest {
 
@@ -76,6 +88,86 @@ public class ToolManipulatorPeripheralTest {
         assertArrayEquals(
             new Object[] { false, "broken" },
             ToolManipulatorPeripheral.toObjectArray(TurtleCommandResult.failure("broken")));
+    }
+
+    @Test
+    public void resolvesSideFromTheHitVectorWhenItIsMissing() {
+        MovingObjectPosition hit = new MovingObjectPosition(0, 0, 0, -1, Vec3.createVectorHelper(0.5, 0.02, 0.5));
+
+        // A ray that started inside the block leaves sideHit at -1; the nearest face is the answer.
+        assertEquals(ForgeDirection.DOWN.ordinal(), ToolManipulatorPeripheral.resolveSide(hit));
+
+        hit = new MovingObjectPosition(0, 0, 0, -1, Vec3.createVectorHelper(0.98, 0.5, 0.5));
+        assertEquals(ForgeDirection.EAST.ordinal(), ToolManipulatorPeripheral.resolveSide(hit));
+
+        hit = new MovingObjectPosition(0, 0, 0, -1, Vec3.createVectorHelper(0.5, 0.5, 0.03));
+        assertEquals(ForgeDirection.NORTH.ordinal(), ToolManipulatorPeripheral.resolveSide(hit));
+    }
+
+    @Test
+    public void keepsAnExplicitSide() {
+        MovingObjectPosition hit = new MovingObjectPosition(
+            0,
+            0,
+            0,
+            ForgeDirection.UP.ordinal(),
+            Vec3.createVectorHelper(0.1, 0.5, 0.5));
+        assertEquals(ForgeDirection.UP.ordinal(), ToolManipulatorPeripheral.resolveSide(hit));
+    }
+
+    @Test
+    public void itemBlocksNeedASurfaceToClick() {
+        assertFalse(ToolManipulatorPeripheral.hasRightClickBehaviour(null));
+        assertTrue(ToolManipulatorPeripheral.hasRightClickBehaviour(new ItemStack(new Item())));
+        assertFalse(
+            ToolManipulatorPeripheral
+                .hasRightClickBehaviour(new ItemStack(Mockito.mock(ItemBlock.class, Mockito.CALLS_REAL_METHODS))));
+    }
+
+    @Test
+    public void noDelayReturnsTheTaskResultAsIs() throws Exception {
+        StubComputerAccess computer = new StubComputerAccess(1, "back");
+        MethodResult result = MethodResult.of((Object) new Object[] { true, "block" });
+
+        assertSame(result, ToolManipulatorPeripheral.afterDelay(computer, result, 0));
+    }
+
+    @Test
+    public void durationWaitsForItsOwnTaskEvent() throws Exception {
+        DelayedTasks.reset();
+        StubComputerAccess computer = new StubComputerAccess(1, "back");
+
+        // An immediate result: the delay task is queued straight away.
+        MethodResult result = ToolManipulatorPeripheral.afterDelay(computer, MethodResult.of(true), 5);
+        assertFalse(result.isImmediate(), "use(duration) must suspend");
+
+        assertNull(result.resumeWith(new Object[] { ILuaEnvironment.EVENT_NAME, 99L, true }));
+
+        // DelayedTasks ids are handed out from 1 after a reset, so the queued no-op task is #1.
+        MethodResult resumed = result.resumeWith(new Object[] { ILuaEnvironment.EVENT_NAME, 1L, true });
+        assertTrue(resumed != null && resumed.isImmediate());
+        assertArrayEquals(new Object[] { true }, resumed.getResults());
+    }
+
+    @Test
+    public void durationWaitsForTheActionBeforeTheDelay() throws Exception {
+        DelayedTasks.reset();
+        StubComputerAccess computer = new StubComputerAccess(1, "back");
+
+        MethodResult action = MethodResult
+            .pullEvent(event -> "ready".equals(event[0]) ? MethodResult.of(true, "place") : null);
+        MethodResult result = ToolManipulatorPeripheral.afterDelay(computer, action, 3);
+
+        // Still waiting on the action, not on the delay.
+        assertNull(result.resumeWith(new Object[] { "other" }));
+
+        // The action finishes: the delay is queued and the call keeps suspending.
+        MethodResult afterAction = result.resumeWith(new Object[] { "ready" });
+        assertTrue(afterAction != null && !afterAction.isImmediate());
+
+        MethodResult done = afterAction.resumeWith(new Object[] { ILuaEnvironment.EVENT_NAME, 1L, true });
+        assertTrue(done != null && done.isImmediate());
+        assertArrayEquals(new Object[] { true, "place" }, done.getResults());
     }
 
     @Test

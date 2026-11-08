@@ -18,7 +18,6 @@ import dan200.computercraft.api.peripheral.IComputerAccess;
 import dan200.computercraft.api.peripheral.IPeripheral;
 import dan200.computercraft.core.computer.Computer;
 import dan200.computercraft.core.lua.lib.cobalt.CobaltMachine;
-import dan200.computercraft.shadow.org.squiddev.cobalt.LuaState;
 import dan200.computercraft.shadow.org.squiddev.cobalt.lib.DebugLib;
 import dan200.computercraft.shared.computer.blocks.TileComputerBase;
 import dan200.computercraft.shared.computer.core.ServerComputer;
@@ -38,29 +37,62 @@ public class ItemDebugger extends ItemComputerAction {
 
     @Override
     protected boolean useComputer(ItemStack stack, EntityPlayer player, TileComputerBase computerTile, int side) {
-        if (!computerTile.isUsable(player, false)) return false;
-
-        ServerComputer serverComputer = computerTile.getServerComputer();
-        if (serverComputer == null) return false;
-
-        try {
-            Computer computer = serverComputer.getComputer();
-            dan200.computercraft.core.lua.ILuaMachine luaMachine = computer.getLuaMachine();
-
-            if (!(luaMachine instanceof CobaltMachine machine)) {
-                return false;
-            }
-
-            LuaState state = machine.getLuaState();
-            DebugLib.add(state);
-        } catch (Exception e) {
-            // The computer may be off (no Lua machine) or mid-restart (state being replaced).
-            // This is a debug tool: log at debug and leave the wand usable.
-            CCTweaks.logger.debug("Could not inject the Cobalt debug library", e);
-            return false;
+        // The Cobalt debug library exposes getlocal/setlocal/upvalue access, which reaches outside
+        // the computer sandbox. Server owners can gate it behind operator permissions.
+        if (CCTweaks.debugWandRequiresOp && !player.canCommandSenderUseCommand(2, "cctweaks.debug")) {
+            return fail(player, "You must be an operator to inject the debug library");
         }
 
+        if (!computerTile.isUsable(player, false)) {
+            return fail(player, "That computer is out of reach");
+        }
+
+        ServerComputer serverComputer = computerTile.getServerComputer();
+        if (serverComputer == null) {
+            return fail(player, "This computer has not been started yet");
+        }
+
+        Computer computer = serverComputer.getComputer();
+        if (computer == null) {
+            return fail(player, "This computer has no runtime");
+        }
+
+        // The machine is null while the computer is off or between reboots, so say so rather
+        // than reporting a generic failure -- a wand that silently does nothing is untestable.
+        if (!computer.isOn()) {
+            return fail(player, "Turn the computer on before injecting the debug library");
+        }
+
+        dan200.computercraft.core.lua.ILuaMachine luaMachine = computer.getLuaMachine();
+        if (!(luaMachine instanceof CobaltMachine)) {
+            return fail(
+                player,
+                "Unsupported Lua machine: " + (luaMachine == null ? "none"
+                    : luaMachine.getClass()
+                        .getName()));
+        }
+
+        try {
+            DebugLib.add(((CobaltMachine) luaMachine).getLuaState());
+        } catch (Exception e) {
+            // Normally a Lua error from the library installation itself.
+            CCTweaks.logger.warn("Could not inject the Cobalt debug library", e);
+            return fail(player, "Injection failed: " + e.getMessage());
+        }
+
+        // Note: CobaltMachine.state is not volatile and the computer runs on a worker thread, so
+        // this write races with a concurrently executing script. It is a debug tool; see
+        // AGENTS.md "Known Fragile Points".
+        player.addChatMessage(
+            new ChatComponentText("Injected the debug library into computer #" + serverComputer.getID())
+                .setChatStyle(new ChatStyle().setColor(EnumChatFormatting.GREEN)));
         return true;
+    }
+
+    private static boolean fail(EntityPlayer player, String message) {
+        player.addChatMessage(
+            new ChatComponentText(message).setChatStyle(new ChatStyle().setColor(EnumChatFormatting.RED)));
+        return false;
     }
 
     @Override

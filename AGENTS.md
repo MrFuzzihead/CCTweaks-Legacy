@@ -32,11 +32,11 @@ was deleted. OpenPeripheral is no longer required or touched.
 | # | Feature | Key Source Files |
 |---|---------|-----------------|
 | 1 | **Computer Upgrade Item** — upgrades Normal computer → Advanced in place (metadata family bit; ID, label and on-state kept; the running program restarts); Normal turtle → Advanced, transferring the brain/inventory/fuel/overlays and recreating the Advanced ServerComputer (costs 7 gold ingots) | `items/ItemComputerUpgrade.java`, `items/CraftingComputerUpgrade.java` |
-| 2 | **Debug Wand** — prints tile/peripheral/peripheral-binding info in chat; right-clicking a computer injects Cobalt's `DebugLib` into its running Lua state | `items/ItemDebugger.java`, `blocks/debug/TileDebugPeripheral.java` |
+| 2 | **Debug Wand** — prints tile/peripheral/peripheral-binding info in chat; shift-right-clicking a **running** computer injects Cobalt's `DebugLib` into its Lua state and reports success or the exact reason it failed in chat. Never consumed | `items/ItemDebugger.java`, `blocks/debug/TileDebugPeripheral.java` |
 | 3 | **Debug Block** — one debug peripheral tile (`meta 0`, `debugPeripheral`), gated by `debugItems` | `blocks/debug/BlockDebug.java` |
-| 4 | **Tool Host Turtle Upgrades** — Normal (`Gripping`) and Advanced (`Manipulative`) variants; turtles hold and swing arbitrary tools as interactions | `turtle/TurtleUpgradeToolHost.java`, `turtle/TurtleUpgradeToolManipulator.java`, `turtle/ToolHostPlayer.java`, `turtle/ToolManipulatorPeripheral.java` |
+| 4 | **Tool Host Turtle Upgrades** — Normal (`Gripping`) and Advanced (`Manipulative`) variants; turtles hold and swing arbitrary tools as interactions. The manipulator peripheral's `use(duration)` really waits `duration` ticks; `canUse` mirrors `use` | `turtle/TurtleUpgradeToolHost.java`, `turtle/TurtleUpgradeToolManipulator.java`, `turtle/ToolHostPlayer.java`, `turtle/ToolManipulatorPeripheral.java` |
 | 5 | **Portal Gun Turtle Interaction** — registers the portal gun item as a swing/use turtle tool interaction | `integration/PortalGunIntegration.java` |
-| 6 | **NEI Documentation** — language-file-backed docs rendered in NEI recipe pages | `integration/nei/*` |
+| 6 | **NEI Documentation** — `assets/cctweaks/docs/<lang>/{item,tile}/<name>.txt` rendered in NEI usage/recipe pages (`ResourceDocProvider`; `${**}` bold, `${*}` italic, `***` page break). `LanguageDocProvider` `.information.N` keys are the fallback | `integration/nei/*` |
 
 ### Removed Features (do not re-add without a CC gap to fill)
 
@@ -228,14 +228,16 @@ ClientTickEvent (Phase.START)
 | `blocks.TileBaseLifecycleTest` | `create`/`destroy` exactly once across validate/invalidate/chunk unload |
 | `blocks.debug.TileDebugPeripheralTest` | Per-side cache, bounds, `getSide`, computer tracking |
 | `items.CraftingComputerUpgradeTest` | Matching, gold-slot semantics, unsupported items, pocket NBT preservation |
-| `items.ItemComputerActionTest` | Client suppression, consumption hook, debug wand non-consumption |
+| `items.ItemComputerActionTest` | Client always defers to the server (packet flow), consumption hook, debug wand non-consumption |
+| `items.ItemDebuggerTest` | Every wand failure path reports a distinct chat message; operator gate on/off; generic tile info |
 | `items.ItemToolHostTest` | Creative subtype gating |
 | `items.UpgradeItemTest` | In-place computer metadata/family recreation, turtle transfer/recreation, failed-swap rollback |
-| `turtle.ToolManipulatorPeripheralTest` | Argument parsing, disabled actions, result shape, method table, side equality |
+| `turtle.ToolManipulatorPeripheralTest` | Argument parsing, disabled actions, result shape, method table, side equality, hit-side resolution, `use(duration)` wait chaining, `canUse` item heuristics |
 | `turtle.ToolManipulatorFindHitTest` | Entity ray ends at the target, not beyond it |
 | `harness.HeadlessTurtleHarnessTest` | Stub turtle + stub computer drive the real registry with no server/world |
+| `integration.nei.ResourceDocProviderTest` | Doc path derivation, page splitting, markup conversion, shipped resources readable |
 
-`./gradlew test` runs the JUnit 5 suite headlessly (83 tests at the time of writing). `./gradlew
+`./gradlew test` runs the JUnit 5 suite headlessly (103 tests at the time of writing). `./gradlew
 build` also runs Spotless and Checkstyle. `runServer25` is the headless server smoke test used in
 CI; the real in-world interactions (tool host mining/placement, debug wand injection, NEI GUI)
 still need a dev client.
@@ -252,6 +254,7 @@ Removed with their subjects: `NetworkTest`, `PacketTest`, `ComputerNetworkAccess
 | `computerUpgradeEnabled` | true | Enable Computer Upgrade item |
 | `computerUpgradeCrafting` | true | Enable its crafting recipe |
 | `debugWandEnabled` | true | Enable Debug Wand item |
+| `debugWandRequiresOp` | false | Require permission level 2 to inject the debug library (recommended on public servers) |
 | `debugItems` | false | Enable the debug block |
 | `thEnabled` | true | Enable Tool Host turtle upgrade |
 | `advanced` | true | Enable the Advanced Tool Manipulator variant |
@@ -282,11 +285,20 @@ Removed with their features: `cbMultipart`, `openPeripheralInventories`, `wbEnab
 4. **`ItemDebugger` reaches into Cobalt** (`CobaltMachine.getLuaState()` → `DebugLib.add(state)`).
    That is the one remaining "internal" dependency: if CC changes its Lua machine or Cobalt's
    `DebugLib` visibility again, only the debug wand's injector breaks (guarded by
-   `instanceof`/try-catch, returns `false`).
+   `instanceof`/try-catch, and the reason is now reported in chat).
+   `DebugLib.add` writes into the live `LuaState` from the server thread while the computer's
+   worker thread may be executing the same state (`CobaltMachine.state` is not volatile), so the
+   injection is not synchronised — it is a debug tool, and `debugWandRequiresOp` exists to limit who
+   can trigger it.
 5. **`ToolHostPlayer` emulates `ItemInWorldManager`** (including
    `durabilityRemainingOnBlock`), so a Forge/vanilla mining-behaviour change affects tool host dig
    speed and durability.
-6. **No in-game config GUI.** `guiFactory` was blanked: it pointed at a non-existent
+6. **`PeripheralHostProvider` is registered in `init`**, after CC's `DefaultPeripheralProvider`
+   (registered in CC's own preInit). CC asks providers in registration order, so an `IPeripheralHost`
+   tile that is also an `IInventory` is shadowed by CC's `InventoryPeripheral` and the host
+   peripheral is never returned. A CC-side fix is needed; do not rely on `IPeripheralHost` for
+   inventory tiles.
+7. **No in-game config GUI.** `guiFactory` was blanked: it pointed at a non-existent
    `client.gui.GuiConfigFactory`. Config is edited via `config/cctweaks.cfg` directly; the
    `gui.config.cctweaks.*` lang keys are kept for a future factory.
 

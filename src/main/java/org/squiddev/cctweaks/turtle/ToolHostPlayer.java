@@ -269,19 +269,4 @@ public class ToolHostPlayer extends TurtlePlayer {
         }
     }
 
-    /**
-     * @deprecated Use {@link #load(ITurtleAccess, int, boolean)} instead.
-     */
-    @Deprecated
-    public void loadWholeInventory(ITurtleAccess turtle) {
-        loadTurtleInventory(turtle);
-    }
-
-    /**
-     * @deprecated Use {@link #unload(ITurtleAccess)} instead.
-     */
-    @Deprecated
-    public void unloadWholeInventory(ITurtleAccess turtle) {
-        unloadTurtleInventory(turtle);
-    }
 }

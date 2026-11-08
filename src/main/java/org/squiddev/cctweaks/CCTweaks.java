@@ -42,6 +42,7 @@ public class CCTweaks {
     public static boolean computerUpgradeEnabled = true;
     public static boolean computerUpgradeCrafting = true;
     public static boolean debugWandEnabled = true;
+    public static boolean debugWandRequiresOp = false;
     // endregion
     // endregion
     // region testing
@@ -127,6 +128,10 @@ public class CCTweaks {
         prop = config.get("computer", "debugWandEnabled", true);
         prop.comment = "Enable using the debug wand.";
         debugWandEnabled = prop.getBoolean(debugWandEnabled);
+        prop = config.get("computer", "debugWandRequiresOp", false);
+        prop.comment = "Require operator permissions to inject the debug library. Recommended on public servers: "
+            + "the Cobalt debug library allows scripts to reach outside the computer sandbox.";
+        debugWandRequiresOp = prop.getBoolean(debugWandRequiresOp);
         // endregion
         // endregion
         // region testing

@@ -61,3 +61,20 @@ specific one when a turtle has two manipulators.
   `attack`, `swing`) also disable the corresponding peripheral methods.
 * The upgrade is a turtle upgrade of type `Tool`, so normal `turtle.dig()`/`turtle.attack()` keep
   working alongside the peripheral.
+
+### Buckets
+
+A bucket works as a tool, exactly like vanilla `ItemBucket`:
+
+* **Empty bucket on a fluid source** — `use` drains the source and swaps the bucket for the filled
+  one, returning `true, "bucket", "fill"`. Flowing fluid is not a source, so nothing happens.
+  Modded fluid blocks are supported when a container for that fluid is registered with
+  `FluidContainerRegistry`.
+* **Filled bucket against a block** — `use` empties it into the space on the clicked side (so
+  pointing at a wall pours the fluid next to it), returning `true, "bucket", "place"`, and swaps it
+  for the empty bucket.
+* `canUse` answers the same question without changing the world, and never reports `true` for a
+  block that would then be refused.
+* Everything is gated by `canUse`-consistent block protection, and a whole stack of buckets keeps
+  its remainder: the used bucket is replaced or decremented and the new container goes into a free
+  slot.

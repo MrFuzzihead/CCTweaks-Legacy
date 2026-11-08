@@ -662,12 +662,7 @@ unloadable classes and tested.
   subtypes, `debugItems` gating and the `ItemMultiBlock` contract.
 - **Test suite:** 209 tests / 36 classes, `./gradlew build` clean, self test 17/17.
   JaCoCo: **62.3% lines / 60.8% branches** (53.0%/54.5% before this audit).
-- **New finding, not fixed:** `DefaultTurtleProviders` registers a bucket interaction that
-  implements only `canUse` and no `use`/`swing`. ComputerCraft 3.3.0 ships no bucket support of its
-  own, so a tool-host turtle holding a bucket reports "usable" but the action does nothing (the
-  manipulator then falls through to block activation/placement). Fixing it means implementing
-  fill/drain against `FluidContainerRegistry` - real world-mutating behaviour that needs in-game
-  verification, so it is flagged rather than guessed at.
+- **Bucket interaction was `canUse`-only** (found in batch 7, fixed in batch 8 - see below).
 - **CI fix:** the first real run of the `headless-smoke` job failed on
   `./gradlew: Permission denied` - the wrapper's executable bit was never recorded in Git
   (`100644`), which a Linux checkout cannot recover. `gradlew` and `scripts/headless-smoke.sh` are
@@ -676,3 +671,41 @@ unloadable classes and tested.
 - **Remaining untested, by necessity:** `GuiCCTweaksConfig` (rendering), `DescriptionHandler`
   (rendering), `ToolHostPlayer`/`FakeNetHandler` (unit suite - they are covered by the in-world self
   test instead) and `ModIntegration.canLoad` (needs FML's `Loader`).
+
+## Batch 8 implementation status
+
+**Bucket tool support.** `DefaultTurtleProviders` used to register an interaction that answered
+`canUse` and implemented no action at all, and ComputerCraft 3.3.0 ships no bucket support of its
+own - so a tool-host turtle holding a bucket reported "usable" and then did nothing. It is now
+`core/turtle/BucketInteraction`, registered the same way, and faithfully reproduces vanilla
+`ItemBucket`:
+
+* **Fill** - an empty bucket on a water/lava *source* (metadata 0) drains it and becomes the filled
+  bucket. Modded fluid blocks go through `IFluidBlock.drain(..., false)` to check the fluid, then
+  `FluidContainerRegistry.fillFluidContainer` to check the container accepts it, and only then
+  `drain(..., true)` - so a fluid the container cannot hold leaves the world untouched. Flowing
+  fluid is not a source, so nothing happens.
+* **Empty** - a filled bucket pours into the block on the clicked side (`hit.blockX + side`
+  offsets, exactly like vanilla `ItemBucket`'s right-click), never replacing the clicked block.
+* **Protection** - both directions check `ComputerCraft.isBlockEditable` on the position they would
+  actually modify, because interactions run before the manipulator's own protection check.
+* **Inventory** - the used bucket is swapped for its container in the held slot; for a stack, the
+  stack is decremented and the container goes into a spare slot (which the tool host writes back to
+  the turtle). Failure paths never touch the stack.
+* `canUse` mirrors `use` exactly (same target position, same acceptance rules) and never changes
+  the world; `canSwing` stays false.
+
+`Actions` is the seam between the decision tree and Forge: `BucketInteractionTest` (11 cases)
+covers targeting, refusal, inventory bookkeeping and `canUse` with a stub, and three new in-world
+checks cover the real `ForgeActions` against the running server: `bucket-fill` (water source
+drained, water bucket obtained), `bucket-place` (water poured onto the clicked side, clicked block
+untouched, empty bucket returned) and `bucket-not-a-source` (a solid block is refused and the stack
+is untouched). **20/20 self-test checks pass.**
+
+Also updated: `docs/tool-manipulator-api.md` documents the bucket behaviour and its result tuples,
+and `AGENTS.md` lists the interaction in the feature catalogue.
+
+**Test suite:** 220 tests / 37 classes, `./gradlew build` clean, self test 20/20. JaCoCo is
+**61.7% lines / 57.7% branches**: the unit-report number dipped slightly because `ForgeActions` (the
+real fluid/placement implementation) is only exercised by the in-world harness, which JaCoCo does
+not instrument. The decision tree around it is fully unit tested.

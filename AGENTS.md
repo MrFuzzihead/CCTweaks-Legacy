@@ -34,7 +34,7 @@ was deleted. OpenPeripheral is no longer required or touched.
 | 1 | **Computer Upgrade Item** — upgrades Normal computer → Advanced in place (metadata family bit; ID, label and on-state kept; the running program restarts); Normal turtle → Advanced, transferring the brain/inventory/fuel/overlays and recreating the Advanced ServerComputer (costs 7 gold ingots) | `items/ItemComputerUpgrade.java`, `items/CraftingComputerUpgrade.java` |
 | 2 | **Debug Wand** — prints tile/peripheral/peripheral-binding info in chat; shift-right-clicking a **running** computer injects Cobalt's `DebugLib` into its Lua state and reports success or the exact reason it failed in chat. Never consumed | `items/ItemDebugger.java`, `blocks/debug/TileDebugPeripheral.java` |
 | 3 | **Debug Block** — one debug peripheral tile (`meta 0`, `debugPeripheral`), gated by `debugItems` | `blocks/debug/BlockDebug.java` |
-| 4 | **Tool Host Turtle Upgrades** — Normal (`Gripping`) and Advanced (`Manipulative`) variants; turtles hold and swing arbitrary tools as interactions. The manipulator peripheral's `use(duration)` really waits `duration` ticks; `canUse` mirrors `use` | `turtle/TurtleUpgradeToolHost.java`, `turtle/TurtleUpgradeToolManipulator.java`, `turtle/ToolHostPlayer.java`, `turtle/ToolManipulatorPeripheral.java` |
+| 4 | **Tool Host Turtle Upgrades** — Normal (`Gripping`) and Advanced (`Manipulative`) variants; turtles hold and swing arbitrary tools as interactions. The manipulator peripheral's `use(duration)` really waits `duration` ticks; `canUse` mirrors `use`. Buckets work as tools via `BucketInteraction` (fill from a source, empty on the clicked side) | `turtle/TurtleUpgradeToolHost.java`, `turtle/TurtleUpgradeToolManipulator.java`, `turtle/ToolHostPlayer.java`, `turtle/ToolManipulatorPeripheral.java`, `core/turtle/BucketInteraction.java` |
 | 5 | **Portal Gun Turtle Interaction** — registers the portal gun item as a swing/use turtle tool interaction | `integration/PortalGunIntegration.java` |
 | 6 | **NEI Documentation** — `assets/cctweaks/docs/<lang>/{item,tile}/<name>.txt` rendered in NEI usage/recipe pages (`ResourceDocProvider`; `${**}` bold, `${*}` italic, `***` page break). `LanguageDocProvider` `.information.N` keys are the fallback | `integration/nei/*` |
 | 7 | **In-game config GUI** — every option in Mods list → Config; edits Forge's live `Configuration`, then saves `config/cctweaks.cfg` and re-reads the statics on close | `client/gui/GuiConfigFactory.java`, `client/gui/GuiCCTweaksConfig.java`, `CCTweaks.getConfiguration/saveConfiguration` |
@@ -234,6 +234,7 @@ No client-side tick work: the client queue/handler was removed with the network 
 | `core.peripheral.PeripheralHelpersTest` | Chains, targets, nulls, proxy cycles |
 | `core.peripheral.PeripheralProxyTest` | Lazy creation, attach replay, detach, default type, equality |
 | `core.turtle.TurtleRegistryTest` | Item-before-generic dispatch, first-result wins, null handling, registration guards |
+| `core.turtle.BucketInteractionTest` | Bucket decision tree: fill target is the hit block, empty target is the clicked side (all six), invalid side/entity/null hit ignored, non-bucket ignored, `canUse` mirroring, stack bookkeeping (single replaced, stack decremented + container stored), failures leave the stack alone |
 | `core.utils.InventoryUtilsTest` / `LuaResultsTest` / `WorldPositionTest` | Extraction/counting, Lua suspension wrapping, positions |
 | `blocks.TileBaseLifecycleTest` | `create`/`destroy` exactly once across validate/invalidate/chunk unload |
 | `blocks.debug.TileDebugPeripheralTest` | Per-side cache, bounds, `getSide`, computer tracking |
@@ -261,11 +262,11 @@ No client-side tick work: the client queue/handler was removed with the network 
 | `commands.CommandCCTweaksTest` | Command name/permission/usage, sub-command tab completion, help/modules/config output, unknown sub-command, world-less sender |
 | `selfTest.SelfTestTurtleTest` | The runtime `ITurtleAccess` stub: slot IR, `count`, defensive position, direction/teleport, inert fuel/upgrades |
 
-`./gradlew test` runs the JUnit 5 suite headlessly (209 tests / 36 classes at the time of writing).
+`./gradlew test` runs the JUnit 5 suite headlessly (220 tests / 37 classes at the time of writing).
 `./gradlew build` also runs Spotless, Checkstyle, `verifyTestSuiteExecuted` (fails the build if the
 test task produced zero XML results - a refactor that moves tests out of a detected package would
 otherwise pass silently) and `jacocoTestReport`, which writes
-`build/reports/jacoco/test/html/index.html` (~62% lines / ~61% branches at the time of writing). The
+`build/reports/jacoco/test/html/index.html` (~62% lines / ~58% branches at the time of writing). The
 `selfTest` package is excluded from the report: it only runs inside the game JVM, which JaCoCo does
 not instrument, and its results are asserted by the harness instead.
 
@@ -320,6 +321,10 @@ What the self test covers (and nothing else does, because it needs a live `World
 * the turtle-facing tool host (`TurtleUpgradeToolHost.useTool(Dig)` and its disabled-config
   refusal) and `TurtleUpgradeToolManipulator.createPeripheral` returning the `tool_manipulator`
   peripheral with its 12 methods;
+* the bucket interaction against the real Forge fluid registry: filling from a water source, pouring
+  a water bucket onto the clicked side, and refusing a non-fluid block (both `use` and `canUse`);
+* the bucket interaction against the real Forge fluid registry (fill from a source, pour onto the
+  clicked side, refuse a non-fluid block) - see above;
 * the debug wand: refusal on a switched-off computer and a successful `DebugLib` injection into a
   **running** computer (the wand is not consumed and a second injection succeeds). The computer has
   to be booted by hand: the test calls `ServerComputer.update()` in a sleep loop, because the state

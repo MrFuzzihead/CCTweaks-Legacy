@@ -11,10 +11,14 @@ import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.ChunkCoordinates;
+import net.minecraft.util.MovingObjectPosition;
+import net.minecraft.util.Vec3;
 import net.minecraft.world.WorldServer;
+import net.minecraftforge.common.util.ForgeDirection;
 
 import org.squiddev.cctweaks.CCTweaks;
 import org.squiddev.cctweaks.core.registry.Registry;
+import org.squiddev.cctweaks.core.turtle.TurtleRegistry;
 import org.squiddev.cctweaks.turtle.ToolHostPlayer;
 import org.squiddev.cctweaks.turtle.TurtleUpgradeToolHost;
 import org.squiddev.cctweaks.turtle.TurtleUpgradeToolManipulator;
@@ -137,6 +141,9 @@ public final class InWorldSelfTest {
             check("toolhost-upgrade-dig", this::checkUpgradeDig);
             check("toolhost-upgrade-disabled", this::checkUpgradeDisabled);
             check("toolhost-manipulator-peripheral", this::checkManipulatorPeripheral);
+            check("bucket-fill", this::checkBucketFill);
+            check("bucket-place", this::checkBucketPlace);
+            check("bucket-not-a-source", this::checkBucketNotASource);
             check("debug-wand-refused-off", this::checkDebugWandOff);
             check("debug-wand-inject", this::checkDebugWandInject);
             check("upgrade-computer", this::checkUpgradeComputer);
@@ -347,6 +354,112 @@ public final class InWorldSelfTest {
             // rather than a failure: a missing drop does not mean the consumer is broken.
             notes.add("attack produced no rotten flesh (loot is randomised)");
         }
+    }
+
+    /**
+     * A tool host holding an empty bucket fills it from the fluid source in front of it. Driven
+     * through the real {@link ITurtleRegistry}, so this also proves the interaction is registered.
+     */
+    private void checkBucketFill() throws Exception {
+        int x = originX + 1, y = originY, z = originZ;
+        world.setBlock(x, y, z, Blocks.water, 0, 3);
+
+        SelfTestTurtle turtle = turtle(x, y + 1, z);
+        turtle.setDirection(0);
+        turtle.setSlot(0, new ItemStack(Items.bucket));
+
+        TurtleCommandResult result = useBucket(turtle, 0);
+        assertTrue(result != null, "the bucket interaction should handle an empty bucket on water");
+        assertTrue(result.isSuccess(), "filling a bucket from a water source should succeed");
+
+        assertTrue(world.isAirBlock(x, y, z), "the water source should have been drained");
+        assertTrue(turtle.count(Items.water_bucket) == 1, "the turtle should hold a water bucket");
+        assertTrue(turtle.count(Items.bucket) == 0, "the empty bucket should have been replaced");
+        assertTrue(result.getResults()[0].equals("bucket"), "the result should name the bucket action");
+    }
+
+    /**
+     * The other direction: a filled bucket empties into the space on the clicked side, like a
+     * player right-clicking a wall.
+     */
+    private void checkBucketPlace() throws Exception {
+        int x = originX + 5, y = originY, z = originZ;
+        // The turtle sits on the block it is "clicking"; emptying a bucket targets the block on the
+        // clicked side, i.e. the space the turtle occupies.
+        world.setBlock(x, y, z, Blocks.stone, 0, 3);
+        int placeY = y + 1;
+        world.setBlockToAir(x, placeY, z);
+
+        SelfTestTurtle turtle = turtle(x, placeY, z);
+        turtle.setDirection(0);
+        turtle.setSlot(0, new ItemStack(Items.water_bucket));
+
+        TurtleCommandResult result = useBucket(turtle, 0);
+        assertTrue(result != null, "the bucket interaction should handle a filled bucket");
+        assertTrue(result.isSuccess(), "emptying a bucket against a solid block should succeed");
+
+        Block placed = world.getBlock(x, placeY, z);
+        assertTrue(
+            placed.getMaterial()
+                .isLiquid(),
+            "water should have been placed on the clicked side, found " + placed.getUnlocalizedName());
+        assertTrue(world.getBlock(x, y, z) == Blocks.stone, "the clicked block must not be replaced");
+        assertTrue(turtle.count(Items.bucket) == 1, "the turtle should hold an empty bucket");
+        assertTrue(turtle.count(Items.water_bucket) == 0, "the water bucket should have been replaced");
+    }
+
+    /**
+     * Flowing water is not a source: the interaction must refuse rather than duplicating fluid.
+     */
+    private void checkBucketNotASource() throws Exception {
+        int x = originX + 3, y = originY, z = originZ;
+        world.setBlock(x, y, z, Blocks.stone, 0, 3);
+
+        SelfTestTurtle turtle = turtle(x, y + 1, z);
+        turtle.setDirection(0);
+        turtle.setSlot(0, new ItemStack(Items.bucket));
+
+        assertTrue(!canBucket(turtle, 0), "canUse should be false for a block with no fluid");
+        assertTrue(useBucket(turtle, 0) == null, "nothing should handle a bucket on a solid block");
+        assertTrue(turtle.count(Items.bucket) == 1, "the empty bucket should be untouched");
+    }
+
+    /**
+     * Drive the bucket interaction the way the manipulator does: load the fake player, ask the
+     * registry, unload (which writes the inventory back to the turtle).
+     */
+    private TurtleCommandResult useBucket(SelfTestTurtle turtle, int direction) throws Exception {
+        ToolHostPlayer player = new ToolHostPlayer(turtle);
+        player.load(turtle, direction, false);
+        try {
+            ItemStack stack = player.getItem(turtle);
+            MovingObjectPosition hit = hitBelow(turtle);
+            return TurtleRegistry.instance.use(turtle, null, player.asPlayer(), stack, ForgeDirection.DOWN, hit);
+        } finally {
+            player.unload(turtle);
+        }
+    }
+
+    private boolean canBucket(SelfTestTurtle turtle, int direction) {
+        ToolHostPlayer player = new ToolHostPlayer(turtle);
+        player.load(turtle, direction, false);
+        try {
+            ItemStack stack = player.getItem(turtle);
+            return TurtleRegistry.instance
+                .canUse(turtle, player.asPlayer(), stack, ForgeDirection.DOWN, hitBelow(turtle));
+        } finally {
+            player.unload(turtle);
+        }
+    }
+
+    /**
+     * A hit on the top face of the block directly below the turtle, which is what the manipulator
+     * would find looking down.
+     */
+    private static MovingObjectPosition hitBelow(SelfTestTurtle turtle) {
+        ChunkCoordinates position = turtle.getPosition();
+        int x = position.posX, y = position.posY - 1, z = position.posZ;
+        return new MovingObjectPosition(x, y, z, 1, Vec3.createVectorHelper(x + 0.5, y + 1, z + 0.5));
     }
 
     /**

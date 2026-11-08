@@ -89,7 +89,7 @@ public class ResourceDocProviderTest {
 
     @Test
     public void buildsDocsPathFromUnlocalizedName() {
-        assertEquals("item/debugger", ResourceDocProvider.docsPath(itemStack("cctweaks.debugger")));
+        assertEquals("item/computerUpgrade", ResourceDocProvider.docsPath(itemStack("cctweaks.computerUpgrade")));
         assertEquals("item/toolHost.advanced", ResourceDocProvider.docsPath(itemStack("cctweaks.toolHost.advanced")));
         assertNull(ResourceDocProvider.docsPath(null));
         assertNull(ResourceDocProvider.docsPath(itemStack("")));
@@ -100,7 +100,7 @@ public class ResourceDocProviderTest {
         // The "tile." prefix picks the directory; a bare name falls back to the item type.
         assertEquals("tile/debugBlock", ResourceDocProvider.docsPath("tile.cctweaks.debugBlock", true));
         assertEquals("tile/debugBlock", ResourceDocProvider.docsPath("cctweaks.debugBlock", true));
-        assertEquals("item/debugger", ResourceDocProvider.docsPath("cctweaks.debugger", false));
+        assertEquals("item/computerUpgrade", ResourceDocProvider.docsPath("cctweaks.computerUpgrade", false));
         assertNull(ResourceDocProvider.docsPath("item.cctweaks.", false));
         assertNull(ResourceDocProvider.docsPath((String) null, false));
     }

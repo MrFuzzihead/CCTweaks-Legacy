@@ -92,8 +92,6 @@ public class CommandCCTweaks extends CommandBase {
         send(sender, EnumChatFormatting.AQUA, "Configuration (" + CCTweaks.MODID + "):");
         send(sender, EnumChatFormatting.WHITE, "  computerUpgradeEnabled = " + CCTweaks.computerUpgradeEnabled);
         send(sender, EnumChatFormatting.WHITE, "  computerUpgradeCrafting = " + CCTweaks.computerUpgradeCrafting);
-        send(sender, EnumChatFormatting.WHITE, "  debugWandEnabled = " + CCTweaks.debugWandEnabled);
-        send(sender, EnumChatFormatting.WHITE, "  debugWandRequiresOp = " + CCTweaks.debugWandRequiresOp);
         send(sender, EnumChatFormatting.WHITE, "  debugItems = " + CCTweaks.debugItems);
         send(sender, EnumChatFormatting.WHITE, "  thEnabled = " + CCTweaks.thEnabled);
         send(sender, EnumChatFormatting.WHITE, "  upgradeId = " + CCTweaks.upgradeId);

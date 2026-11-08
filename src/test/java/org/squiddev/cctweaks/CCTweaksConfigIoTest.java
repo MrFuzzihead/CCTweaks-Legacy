@@ -46,8 +46,6 @@ public class CCTweaksConfigIoTest {
 
     private boolean computerUpgradeEnabled;
     private boolean computerUpgradeCrafting;
-    private boolean debugWandEnabled;
-    private boolean debugWandRequiresOp;
     private boolean debugItems;
     private boolean advanced;
     private int advancedUpgradeId;
@@ -60,8 +58,6 @@ public class CCTweaksConfigIoTest {
     public void save() {
         computerUpgradeEnabled = CCTweaks.computerUpgradeEnabled;
         computerUpgradeCrafting = CCTweaks.computerUpgradeCrafting;
-        debugWandEnabled = CCTweaks.debugWandEnabled;
-        debugWandRequiresOp = CCTweaks.debugWandRequiresOp;
         debugItems = CCTweaks.debugItems;
         advanced = CCTweaks.advanced;
         advancedUpgradeId = CCTweaks.advancedUpgradeId;
@@ -76,8 +72,6 @@ public class CCTweaksConfigIoTest {
     public void restore() {
         CCTweaks.computerUpgradeEnabled = computerUpgradeEnabled;
         CCTweaks.computerUpgradeCrafting = computerUpgradeCrafting;
-        CCTweaks.debugWandEnabled = debugWandEnabled;
-        CCTweaks.debugWandRequiresOp = debugWandRequiresOp;
         CCTweaks.debugItems = debugItems;
         CCTweaks.advanced = advanced;
         CCTweaks.advancedUpgradeId = advancedUpgradeId;
@@ -137,8 +131,6 @@ public class CCTweaksConfigIoTest {
     public void defaultsMatchTheShippedConfig() {
         CCTweaks.computerUpgradeEnabled = false;
         CCTweaks.computerUpgradeCrafting = false;
-        CCTweaks.debugWandEnabled = false;
-        CCTweaks.debugWandRequiresOp = true;
         CCTweaks.debugItems = true;
         CCTweaks.advanced = false;
         CCTweaks.advancedUpgradeId = 1;
@@ -151,8 +143,6 @@ public class CCTweaksConfigIoTest {
 
         assertTrue(CCTweaks.computerUpgradeEnabled);
         assertTrue(CCTweaks.computerUpgradeCrafting);
-        assertTrue(CCTweaks.debugWandEnabled);
-        assertFalse(CCTweaks.debugWandRequiresOp);
         assertFalse(CCTweaks.debugItems);
         assertTrue(CCTweaks.advanced);
         assertEquals(333, CCTweaks.advancedUpgradeId);
@@ -171,10 +161,6 @@ public class CCTweaksConfigIoTest {
                     false,
                     "computer.computerUpgradeCrafting",
                     false,
-                    "computer.debugWandEnabled",
-                    false,
-                    "computer.debugWandRequiresOp",
-                    true,
                     "testing.debugItems",
                     true,
                     "turtle.toolhost.advanced",
@@ -192,8 +178,6 @@ public class CCTweaksConfigIoTest {
 
         assertFalse(CCTweaks.computerUpgradeEnabled);
         assertFalse(CCTweaks.computerUpgradeCrafting);
-        assertFalse(CCTweaks.debugWandEnabled);
-        assertTrue(CCTweaks.debugWandRequiresOp);
         assertTrue(CCTweaks.debugItems);
         assertFalse(CCTweaks.advanced);
         assertFalse(CCTweaks.thCrafting);
@@ -224,7 +208,7 @@ public class CCTweaksConfigIoTest {
     public void everyOptionHasATranslatedLanguageKey() throws IOException {
         CCTweaks.readConfig(config(values()));
 
-        assertEquals(11, languageKeys.size(), "every config option should get a language key");
+        assertEquals(9, languageKeys.size(), "every config option should get a language key");
 
         Set<String> lang = loadLang();
         for (String key : languageKeys) {
@@ -232,9 +216,6 @@ public class CCTweaksConfigIoTest {
             assertTrue(lang.contains(key), "missing translation for " + key);
         }
 
-        assertTrue(
-            languageKeys.contains("gui.config.cctweaks.computer.debugWandRequiresOp"),
-            "the debug wand op gate should be translated");
         assertTrue(
             languageKeys.contains("gui.config.cctweaks.turtle.toolhost.digFactor"),
             "nested categories keep their dotted name in the key");

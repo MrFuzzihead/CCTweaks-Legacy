@@ -47,21 +47,11 @@ public abstract class ItemComputerAction extends ItemBase {
             result = useGeneric(stack, player, tile, side);
         }
 
-        if (result && shouldConsume(stack, player)) {
-            if (!player.capabilities.isCreativeMode) {
-                if (--stack.stackSize <= 0) player.destroyCurrentEquippedItem();
-            }
+        if (result && !player.capabilities.isCreativeMode) {
+            if (--stack.stackSize <= 0) player.destroyCurrentEquippedItem();
         }
 
         return result;
-    }
-
-    /**
-     * Whether a successful use should consume one item from the held stack. The debug wand
-     * overrides this: its whole purpose is repeatable inspection.
-     */
-    protected boolean shouldConsume(ItemStack stack, EntityPlayer player) {
-        return true;
     }
 
     protected abstract boolean useComputer(ItemStack stack, EntityPlayer player, TileComputerBase computerTile,

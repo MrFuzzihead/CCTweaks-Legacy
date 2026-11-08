@@ -36,8 +36,6 @@ public class ConfigElementsTest {
 
     private boolean computerUpgradeEnabled;
     private boolean computerUpgradeCrafting;
-    private boolean debugWandEnabled;
-    private boolean debugWandRequiresOp;
     private boolean debugItems;
     private boolean advanced;
     private int advancedUpgradeId;
@@ -50,8 +48,6 @@ public class ConfigElementsTest {
     public void remember() {
         computerUpgradeEnabled = CCTweaks.computerUpgradeEnabled;
         computerUpgradeCrafting = CCTweaks.computerUpgradeCrafting;
-        debugWandEnabled = CCTweaks.debugWandEnabled;
-        debugWandRequiresOp = CCTweaks.debugWandRequiresOp;
         debugItems = CCTweaks.debugItems;
         advanced = CCTweaks.advanced;
         advancedUpgradeId = CCTweaks.advancedUpgradeId;
@@ -65,8 +61,6 @@ public class ConfigElementsTest {
     public void restore() {
         CCTweaks.computerUpgradeEnabled = computerUpgradeEnabled;
         CCTweaks.computerUpgradeCrafting = computerUpgradeCrafting;
-        CCTweaks.debugWandEnabled = debugWandEnabled;
-        CCTweaks.debugWandRequiresOp = debugWandRequiresOp;
         CCTweaks.debugItems = debugItems;
         CCTweaks.advanced = advanced;
         CCTweaks.advancedUpgradeId = advancedUpgradeId;
@@ -111,7 +105,7 @@ public class ConfigElementsTest {
     public void elementsFollowCategoryAndPropertyOrder() {
         // Build (and stub) the categories before stubbing the configuration: nested stubbing
         // inside thenReturn(...) is what Mockito's UnfinishedStubbingException complains about.
-        ConfigCategory computer = category("computer", "computerUpgradeEnabled", "debugWandEnabled");
+        ConfigCategory computer = category("computer", "computerUpgradeEnabled", "computerUpgradeCrafting");
         ConfigCategory testing = category("testing", "debugItems");
         ConfigCategory toolhost = category("turtle.toolhost", "digFactor", "thEnabled");
 
@@ -124,7 +118,7 @@ public class ConfigElementsTest {
         for (IConfigElement element : ConfigElements.of(config)) names.add(element.getName());
 
         assertEquals(
-            Arrays.asList("computerUpgradeEnabled", "debugWandEnabled", "debugItems", "digFactor", "thEnabled"),
+            Arrays.asList("computerUpgradeEnabled", "computerUpgradeCrafting", "debugItems", "digFactor", "thEnabled"),
             names);
     }
 

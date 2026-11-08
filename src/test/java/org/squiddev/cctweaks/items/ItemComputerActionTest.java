@@ -51,18 +51,6 @@ public class ItemComputerActionTest {
     }
 
     @Test
-    public void debugWandDoesNotConsume() {
-        ItemDebugger debugger = Mockito.mock(ItemDebugger.class, Mockito.CALLS_REAL_METHODS);
-        assertFalse(debugger.shouldConsume(stack(), null));
-    }
-
-    @Test
-    public void defaultActionConsumes() {
-        ItemComputerAction action = Mockito.mock(ItemComputerAction.class, Mockito.CALLS_REAL_METHODS);
-        assertTrue(action.shouldConsume(stack(), null));
-    }
-
-    @Test
     public void successfulUseConsumesOneItem() {
         ItemComputerAction action = Mockito.mock(ItemComputerAction.class, Mockito.CALLS_REAL_METHODS);
         World world = Mockito.mock(World.class);

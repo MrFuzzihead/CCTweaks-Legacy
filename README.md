@@ -33,9 +33,6 @@ record and why each was dropped.
 - **Computer Upgrade Item** — upgrades a Normal computer to Advanced in place (ID, label and
   on-state are kept; the running program restarts); upgrades a Normal turtle to Advanced,
   preserving its brain, inventory, fuel, colour and overlays (costs 7 gold ingots).
-- **Debug Wand** — prints tile/peripheral/peripheral-binding info in chat, and injects Cobalt's
-  `DebugLib` into a running computer's Lua state (shift-right-click), telling you in chat whether it
-  worked and why it did not. It is reused rather than consumed.
 - **Debug Block** — a debug peripheral tile for testing peripheral bindings.
 - **Tool Host Turtle Upgrades** — Normal (`Gripping`) and Advanced (`Manipulative`) variants;
   turtles can hold and swing arbitrary tools as interactions.

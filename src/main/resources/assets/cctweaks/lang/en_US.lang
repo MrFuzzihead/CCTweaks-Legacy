@@ -1,5 +1,4 @@
 item.cctweaks.computerUpgrade.name=Computer Upgrade
-item.cctweaks.debugger.name=Debug Wand
 item.cctweaks.toolHost.name=Tool Host
 item.cctweaks.toolHost.advanced.name=Tool Manipulator
 
@@ -15,8 +14,6 @@ gui.config.cctweaks.title=CCTweaks Configuration
 gui.config.cctweaks.computer=Computer
 gui.config.cctweaks.computer.computerUpgradeEnabled=Computer Upgrade Enabled
 gui.config.cctweaks.computer.computerUpgradeCrafting=Computer Upgrade Crafting
-gui.config.cctweaks.computer.debugWandEnabled=Debug Wand Enabled
-gui.config.cctweaks.computer.debugWandRequiresOp=Debug Wand Requires Operator
 
 gui.config.cctweaks.testing=Testing
 gui.config.cctweaks.testing.debugItems=Debug Items

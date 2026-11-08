@@ -143,6 +143,8 @@ public final class InWorldSelfTest {
             check("toolhost-manipulator-peripheral", this::checkManipulatorPeripheral);
             check("bucket-fill", this::checkBucketFill);
             check("bucket-place", this::checkBucketPlace);
+            check("bucket-place-supported-no-hit", this::checkBucketPlaceSupportedNoHit);
+            check("bucket-place-unsupported-no-hit", this::checkBucketPlaceUnsupportedNoHit);
             check("bucket-not-a-source", this::checkBucketNotASource);
             check("debug-wand-refused-off", this::checkDebugWandOff);
             check("debug-wand-inject", this::checkDebugWandInject);
@@ -409,6 +411,52 @@ public final class InWorldSelfTest {
     }
 
     /**
+     * No block hit, but the cell in front of the turtle has a floor one block below it: pouring
+     * there is the same action as a player clicking the top face of that floor, so it is allowed.
+     */
+    private void checkBucketPlaceSupportedNoHit() throws Exception {
+        int x = originX + 7, y = originY, z = originZ;
+        // The floor the turtle pours onto: one block below and in front of it (NORTH is -Z).
+        world.setBlock(x, y, z - 1, Blocks.stone, 0, 3);
+        world.setBlockToAir(x, y + 1, z - 1);
+        world.setBlock(x, y, z, Blocks.stone, 0, 3);
+
+        SelfTestTurtle turtle = turtle(x, y + 1, z);
+        turtle.setSlot(0, new ItemStack(Items.water_bucket));
+
+        assertTrue(canBucketNoHit(turtle, ForgeDirection.NORTH), "canUse should be true over a supported cell");
+        TurtleCommandResult result = useBucketNoHit(turtle, ForgeDirection.NORTH);
+        assertTrue(result != null, "the bucket interaction should handle a filled bucket without a hit");
+        assertTrue(result.isSuccess(), "pouring onto the floor in front should succeed");
+
+        assertTrue(
+            world.getBlock(x, y + 1, z - 1)
+                .getMaterial()
+                .isLiquid(),
+            "water should have been placed in front of the turtle, on top of the floor");
+        assertTrue(turtle.count(Items.bucket) == 1, "the turtle should hold an empty bucket");
+    }
+
+    /**
+     * The same no-hit pour, but with nothing underneath the target cell: mid-air placement stays
+     * refused, exactly as right-clicking the air would be for a player.
+     */
+    private void checkBucketPlaceUnsupportedNoHit() throws Exception {
+        int x = originX + 9, y = originY, z = originZ;
+        world.setBlockToAir(x, y, z - 1);
+        world.setBlockToAir(x, y + 1, z - 1);
+        world.setBlock(x, y, z, Blocks.stone, 0, 3);
+
+        SelfTestTurtle turtle = turtle(x, y + 1, z);
+        turtle.setSlot(0, new ItemStack(Items.water_bucket));
+
+        assertTrue(!canBucketNoHit(turtle, ForgeDirection.NORTH), "canUse should be false over the void");
+        assertTrue(useBucketNoHit(turtle, ForgeDirection.NORTH) == null, "nothing should handle a mid-air pour");
+        assertTrue(world.isAirBlock(x, y + 1, z - 1), "no water should have been placed");
+        assertTrue(turtle.count(Items.water_bucket) == 1, "the filled bucket should be untouched");
+    }
+
+    /**
      * Flowing water is not a source: the interaction must refuse rather than duplicating fluid.
      */
     private void checkBucketNotASource() throws Exception {
@@ -435,6 +483,32 @@ public final class InWorldSelfTest {
             ItemStack stack = player.getItem(turtle);
             MovingObjectPosition hit = hitBelow(turtle);
             return TurtleRegistry.instance.use(turtle, null, player.asPlayer(), stack, ForgeDirection.DOWN, hit);
+        } finally {
+            player.unload(turtle);
+        }
+    }
+
+    /**
+     * Like {@link #useBucket}, but with no block hit at all - the modulator's ray found nothing,
+     * e.g. the turtle is facing over a one-block drop.
+     */
+    private TurtleCommandResult useBucketNoHit(SelfTestTurtle turtle, ForgeDirection direction) throws Exception {
+        ToolHostPlayer player = new ToolHostPlayer(turtle);
+        player.load(turtle, 0, false);
+        try {
+            ItemStack stack = player.getItem(turtle);
+            return TurtleRegistry.instance.use(turtle, null, player.asPlayer(), stack, direction, null);
+        } finally {
+            player.unload(turtle);
+        }
+    }
+
+    private boolean canBucketNoHit(SelfTestTurtle turtle, ForgeDirection direction) {
+        ToolHostPlayer player = new ToolHostPlayer(turtle);
+        player.load(turtle, 0, false);
+        try {
+            ItemStack stack = player.getItem(turtle);
+            return TurtleRegistry.instance.canUse(turtle, player.asPlayer(), stack, direction, null);
         } finally {
             player.unload(turtle);
         }

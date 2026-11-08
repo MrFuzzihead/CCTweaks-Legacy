@@ -73,6 +73,11 @@ A bucket works as a tool, exactly like vanilla `ItemBucket`:
 * **Filled bucket against a block** — `use` empties it into the space on the clicked side (so
   pointing at a wall pours the fluid next to it), returning `true, "bucket", "place"`, and swaps it
   for the empty bucket.
+* **Filled bucket with nothing in the way** — if `use` hits no block but the cell in front of the
+  turtle has a solid block underneath it, the bucket is emptied into that cell anyway: the one
+  diagonal-down action a player can do (clicking the top face of the floor in front of them) that
+  a turtle's axis-aligned ray cannot. Pouring into unsupported mid-air space is still refused,
+  and filling always requires the source block itself.
 * `canUse` answers the same question without changing the world, and never reports `true` for a
   block that would then be refused.
 * Everything is gated by `canUse`-consistent block protection, and a whole stack of buckets keeps

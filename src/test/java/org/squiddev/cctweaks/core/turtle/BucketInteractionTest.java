@@ -51,6 +51,7 @@ public class BucketInteractionTest {
         boolean fillResult = true;
         boolean canPlace = true;
         boolean canFill = true;
+        boolean supported = true;
 
         final List<String> calls = new ArrayList<String>();
         int placeX = Integer.MIN_VALUE, placeY, placeZ;
@@ -74,6 +75,11 @@ public class BucketInteractionTest {
         @Override
         public boolean canPlace(World world, int x, int y, int z, ItemStack filled) {
             return canPlace;
+        }
+
+        @Override
+        public boolean isSupported(World world, int x, int y, int z) {
+            return supported;
         }
 
         @Override
@@ -182,6 +188,81 @@ public class BucketInteractionTest {
             assertEquals(64 + offsets[side][1], actions.placeY, "side " + side + " y");
             assertEquals(10 + offsets[side][2], actions.placeZ, "side " + side + " z");
         }
+    }
+
+    @Test
+    public void filledBucketPlacesInFrontWithoutAHitWhenSupported() throws Exception {
+        StubActions actions = new StubActions();
+        actions.filledMode = true;
+        BucketInteraction interaction = new BucketInteraction(actions);
+        FakePlayer player = player();
+
+        // The stub turtle sits at (10, 64, 10); NORTH is -Z.
+        assertTrue(interaction.canUse(turtle, player(), filled, ForgeDirection.NORTH, null));
+
+        TurtleCommandResult result = interaction.use(turtle, null, player, filled, ForgeDirection.NORTH, null);
+
+        assertNotNull(result);
+        assertTrue(result.isSuccess());
+        assertEquals("bucket", result.getResults()[0]);
+        assertEquals("place", result.getResults()[1]);
+        assertEquals(1, actions.calls.size());
+        assertEquals(10, actions.placeX, "the fluid lands in the cell in front of the turtle");
+        assertEquals(64, actions.placeY);
+        assertEquals(9, actions.placeZ);
+    }
+
+    @Test
+    public void filledBucketWithoutAHitIsRefusedWhenUnsupported() {
+        StubActions actions = new StubActions();
+        actions.filledMode = true;
+        actions.supported = false; // no solid block underneath the target cell: mid-air pouring
+        BucketInteraction interaction = new BucketInteraction(actions);
+
+        assertFalse(interaction.canUse(turtle, player(), filled, ForgeDirection.NORTH, null));
+        assertNull(interaction.use(turtle, null, player(), filled, ForgeDirection.NORTH, null));
+        assertEquals(0, actions.calls.size());
+    }
+
+    @Test
+    public void filledBucketWithoutAHitIsRefusedWhenTheTargetIsNotPlaceable() {
+        StubActions actions = new StubActions();
+        actions.filledMode = true;
+        actions.canPlace = false;
+        BucketInteraction interaction = new BucketInteraction(actions);
+
+        assertFalse(interaction.canUse(turtle, player(), filled, ForgeDirection.NORTH, null));
+
+        // `use` does not consult canPlace (the real `place` fails on its own); with a failing
+        // place it must leave the stack alone, as it does for a block hit.
+        actions.placeResult = false;
+        assertNull(interaction.use(turtle, null, player(), filled, ForgeDirection.NORTH, null));
+        assertEquals(1, actions.calls.size());
+    }
+
+    @Test
+    public void emptyBucketWithoutAHitIsStillIgnored() {
+        StubActions actions = new StubActions();
+        BucketInteraction interaction = new BucketInteraction(actions);
+
+        // Filling needs the source block itself, so there is no no-hit fallback for it.
+        assertFalse(interaction.canUse(turtle, player(), empty, ForgeDirection.NORTH, null));
+        assertNull(interaction.use(turtle, null, player(), empty, ForgeDirection.NORTH, null));
+        assertEquals(0, actions.calls.size());
+    }
+
+    @Test
+    public void filledBucketOnAnEntityHitIsStillIgnored() {
+        StubActions actions = new StubActions();
+        actions.filledMode = true;
+        BucketInteraction interaction = new BucketInteraction(actions);
+        MovingObjectPosition entity = new MovingObjectPosition(
+            org.mockito.Mockito.mock(net.minecraft.entity.Entity.class));
+
+        // An entity hit is not a no-hit: the manipulator's entity interaction path must still run.
+        assertFalse(interaction.canUse(turtle, player(), filled, ForgeDirection.NORTH, entity));
+        assertNull(interaction.use(turtle, null, player(), filled, ForgeDirection.NORTH, entity));
+        assertEquals(0, actions.calls.size());
     }
 
     @Test

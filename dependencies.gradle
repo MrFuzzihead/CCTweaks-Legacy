@@ -45,6 +45,12 @@ dependencies {
     devOnlyNonPublishable(rfg.deobf("curse.maven:PortalGun-229084:2480016"))
     devOnlyNonPublishable("curse.maven:iChunUtil-229060:2338149")
 
+    // The PortalGun interactions are optional at runtime, so devOnlyNonPublishable is right for
+    // the mod. The unit test needs the classes on the test classpath too (instanceof ItemPortalGun
+    // cannot be checked without them), and testCompileOnly does not inherit the dev configuration.
+    testImplementation(rfg.deobf("curse.maven:PortalGun-229084:2480016"))
+    testRuntimeOnly("curse.maven:iChunUtil-229060:2338149")
+
     // Unit tests use JUnit 5; Mockito 4.11 is the last Java-8-compatible line, so the tests stay
     // runnable whichever toolchain the convention plugin picks for the test task.
     testImplementation("org.junit.jupiter:junit-jupiter:5.13.4")

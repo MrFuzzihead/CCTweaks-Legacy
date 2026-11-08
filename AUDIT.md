@@ -625,3 +625,49 @@ wand) and the remaining hot-path leftovers.
 - **Still open:** the config GUI and NEI rendering (client-only), PortalGun interaction (dev-only
   dependency, absent from a dedicated server), and the CC-side `IPeripheralHost` inventory
   shadowing (E9, documented).
+
+## Batch 7 implementation status
+
+The last items on the backlog were the client-only and optional-dependency surfaces. None of them
+can be rendered headlessly, but most of them are logic, so the logic was pulled out of the
+unloadable classes and tested.
+
+- **Config GUI (client-only) is now testable.** `GuiCCTweaksConfig.getConfigElements()` moved to
+  `core/config/ConfigElements` - the same reason `GuiConfigFactory` is only class-*loaded* in tests:
+  anything that lives in a `GuiScreen` subclass cannot even initialise in a headless JVM.  The new
+  `ConfigElementsTest` asserts the invariant that matters: **every category `CCTweaks.readConfig`
+  reads appears in the GUI** (recorded by mocking `Configuration.get` and comparing with
+  `CATEGORIES`), plus category/property display order and the title key. A future option added
+  under a new category can no longer become invisible to players.
+- **NEI provider logic is now tested.** `DescriptionHelpers` gained an instance provider list (the
+  static `INSTANCE` is what the mod uses) and `LanguageDocProvider` a `Translator` seam, so
+  `DescriptionProvidersTest` covers the chain order (shipped resources before language keys), first
+  non-empty wins, the `information.N` loop stopping at the first missing key, the stack→item
+  fallback and `
+` → paragraph conversion. `NEICCTweaksConfig` identity is covered too. Only the
+  actual rendering in `DescriptionHandler` still needs a client.
+  While writing this: a translator that answers forever made the provider loop allocate until the
+  test JVM hit `OutOfMemoryError` - the test now answers a fixed number of keys, which is also a
+  reminder that the loop is unbounded by design and only terminates on a missing key.
+- **PortalGun is now tested.** The anonymous interaction in `PortalGunIntegration.init()` became
+  `integration/PortalGunInteraction`, with a `Shooter` seam replacing
+  `EntityHelper.shootPortal`. `PortalGunInteractionTest` (5 cases) locks in the behaviour that
+  caused an in-game bug report: **`swing` fires the blue portal (1) and `use` the orange one (2)
+  regardless of which gun is held**; both previously keyed off the held item, so a blue gun fired
+  blue for both actions. `dependencies.gradle` gains `testImplementation`/`testRuntimeOnly` entries
+  for PortalGun + iChunUtil so the test classpath can see `instanceof ItemPortalGun`.
+- **`BlockBase`/`BlockDebug`/`ItemMultiBlock`** had no coverage: `BlockBaseTest` covers tile lookup
+  with foreign/missing tiles, activation, server-only neighbour notification, destroy-once on break;
+  `BlockDebugTest` covers the meta-0-only tile, drop metadata, unlocalised names, creative
+  subtypes, `debugItems` gating and the `ItemMultiBlock` contract.
+- **Test suite:** 209 tests / 36 classes, `./gradlew build` clean, self test 17/17.
+  JaCoCo: **62.3% lines / 60.8% branches** (53.0%/54.5% before this audit).
+- **New finding, not fixed:** `DefaultTurtleProviders` registers a bucket interaction that
+  implements only `canUse` and no `use`/`swing`. ComputerCraft 3.3.0 ships no bucket support of its
+  own, so a tool-host turtle holding a bucket reports "usable" but the action does nothing (the
+  manipulator then falls through to block activation/placement). Fixing it means implementing
+  fill/drain against `FluidContainerRegistry` - real world-mutating behaviour that needs in-game
+  verification, so it is flagged rather than guessed at.
+- **Remaining untested, by necessity:** `GuiCCTweaksConfig` (rendering), `DescriptionHandler`
+  (rendering), `ToolHostPlayer`/`FakeNetHandler` (unit suite - they are covered by the in-world self
+  test instead) and `ModIntegration.canLoad` (needs FML's `Loader`).

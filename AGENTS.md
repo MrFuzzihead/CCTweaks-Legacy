@@ -252,16 +252,37 @@ No client-side tick work: the client queue/handler was removed with the network 
 | `client.gui.GuiConfigFactoryTest` | `@Mod(guiFactory = ...)` names a real factory returning a `GuiConfig` subclass; the screen fields/methods it relies on exist (the class is loaded but never initialised, since `GuiScreen` needs LWJGL) |
 | `core.peripheral.PeripheralHostProviderTest` | `IPeripheralHost` tiles are unwrapped per side; non-hosts, empty positions and declining hosts return null |
 | `integration.nei.ResourceDocProviderTest` | Doc path derivation, page splitting, markup conversion, shipped resources readable |
+| `integration.nei.DescriptionProvidersTest` | Provider-chain ordering (resources before language keys), first non-empty wins, the `information.N` loop stopping at the first missing key and its stack→item fallback, `
+` → paragraph conversion, NEI config identity |
+| `integration.PortalGunInteractionTest` | `swing` fires blue and `use` fires orange regardless of which gun is held (the left/right click regression), non-portal-gun and null stacks ignored, `canSwing`/`canUse` accept subclasses |
+| `ConfigElementsTest` | Every category `readConfig` reads appears in the config GUI (so no option can be invisible), category/property display order, title key, null configuration |
+| `blocks.BlockBaseTest` | Tile lookup tolerates foreign/missing tiles, activation and neighbour hooks, client-side neighbour suppression, destroy-once on break |
+| `blocks.debug.BlockDebugTest` | Meta 0 is the peripheral, other metas unsupported, drop metadata, unlocalised names, creative subtypes, `debugItems` gating, `ItemMultiBlock` contract |
 | `commands.CommandCCTweaksTest` | Command name/permission/usage, sub-command tab completion, help/modules/config output, unknown sub-command, world-less sender |
 | `selfTest.SelfTestTurtleTest` | The runtime `ITurtleAccess` stub: slot IR, `count`, defensive position, direction/teleport, inert fuel/upgrades |
 
-`./gradlew test` runs the JUnit 5 suite headlessly (171 tests / 31 classes at the time of writing).
+`./gradlew test` runs the JUnit 5 suite headlessly (209 tests / 36 classes at the time of writing).
 `./gradlew build` also runs Spotless, Checkstyle, `verifyTestSuiteExecuted` (fails the build if the
 test task produced zero XML results - a refactor that moves tests out of a detected package would
 otherwise pass silently) and `jacocoTestReport`, which writes
-`build/reports/jacoco/test/html/index.html` (~57% line coverage at the time of writing). The
+`build/reports/jacoco/test/html/index.html` (~62% lines / ~61% branches at the time of writing). The
 `selfTest` package is excluded from the report: it only runs inside the game JVM, which JaCoCo does
 not instrument, and its results are asserted by the harness instead.
+
+`PortalGun` is `devOnlyNonPublishable` (optional at runtime, needed at compile time for
+`instanceof ItemPortalGun`), so `dependencies.gradle` also adds it to `testImplementation` +
+`testRuntimeOnly` for `PortalGunInteractionTest`. `iChunUtil` is PortalGun's hard dependency.
+
+Three headless-testing traps worth knowing before writing another test:
+
+* `net.minecraft.init.Items`/`Blocks` are **not bootstrapped** in a plain JUnit JVM - every field is
+  null, so `new ItemStack(Items.gold_ingot)` makes a stack whose `getItem()` is null and
+  `getItemDamage()` NPEs. Construct items directly (`new Item()`), or assert only constructor-set
+  fields such as `stackSize`.
+* `World.isRemote` is a **field**, not a method: stub it by assignment (`world.isRemote = true`),
+  never `when(world.isRemote)` - that silently becomes `when(false)`.
+* Mockito forbids nested stubbing: build and stub helper mocks before passing them to
+  `when(...).thenReturn(...)`.
 
 `ToolManipulatorPeripheral` talks to its fake player only through `IToolHostPlayer` and finds hits
 through `ToolHitResolver`; `ToolHostPlayer` and `ToolHitResolver.DEFAULT` are the in-game

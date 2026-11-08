@@ -1,4 +1,9 @@
+import org.gradle.api.tasks.JavaExec
 import org.gradle.api.tasks.testing.Test
+
+import java.io.File
+import java.io.PipedInputStream
+import java.io.PipedOutputStream
 
 // JUnit 5 is not detected by the Gradle test task unless the platform is requested explicitly.
 // Without this the suite compiles but silently executes zero tests.
@@ -20,6 +25,71 @@ mapOf("runServer" to "runServer25", "runClient" to "runClient25").forEach { (pla
             description = "Alias for $modern - ComputerCraft 3.2.0 requires lwjgl3ify, which needs Java 17+"
             dependsOn(modern)
             onlyIf("the plain task forwards to $modern") { false }
+        }
+    }
+}
+
+// `useJUnitPlatform()` still succeeds when a test source set compiles to zero executables, so a
+// refactor that moves every test out of a detected package would silently pass CI. Fail instead.
+val verifyTestSuiteExecuted = tasks.register("verifyTestSuiteExecuted") {
+    group = "verification"
+    description = "Fails if the test task produced no JUnit XML results."
+    dependsOn(tasks.named("test"))
+    val results = layout.buildDirectory.dir("test-results/test")
+    doLast {
+        val dir = results.get().asFile
+        val files = dir.listFiles { file -> file.name.endsWith(".xml") } ?: emptyArray()
+        if (files.isEmpty()) {
+            throw GradleException("No test results in $dir - the test suite did not run (check useJUnitPlatform and the test source set)")
+        }
+        logger.lifecycle("verifyTestSuiteExecuted: ${files.size} test result file(s)")
+    }
+}
+
+tasks.named("check").configure { dependsOn(verifyTestSuiteExecuted) }
+
+// `-PsmokeTest` makes the dedicated server stop itself shortly after it finishes loading, so a
+// headless smoke run (scripts/headless-smoke.sh, CI) terminates on its own instead of needing an
+// external kill. The dev server reads commands from stdin, but Gradle gives an Exec task a closed
+// stdin, so we hand it a pipe and write "stop" into it once the log says the server is up.
+if (providers.gradleProperty("smokeTest").isPresent) {
+    // How long to wait for "Done (" before sending stop anyway. The console command is queued by
+    // the dedicated server and executed on the next tick, so sending it early is safe: it takes
+    // effect as soon as the server is actually running.
+    val stopAfterSeconds = providers.gradleProperty("smokeStopAfter").orNull?.toLongOrNull() ?: 300L
+
+    tasks.matching { it.name == "runServer25" }.configureEach {
+        if (this is JavaExec) {
+            doFirst {
+                // The pipe is created here, not at configuration time, because the configuration
+                // cache cannot serialise a PipedInputStream.
+                val pipe = PipedOutputStream()
+                standardInput = PipedInputStream(pipe, 1 shl 12)
+
+                val logFile = File(workingDir, "logs/fml-server-latest.log")
+                Thread {
+                    val started = System.currentTimeMillis()
+                    var up = false
+                    while (!up && System.currentTimeMillis() - started < stopAfterSeconds * 1000L) {
+                        // Reading the log while log4j holds it open can fail on Windows, so this is
+                        // only an optimisation: if it never succeeds we still stop the server on the
+                        // time limit above.
+                        up = try {
+                            logFile.isFile && logFile.length() > 0L && logFile.readText().contains("Done (")
+                        } catch (e: Exception) {
+                            false
+                        }
+                        if (!up) Thread.sleep(1000)
+                    }
+                    // Give mods a moment to run their post-load world hooks (version checks, custom
+                    // save data) so the smoke assertions see their output too.
+                    if (up) Thread.sleep(10_000)
+                    runCatching {
+                        pipe.write(("stop" + System.lineSeparator()).toByteArray())
+                        pipe.flush()
+                    }
+                }.apply { isDaemon = true }.start()
+            }
         }
     }
 }

@@ -42,6 +42,8 @@ record and why each was dropped.
 - **Portal Gun Turtle Interaction** — registers the portal gun item as a swing/use turtle tool.
 - **NEI Documentation** — per-item documentation pages (`assets/cctweaks/docs/**`) rendered in Not
   Enough Items usage/recipe pages.
+- **In-game config GUI** — every option is editable from the Mods list → Config screen, saved back
+  to `config/cctweaks.cfg`.
 
 Removed features (do not re-add without a ComputerCraft gap to fill): the CCTweaks wired network
 graph and all its nodes (full-block wired modem, wireless bridge block/turtle/pocket upgrades,
@@ -65,20 +67,25 @@ Everything is handled by the `com.gtnewhorizons.gtnhconvention` plugin. Load the
 IntelliJ and run `./gradlew build`, or use the wrapper from the command line:
 
 ```
-./gradlew build          # compile, test, format check
-./gradlew test           # tests only
-./gradlew runServer      # dev server (Java 17+; ComputerCraft 3.x requires lwjgl3ify)
-./gradlew spotlessApply  # apply formatting
+./gradlew build              # compile, test, format check
+./gradlew test               # tests only
+./gradlew runServer          # dev server (Java 17+; ComputerCraft 3.x requires lwjgl3ify)
+./gradlew spotlessApply      # apply formatting
+bash scripts/headless-smoke.sh  # boot a dedicated server and assert on its log
 ```
 
 The Gradle daemon is pinned to Java 25 (see `.java-version`); the mod itself targets Java 8
 bytecode (via Jabel). The output jar is placed in `build/libs/`. `./gradlew test` runs the
-headless JUnit 5 suite; `./gradlew runServer25` is the server smoke test.
+headless JUnit 5 suite, and `verifyTestSuiteExecuted` (part of `build`) fails if it produced no
+results. `./gradlew runServer25` boots a dev server; `bash scripts/headless-smoke.sh` automates
+that boot plus log assertions (mod loaded, no CCTweaks errors, clean shutdown).
 
 ## Configuration
 
-All options are in `config/cctweaks.cfg`, generated on first launch. See
-[AGENTS.md](AGENTS.md) for the current key list.
+All options are in `config/cctweaks.cfg`, generated on first launch. In game they can be edited
+from the Mods list → CCTweaks → Config; options that affect registration (the turtle upgrade IDs)
+need a game restart. See [AGENTS.md](AGENTS.md) for the current key list, and
+[docs/tool-manipulator-api.md](docs/tool-manipulator-api.md) for the `tool_manipulator` peripheral.
 
 ## Contributing
 

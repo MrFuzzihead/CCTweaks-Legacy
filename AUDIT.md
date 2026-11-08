@@ -464,3 +464,43 @@ integration coverage (tool host mining/placement, debug wand injection, NEI GUI)
 
 Still open: E9 (`IPeripheralHost` inventory shadowing — documented, needs a CC-side fix), config GUI,
 and real in-world integration coverage.
+
+## Batch 3 implementation status
+
+- **Config GUI (audit §5.3):** added `client/gui/GuiConfigFactory` (referenced by name from
+  `@Mod(guiFactory = ...)`, so it is never loaded on a dedicated server) and
+  `GuiCCTweaksConfig`, which shows every option on one page, flags them all as requiring a restart,
+  and on close saves the file and re-reads the statics (`CCTweaks.saveConfiguration`). `CCTweaks`
+  now keeps the live `Configuration`, and `setConfig` became a static `readConfig(Configuration)`
+  so the GUI, the initial load and the tests share one code path. Every option got a
+  `gui.config.cctweaks.<category>.<name>` language key, including a new one for
+  `debugWandRequiresOp`; `CCTweaksConfigIoTest` asserts each key is present in `en_US.lang`.
+  `Configuration` cannot be instantiated outside a game (its constructor reads the Minecraft home
+  directory out of FML), so the test mocks the config and property objects.
+- **E9 `IPeripheralHost` shadowing:** cannot be fixed without a CC change — CC's provider list is
+  private, its `DefaultPeripheralProvider` is registered during CC's pre-init (before any addon)
+  and wraps every `IInventory` tile. Documented in the `IPeripheralHost` javadoc with the three
+  workarounds (implement CC's `IPeripheralTile`, drop `IInventory`, split the inventory tile) and
+  in `AGENTS.md`; added `PeripheralHostProviderTest` for the unwrapping that does work.
+- **`CCTweaksAPI` loader (audit §2.6):** replaced deprecated `Class.newInstance()` with
+  `getDeclaredConstructor().newInstance()`, and the loader is now a package-private
+  `load(Class, String)` so the failure paths are testable. It now reports a missing no-argument
+  constructor, a wrong interface, a `LinkageError` and a throwing constructor/static initialiser as
+  distinct `CoreNotFoundException`s (`CoreNotFoundException(String)` added for the no-cause case).
+- **Test-harness automation:** `addon.gradle.kts` gained (a) `verifyTestSuiteExecuted`, wired into
+  `check`, which fails when the test task produced no JUnit XML, and (b) `-PsmokeTest`, which makes
+  `runServer25` hand the dev server a stdin pipe and write `stop` into it a few seconds after FML
+  logs `Done` (or after `-PsmokeStopAfter` seconds). `scripts/headless-smoke.sh` drives that and
+  asserts on `run/server/logs/latest.log` + `fml-server-latest.log`: CCTweaks in the mod list, no
+  CCTweaks ERRORs/exceptions, no unresolved 2.x mappings, no `ModSortingException`, clean
+  shutdown, Gradle exit 0. Verified end to end (`SMOKE PASSED`) on this branch.
+- **Docs:** new `docs/tool-manipulator-api.md` (method table, `duration`/`sneak` semantics, result
+  tuples, protection/`turtleDisabledActions` behaviour); `README.md` and `AGENTS.md` updated for
+  the config GUI, the smoke script and the new tests.
+- **Audit correction:** §3 claimed `TurtleUpgradeToolManipulator.createPeripheral` allocates a new
+  peripheral every turtle tick. It does not: CC calls `createPeripheral` from
+  `TurtleBrain.updatePeripherals`, which only runs from `setupComputer`/`setUpgrade`. Caching adds
+  no measurable benefit, so the finding is withdrawn.
+- **Still open:** everything needs in-world sign-off (mining/placement, wand injection, NEI pages,
+  the new config GUI); the config GUI save path is only unit-tested to `readConfig` because
+  `GuiScreen` cannot be initialised headlessly.

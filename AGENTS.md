@@ -37,6 +37,7 @@ was deleted. OpenPeripheral is no longer required or touched.
 | 4 | **Tool Host Turtle Upgrades** — Normal (`Gripping`) and Advanced (`Manipulative`) variants; turtles hold and swing arbitrary tools as interactions. The manipulator peripheral's `use(duration)` really waits `duration` ticks; `canUse` mirrors `use` | `turtle/TurtleUpgradeToolHost.java`, `turtle/TurtleUpgradeToolManipulator.java`, `turtle/ToolHostPlayer.java`, `turtle/ToolManipulatorPeripheral.java` |
 | 5 | **Portal Gun Turtle Interaction** — registers the portal gun item as a swing/use turtle tool interaction | `integration/PortalGunIntegration.java` |
 | 6 | **NEI Documentation** — `assets/cctweaks/docs/<lang>/{item,tile}/<name>.txt` rendered in NEI usage/recipe pages (`ResourceDocProvider`; `${**}` bold, `${*}` italic, `***` page break). `LanguageDocProvider` `.information.N` keys are the fallback | `integration/nei/*` |
+| 7 | **In-game config GUI** — every option in Mods list → Config; edits Forge's live `Configuration`, then saves `config/cctweaks.cfg` and re-reads the statics on close | `client/gui/GuiConfigFactory.java`, `client/gui/GuiCCTweaksConfig.java`, `CCTweaks.getConfiguration/saveConfiguration` |
 
 ### Removed Features (do not re-add without a CC gap to fill)
 
@@ -160,7 +161,8 @@ JVM Startup
   └─ No mixin subsystem, no core mod. One AT (`CCTweaks_at.cfg`). CCTweaks is otherwise an ordinary Forge mod.
 
 FMLPreInitializationEvent  →  CCTweaks.preInit()
-  ├─ Load config file → populate CCTweaks.* static config fields
+  ├─ Load config file → populate CCTweaks.* static config fields, keeping the Configuration
+  │    object in CCTweaks.configuration so the client config GUI can save and re-read it
   ├─ Register FmlEvents on FMLCommonHandler bus
   │    ServerTickEvent → DelayedTasks.update() + drain serverQueue
   │    ClientTickEvent → drain clientQueue
@@ -219,6 +221,7 @@ ClientTickEvent (Phase.START)
 | `ApiSurfaceTest` | Public API signatures and `@Mod` dependency string |
 | `BuildArtifactTest` | AT resource is shipped; `dependencies.gradle` CC version matches `CCTweaks.DEPENDENCIES` |
 | `CCTweaksConfigTest` | Tool Host config clamping/ID validation |
+| `CCTweaksConfigIoTest` | `readConfig` defaults/overrides/validation, one language key per option (and each key is translated in `en_US.lang`), `saveConfiguration` before pre-init |
 | `core.FmlEventsTest` | Tick scheduling, exception isolation, reset, CC `DelayedTasks` tick, missing-mapping resolution |
 | `core.McEventsTest` | Block/entity drop consumers, drop chance, cancellation, reset |
 | `core.peripheral.PeripheralHelpersTest` | Chains, targets, nulls, proxy cycles |
@@ -235,11 +238,23 @@ ClientTickEvent (Phase.START)
 | `turtle.ToolManipulatorPeripheralTest` | Argument parsing, disabled actions, result shape, method table, side equality, hit-side resolution, `use(duration)` wait chaining, `canUse` item heuristics |
 | `turtle.ToolManipulatorFindHitTest` | Entity ray ends at the target, not beyond it |
 | `harness.HeadlessTurtleHarnessTest` | Stub turtle + stub computer drive the real registry with no server/world |
+| `api.CCTweaksAPILoaderTest` | API instance stability; missing/wrong-type/constructor-less/throwing implementations raise `CoreNotFoundException` |
+| `client.gui.GuiConfigFactoryTest` | `@Mod(guiFactory = ...)` names a real factory returning a `GuiConfig` subclass; the screen fields/methods it relies on exist (the class is loaded but never initialised, since `GuiScreen` needs LWJGL) |
+| `core.peripheral.PeripheralHostProviderTest` | `IPeripheralHost` tiles are unwrapped per side; non-hosts, empty positions and declining hosts return null |
 | `integration.nei.ResourceDocProviderTest` | Doc path derivation, page splitting, markup conversion, shipped resources readable |
 
-`./gradlew test` runs the JUnit 5 suite headlessly (103 tests at the time of writing). `./gradlew
-build` also runs Spotless and Checkstyle. `runServer25` is the headless server smoke test used in
-CI; the real in-world interactions (tool host mining/placement, debug wand injection, NEI GUI)
+`./gradlew test` runs the JUnit 5 suite headlessly (121 tests / 26 classes at the time of writing).
+`./gradlew build` also runs Spotless, Checkstyle and `verifyTestSuiteExecuted`, which fails the
+build if the test task produced zero XML results (a refactor that moves tests out of a detected
+package would otherwise pass silently).
+
+`bash scripts/headless-smoke.sh` is the automated server harness. It runs
+`./gradlew runServer25 -PsmokeTest`, which hands the dev server a stdin pipe so it can be told to
+`stop` (a few seconds after FML logs `Done`, or after `SMOKE_STOP_AFTER` seconds), then asserts on
+`run/server/logs/latest.log` + `fml-server-latest.log`: CCTweaks loaded, no CCTweaks
+ERRORs/exceptions, no unresolved 2.x mappings, no mod-sorting failures, clean shutdown. It catches
+runtime-only breakage (the AT stopped matching, `@Mod`/dependency change, a CC API rename); real
+in-world interactions (tool host mining/placement, debug wand injection, NEI GUI, the config GUI)
 still need a dev client.
 
 Removed with their subjects: `NetworkTest`, `PacketTest`, `ComputerNetworkAccessTest`,
@@ -298,9 +313,16 @@ Removed with their features: `cbMultipart`, `openPeripheralInventories`, `wbEnab
    tile that is also an `IInventory` is shadowed by CC's `InventoryPeripheral` and the host
    peripheral is never returned. A CC-side fix is needed; do not rely on `IPeripheralHost` for
    inventory tiles.
-7. **No in-game config GUI.** `guiFactory` was blanked: it pointed at a non-existent
-   `client.gui.GuiConfigFactory`. Config is edited via `config/cctweaks.cfg` directly; the
-   `gui.config.cctweaks.*` lang keys are kept for a future factory.
+7. **The config GUI is client-only by construction.** `CCTweaks.GUI_FACTORY` is a class-name
+   string in `@Mod(guiFactory = ...)`, so FML never loads `client.gui.*` on a dedicated server.
+   `GuiCCTweaksConfig` edits Forge's live `Configuration` (whose values are the `Property` objects);
+   `onGuiClosed` → `CCTweaks.saveConfiguration()` saves the file and re-reads the statics.
+   **Options that affect registration need a game restart** — the turtle upgrade IDs are registered
+   during init — so the screen flags every option as "requires restart".
+8. **The config GUI cannot be exercised headlessly.** `GuiScreen`'s static initialiser needs
+   LWJGL, so `GuiConfigFactoryTest` only loads the screen class (class literals/reflection) and
+   checks the factory wiring; the save-on-close path is covered up to `readConfig` by
+   `CCTweaksConfigIoTest`.
 
 ---
 
@@ -311,7 +333,9 @@ Removed with their features: `cbMultipart`, `openPeripheralInventories`, `wbEnab
 | `AGENTS.md` | **This file** — comprehensive agent reference |
 | `README.md` | User-facing overview, features and build instructions |
 | `AUDIT.md` | Codebase audit (bugs, refactors, test/dependency plan) |
+| `docs/tool-manipulator-api.md` | `tool_manipulator` peripheral reference: methods, arguments, result tuples, protection and disabled-action behaviour |
 | `src/test/java/**` | Executable specification for the pure/headless behaviour |
+| `scripts/headless-smoke.sh` | Automated dedicated-server smoke check (see Test Coverage) |
 
-There is no `docs/` directory in this repository; older links to `docs/*.md` referred to the
-pre-3.x history.
+Older links to `docs/remove-reflection.md`, `docs/remove-luaj.md` and
+`docs/migrate-mixins-to-source.md` referred to completed/pre-3.x migrations that no longer exist.

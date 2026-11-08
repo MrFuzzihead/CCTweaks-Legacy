@@ -24,7 +24,12 @@ import cpw.mods.fml.relauncher.Side;
 import dan200.computercraft.ComputerCraft;
 import dan200.computercraft.core.lua.lib.DelayedTasks;
 
-@Mod(modid = CCTweaks.MODID, name = CCTweaks.NAME, version = CCTweaks.VERSION, dependencies = CCTweaks.DEPENDENCIES)
+@Mod(
+    modid = CCTweaks.MODID,
+    name = CCTweaks.NAME,
+    version = CCTweaks.VERSION,
+    dependencies = CCTweaks.DEPENDENCIES,
+    guiFactory = CCTweaks.GUI_FACTORY)
 public class CCTweaks {
 
     public static final String MODID = "cctweaks";
@@ -32,6 +37,17 @@ public class CCTweaks {
     public static final String VERSION = Tags.VERSION;
     public static final String DEPENDENCIES = "required-after:ComputerCraft@[3.3.0,)";
     public static final Logger logger = LogManager.getLogger(MODID);
+
+    /**
+     * The config GUI factory, loaded by name so the client-only class is never touched on a server.
+     */
+    public static final String GUI_FACTORY = "org.squiddev.cctweaks.client.gui.GuiConfigFactory";
+
+    /**
+     * The live configuration object. The GUI edits this in place and then calls
+     * {@link #saveConfiguration()}, so it has to outlive {@link #preInit}.
+     */
+    private static Configuration configuration;
 
     public static CreativeTabs getCreativeTab() {
         return ComputerCraft.mainCreativeTab;
@@ -65,8 +81,9 @@ public class CCTweaks {
         // Config additions
         Configuration config = new Configuration(event.getSuggestedConfigurationFile());
         config.load();
-        setConfig(config);
+        readConfig(config);
         config.save();
+        configuration = config;
 
         FMLCommonHandler.instance()
             .bus()
@@ -116,50 +133,99 @@ public class CCTweaks {
         }
     }
 
-    private void setConfig(Configuration config) {
-        Property prop;
+    /**
+     * The configuration being edited by the running game, or {@code null} before pre-init.
+     *
+     * @return The live configuration, or {@code null} if the mod has not been pre-initialised yet
+     */
+    public static Configuration getConfiguration() {
+        return configuration;
+    }
+
+    /**
+     * Persist the live configuration and re-read every static config field from it. Called by the
+     * config GUI after the user presses Done; the values it edits are written into the
+     * {@link Configuration}'s {@link Property} objects, so saving is all that is needed to persist
+     * them, and re-reading applies them without a restart where possible.
+     */
+    public static void saveConfiguration() {
+        Configuration config = configuration;
+        if (config == null) return;
+
+        if (config.hasChanged()) config.save();
+        readConfig(config);
+    }
+
+    static Property bool(Configuration config, String category, String name, boolean value, String comment) {
+        Property prop = config.get(category, name, value);
+        prop.comment = comment;
+        prop.setLanguageKey("gui.config." + MODID + "." + category + "." + name);
+        return prop;
+    }
+
+    static Property integer(Configuration config, String category, String name, int value, String comment) {
+        Property prop = config.get(category, name, value);
+        prop.comment = comment;
+        prop.setLanguageKey("gui.config." + MODID + "." + category + "." + name);
+        return prop;
+    }
+
+    /**
+     * Read every config value out of {@code config} into the static fields, then validate them.
+     *
+     * <p>
+     * Properties are read via {@link Configuration#get(String, String, boolean)} and the property's
+     * own value, so this works both for the initial load and for re-reading after the GUI has
+     * edited the properties in memory.
+     * </p>
+     *
+     * @param config The configuration to read from. Not {@code null}.
+     */
+    static void readConfig(Configuration config) {
         // region computer
-        prop = config.get("computer", "computerUpgradeEnabled", true);
-        prop.comment = "Enable upgrading computers.";
-        computerUpgradeEnabled = prop.getBoolean(computerUpgradeEnabled);
-        prop = config.get("computer", "computerUpgradeCrafting", true);
-        prop.comment = "Enable crafting the computer upgrade. Requires computerUpgradeEnabled.";
-        computerUpgradeCrafting = prop.getBoolean(computerUpgradeCrafting);
-        prop = config.get("computer", "debugWandEnabled", true);
-        prop.comment = "Enable using the debug wand.";
-        debugWandEnabled = prop.getBoolean(debugWandEnabled);
-        prop = config.get("computer", "debugWandRequiresOp", false);
-        prop.comment = "Require operator permissions to inject the debug library. Recommended on public servers: "
-            + "the Cobalt debug library allows scripts to reach outside the computer sandbox.";
-        debugWandRequiresOp = prop.getBoolean(debugWandRequiresOp);
-        // endregion
+        computerUpgradeEnabled = bool(config, "computer", "computerUpgradeEnabled", true, "Enable upgrading computers.")
+            .getBoolean(computerUpgradeEnabled);
+        computerUpgradeCrafting = bool(
+            config,
+            "computer",
+            "computerUpgradeCrafting",
+            true,
+            "Enable crafting the computer upgrade. Requires computerUpgradeEnabled.")
+                .getBoolean(computerUpgradeCrafting);
+        debugWandEnabled = bool(config, "computer", "debugWandEnabled", true, "Enable using the debug wand.")
+            .getBoolean(debugWandEnabled);
+        debugWandRequiresOp = bool(
+            config,
+            "computer",
+            "debugWandRequiresOp",
+            false,
+            "Require operator permissions to inject the debug library. Recommended on public servers: "
+                + "the Cobalt debug library allows scripts to reach outside the computer sandbox.")
+                    .getBoolean(debugWandRequiresOp);
         // endregion
         // region testing
-        prop = config.get("testing", "debugItems", false);
-        prop.comment = "Enable debug items.";
-        debugItems = prop.getBoolean(debugItems);
+        debugItems = bool(config, "testing", "debugItems", false, "Enable debug items.").getBoolean(debugItems);
         // endregion
-        // region turtle
-        // region toolhost
-        prop = config.get("turtle.toolhost", "advanced", true);
-        prop.comment = "Enable the Advanced Tool Host upgrade.";
-        advanced = prop.getBoolean(advanced);
-        prop = config.get("turtle.toolhost", "advancedUpgradeId", 333);
-        prop.comment = "The Advanced Tool Host upgrade Id.";
-        advancedUpgradeId = prop.getInt(advancedUpgradeId);
-        prop = config.get("turtle.toolhost", "thCrafting", true);
-        prop.comment = "Enable crafting the Tool Host upgrade. Requires advanced.";
-        thCrafting = prop.getBoolean(thCrafting);
-        prop = config.get("turtle.toolhost", "digFactor", 10);
-        prop.comment = "The digging speed factor for the Tool Host.";
-        digFactor = prop.getInt(digFactor);
-        prop = config.get("turtle.toolhost", "thEnabled", true);
-        prop.comment = "Enable the Tool Host upgrade.";
-        thEnabled = prop.getBoolean(thEnabled);
-        prop = config.get("turtle.toolhost", "upgradeId", 332);
-        prop.comment = "The Tool Host upgrade Id.";
-        upgradeId = prop.getInt(upgradeId);
-        // endregion
+        // region turtle.toolhost
+        advanced = bool(config, "turtle.toolhost", "advanced", true, "Enable the Advanced Tool Host upgrade.")
+            .getBoolean(advanced);
+        advancedUpgradeId = integer(
+            config,
+            "turtle.toolhost",
+            "advancedUpgradeId",
+            333,
+            "The Advanced Tool Host upgrade Id.").getInt(advancedUpgradeId);
+        thCrafting = bool(
+            config,
+            "turtle.toolhost",
+            "thCrafting",
+            true,
+            "Enable crafting the Tool Host upgrade. Requires advanced.").getBoolean(thCrafting);
+        digFactor = integer(config, "turtle.toolhost", "digFactor", 10, "The digging speed factor for the Tool Host.")
+            .getInt(digFactor);
+        thEnabled = bool(config, "turtle.toolhost", "thEnabled", true, "Enable the Tool Host upgrade.")
+            .getBoolean(thEnabled);
+        upgradeId = integer(config, "turtle.toolhost", "upgradeId", 332, "The Tool Host upgrade Id.").getInt(upgradeId);
         // endregion
 
         validateToolHostConfig();

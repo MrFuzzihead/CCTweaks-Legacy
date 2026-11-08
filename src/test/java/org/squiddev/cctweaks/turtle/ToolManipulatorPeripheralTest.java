@@ -20,6 +20,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.squiddev.cctweaks.testsupport.StubComputerAccess;
 
+import dan200.computercraft.ComputerCraft;
 import dan200.computercraft.api.lua.ILuaEnvironment;
 import dan200.computercraft.api.lua.LuaException;
 import dan200.computercraft.api.lua.MethodResult;
@@ -168,6 +169,47 @@ public class ToolManipulatorPeripheralTest {
         MethodResult done = afterAction.resumeWith(new Object[] { ILuaEnvironment.EVENT_NAME, 1L, true });
         assertTrue(done != null && done.isImmediate());
         assertArrayEquals(new Object[] { true, "place" }, done.getResults());
+    }
+
+    @Test
+    public void everyMethodIsGatedByTurtleDisabledActions() throws Exception {
+        String[] existing = ComputerCraft.turtleDisabledActions;
+        ComputerCraft.turtleDisabledActions = new String[] { "tool" };
+        try {
+            ITurtleAccess access = Mockito.mock(ITurtleAccess.class);
+            ToolManipulatorPeripheral peripheral = new ToolManipulatorPeripheral(access, null, TurtleSide.Left);
+            StubComputerAccess computer = new StubComputerAccess(1, "back");
+
+            for (int method = 0; method < peripheral.getMethodNames().length; method++) {
+                Object[] result = peripheral.callMethod(computer, null, method, new Object[0]);
+                assertTrue(result.length >= 1, peripheral.getMethodNames()[method] + " should return a value");
+                assertEquals(
+                    Boolean.FALSE,
+                    unwrap(result[0]),
+                    peripheral.getMethodNames()[method] + " should be disabled");
+            }
+        } finally {
+            ComputerCraft.turtleDisabledActions = existing;
+        }
+    }
+
+    private static Object unwrap(Object value) {
+        if (value instanceof MethodResult) {
+            MethodResult result = (MethodResult) value;
+            assertTrue(result.isImmediate(), "disabled results must not suspend");
+            return result.getResults()[0];
+        }
+        return value;
+    }
+
+    @Test
+    public void disabledActionCheckIgnoresCaseAndNulls() {
+        assertTrue(
+            ToolManipulatorPeripheral.isActionDisabled("tool", new String[] { "TOOL" }),
+            "CC config values are lower case, but pack-provided ones may not be");
+        assertTrue(ToolManipulatorPeripheral.isActionDisabled("tool", new String[] { null, "tool" }));
+        assertFalse(ToolManipulatorPeripheral.isActionDisabled("tool", new String[] { "dig", null }));
+        assertFalse(ToolManipulatorPeripheral.isActionDisabled("tool", new String[0]));
     }
 
     @Test

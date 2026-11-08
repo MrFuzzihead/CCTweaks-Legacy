@@ -1,7 +1,6 @@
 package org.squiddev.cctweaks.core.registry;
 
-import java.util.HashSet;
-import java.util.Set;
+import java.util.List;
 
 import org.squiddev.cctweaks.blocks.debug.BlockDebug;
 import org.squiddev.cctweaks.core.peripheral.PeripheralHostProvider;
@@ -10,9 +9,6 @@ import org.squiddev.cctweaks.integration.PortalGunIntegration;
 import org.squiddev.cctweaks.items.ItemComputerUpgrade;
 import org.squiddev.cctweaks.items.ItemDebugger;
 import org.squiddev.cctweaks.items.ItemToolHost;
-
-import cpw.mods.fml.relauncher.Side;
-import cpw.mods.fml.relauncher.SideOnly;
 
 /**
  * The proxy class
@@ -23,11 +19,7 @@ public final class Registry {
     public static final ItemDebugger itemDebugger;
     public static final ItemToolHost itemToolHost;
 
-    private static final Set<IModule> modules = new HashSet<IModule>();
-
-    private static boolean preInit = false;
-    private static boolean init = false;
-    private static boolean postInit = false;
+    private static final ModuleRegistry registry = new ModuleRegistry();
 
     static {
         addModule(itemComputerUpgrade = new ItemComputerUpgrade());
@@ -52,96 +44,25 @@ public final class Registry {
     }
 
     public static void addModule(IModule module) {
-        if (module instanceof IClientModule) {
-            module = new RegisterWrapperClient((IClientModule) module);
-        }
-
-        modules.add(module);
-
-        if (preInit && module.canLoad()) {
-            module.preInit();
-            if (init) {
-                module.init();
-                if (postInit) module.postInit();
-            }
-        }
+        registry.add(module);
     }
 
     public static void preInit() {
-        if (preInit) throw new IllegalStateException("Attempting to preInit twice");
-        preInit = true;
-        for (IModule module : modules) {
-            if (module.canLoad()) module.preInit();
-        }
+        registry.preInit();
     }
 
     public static void init() {
-        if (!preInit) throw new IllegalStateException("Cannot init before preInit");
-        if (init) throw new IllegalStateException("Attempting to init twice");
-
-        init = true;
-        for (IModule module : modules) {
-            if (module.canLoad()) module.init();
-        }
+        registry.init();
     }
 
     public static void postInit() {
-        if (!preInit) throw new IllegalStateException("Cannot init before preInit");
-        if (!init) throw new IllegalStateException("Cannot postInit before init");
-        if (postInit) throw new IllegalStateException("Attempting to postInit twice");
-
-        postInit = true;
-        for (IModule module : modules) {
-            if (module.canLoad()) module.postInit();
-        }
+        registry.postInit();
     }
 
     /**
-     * Magic classes to allow calling client only methods
+     * @return A snapshot of the registered modules, in registration order
      */
-    private static class RegisterWrapper implements IModule {
-
-        protected final IClientModule base;
-
-        private RegisterWrapper(IClientModule base) {
-            this.base = base;
-        }
-
-        @Override
-        public boolean canLoad() {
-            return base.canLoad();
-        }
-
-        @Override
-        public void preInit() {
-            base.preInit();
-        }
-
-        @Override
-        public void init() {
-            base.init();
-        }
-
-        @Override
-        public void postInit() {
-            base.postInit();
-        }
-    }
-
-    /**
-     * Magic classes to allow calling client only methods
-     */
-    private static class RegisterWrapperClient extends RegisterWrapper {
-
-        private RegisterWrapperClient(IClientModule base) {
-            super(base);
-        }
-
-        @Override
-        @SideOnly(Side.CLIENT)
-        public void init() {
-            super.init();
-            base.clientInit();
-        }
+    public static List<IModule> modules() {
+        return registry.modules();
     }
 }

@@ -37,13 +37,23 @@ dependencies {
     api("com.github.MrFuzzihead:Computercraft-Legacy:3.3.0:dev")
 
     // codechicken.lib (GuiDraw) is imported directly by the NEI description handler.
-    implementation("com.github.GTNewHorizons:CodeChickenCore:1.4.10:dev")
-    implementation("com.github.GTNewHorizons:NotEnoughItems:2.7.4-GTNH:dev")
+    implementation("com.github.GTNewHorizons:CodeChickenCore:1.4.22:dev")
+    implementation("com.github.GTNewHorizons:NotEnoughItems:2.9.2-GTNH:dev")
 
     // PortalGun integration; iChunUtil is PortalGun's own hard dependency.
     // PortalGun needs rfg.deobf; iChunUtil is already a dev (deobfuscated) jar on CurseForge.
     devOnlyNonPublishable(rfg.deobf("curse.maven:PortalGun-229084:2480016"))
     devOnlyNonPublishable("curse.maven:iChunUtil-229060:2338149")
 
-    testCompile("junit:junit:4.13.1")
+    // The PortalGun interactions are optional at runtime, so devOnlyNonPublishable is right for
+    // the mod. The unit test needs the classes on the test classpath too (instanceof ItemPortalGun
+    // cannot be checked without them), and testCompileOnly does not inherit the dev configuration.
+    testImplementation(rfg.deobf("curse.maven:PortalGun-229084:2480016"))
+    testRuntimeOnly("curse.maven:iChunUtil-229060:2338149")
+
+    // Unit tests use JUnit 5; Mockito 4.11 is the last Java-8-compatible line, so the tests stay
+    // runnable whichever toolchain the convention plugin picks for the test task.
+    testImplementation("org.junit.jupiter:junit-jupiter:5.13.4")
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+    testImplementation("org.mockito:mockito-core:4.11.0")
 }

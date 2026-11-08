@@ -1,11 +1,16 @@
 Tired of testing broken scripts? Need some help? The all new
 ${**}Debug Wand${**} will help you on the way.
 
-Shift right-clicking a computer will add a whole host of debugging
-tools. On other objects, it just prints a ton of information to chat.
+Shift right-clicking a running computer injects the Cobalt debug library
+into its script, which unlocks getlocal, setlocal, getupvalue, setupvalue,
+sethook and getinfo for debugging on the fly. It does not need to be
+replaced after use.
 
 ***
 
-Hovering over a network node will show a visualisation of
-the entire network. If you find this gets out of date, shift-right
-click in empty space to refresh it.
+On any other block it prints the block, its tile entity and the peripheral
+attached to the side you clicked, along with the computers that peripheral
+is bound to.
+
+The wand only reaches computers within normal interaction range, and needs
+the computer to be switched on when you click it.

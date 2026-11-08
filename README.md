@@ -30,16 +30,24 @@ record and why each was dropped.
 
 ## Features
 
-- **Computer Upgrade Item** — upgrades a Normal computer to Advanced in-world, transferring all
-  state; upgrades a Normal turtle to Advanced (costs 7 gold ingots).
+- **Computer Upgrade Item** — upgrades a Normal computer to Advanced in place (ID, label and
+  on-state are kept; the running program restarts); upgrades a Normal turtle to Advanced,
+  preserving its brain, inventory, fuel, colour and overlays (costs 7 gold ingots).
 - **Debug Wand** — prints tile/peripheral/peripheral-binding info in chat, and injects Cobalt's
-  `DebugLib` into a running computer's Lua state.
+  `DebugLib` into a running computer's Lua state (shift-right-click), telling you in chat whether it
+  worked and why it did not. It is reused rather than consumed.
 - **Debug Block** — a debug peripheral tile for testing peripheral bindings.
 - **Tool Host Turtle Upgrades** — Normal (`Gripping`) and Advanced (`Manipulative`) variants;
   turtles can hold and swing arbitrary tools as interactions.
 - **Portal Gun Turtle Interaction** — registers the portal gun item as a swing/use turtle tool.
-- **NEI Documentation** — language-file-backed documentation rendered in Not Enough Items
-  recipe pages.
+- **NEI Documentation** — per-item documentation pages (`assets/cctweaks/docs/**`) rendered in Not
+  Enough Items usage/recipe pages.
+- **In-game config GUI** — every option is editable from the Mods list → Config screen, saved back
+  to `config/cctweaks.cfg`.
+- **`/cctweaks` diagnostics** — operator command: `modules` lists the registered modules, `config`
+  prints the live options, `selftest` drives the mod's world-facing behaviour (tool host digging,
+  block protection, attacking, the upgrade items) against a scratch area near spawn and restores
+  it. The same self test runs automatically on a dev server with `-Dcctweaks.selftest=true`.
 
 Removed features (do not re-add without a ComputerCraft gap to fill): the CCTweaks wired network
 graph and all its nodes (full-block wired modem, wireless bridge block/turtle/pocket upgrades,
@@ -63,19 +71,33 @@ Everything is handled by the `com.gtnewhorizons.gtnhconvention` plugin. Load the
 IntelliJ and run `./gradlew build`, or use the wrapper from the command line:
 
 ```
-./gradlew build          # compile, test, format check
-./gradlew test           # tests only
-./gradlew runServer      # dev server (Java 17+; ComputerCraft 3.x requires lwjgl3ify)
-./gradlew spotlessApply  # apply formatting
+./gradlew build              # compile, test, format check, coverage report
+./gradlew test               # tests only
+./gradlew jacocoTestReport   # HTML coverage -> build/reports/jacoco/test/html
+./gradlew runServer          # dev server (Java 17+; ComputerCraft 3.x requires lwjgl3ify)
+./gradlew spotlessApply      # apply formatting
+bash scripts/headless-smoke.sh  # boot a dedicated server, assert on its log and run the self test
 ```
 
-Java 17 is required to build; the mod itself targets Java 8 bytecode (via Jabel). The output
-jar is placed in `build/libs/`.
+The Gradle daemon is pinned to Java 25 (see `.java-version`); the mod itself targets Java 8
+bytecode (via Jabel). The output jar is placed in `build/libs/`. `./gradlew test` runs the
+headless JUnit 5 suite, and `verifyTestSuiteExecuted` (part of `build`) fails if it produced no
+results. `./gradlew runServer25` boots a dev server; `bash scripts/headless-smoke.sh` automates
+that boot plus log assertions (mod loaded, no CCTweaks errors, clean shutdown) and runs in CI as the
+`headless-smoke` job, because unit tests cannot catch Access-Transformer or mod-load breakage.
+
+The smoke script also enables `-PselfTest`, which runs the in-world self test described under
+`/cctweaks selftest` on the dedicated server and fails the run if any check fails. That is the only
+automated coverage for code that needs a real world (the fake tool-host player, digging/placement,
+block protection, the upgrade items); set `SMOKE_SELFTEST=0` to skip it. The self test writes to a
+few blocks above the world spawn and restores them, so it is safe on a throwaway dev world.
 
 ## Configuration
 
-All options are in `config/cctweaks.cfg`, generated on first launch. See
-[AGENTS.md](AGENTS.md) for the current key list.
+All options are in `config/cctweaks.cfg`, generated on first launch. In game they can be edited
+from the Mods list → CCTweaks → Config; options that affect registration (the turtle upgrade IDs)
+need a game restart. See [AGENTS.md](AGENTS.md) for the current key list, and
+[docs/tool-manipulator-api.md](docs/tool-manipulator-api.md) for the `tool_manipulator` peripheral.
 
 ## Contributing
 

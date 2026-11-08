@@ -1,8 +1,6 @@
 package org.squiddev.cctweaks.items;
 
 import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.nbt.NBTTagCompound;
 
 import org.squiddev.cctweaks.CCTweaks;
 import org.squiddev.cctweaks.core.registry.IModule;
@@ -25,12 +23,6 @@ public abstract class ItemBase extends Item implements IModule {
 
     public ItemBase(String itemName) {
         this(itemName, 64);
-    }
-
-    public NBTTagCompound getTag(ItemStack stack) {
-        NBTTagCompound tag = stack.getTagCompound();
-        if (tag == null) stack.setTagCompound(tag = new NBTTagCompound());
-        return tag;
     }
 
     @Override

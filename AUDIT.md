@@ -1,0 +1,711 @@
+# CCTweaks-Legacy — codebase audit
+
+Audited the full tree (~4,500 lines across 60 Java files), cross-checked every CC interaction against the
+**ComputerCraft-Legacy 3.3.0 sources**, ran `./gradlew test`, compiled against a newer NEI/CCC pair, built the
+jar (verified `FMLAT: CCTweaks_at.cfg`), and booted `runServer25`.
+
+Current baseline: **13 main packages, 2 unit tests**, no mixins/reflection beyond the API loader, one AT. Most of
+the remaining risk is in the Tool Host/Manipulator and the two upgrade items.
+
+---
+
+## 1. Correctness bugs
+
+### 1.1 Tool Manipulator / Tool Host (highest impact)
+
+| # | Issue | Evidence | Impact |
+|---|-------|----------|--------|
+| T1 | **Entity ray trace is wrong.** `findHit` passes the ray *endpoint* as the direction to `WorldUtil.rayTraceEntities`, which does `vecEnd = vecStart + vecDir * distance`. | `turtle/ToolManipulatorPeripheral.java:403-418`; CC `WorldUtil.java:42-49` | At any non-origin coordinate, `use`/`swing`/`canSwing` on an entity traces a completely different ray, so entity interactions basically never work. |
+| T2 | **Held-item attribute modifiers are never applied.** The fake `TurtlePlayer` overrides `onUpdate()` to no-op, so `EntityLivingBase.onUpdate` never applies equipment attribute modifiers; `attackTargetEntityWithCurrentItem` then uses base attack damage (1). | `turtle/ToolHostPlayer.java:181-233`; `FakePlayer.onUpdate()`; `EntityLivingBase.java:1780-1810` | Diamond swords, axes, TiC weapons lose all non-enchantment damage; only Sharpness (via `EnchantmentHelper`) still works. |
+| T3 | **Instant-break blocks drop into the world, not the turtle.** The drop consumer is installed only around `uncheckedTryHarvestBlock`. `ItemInWorldManager.onBlockClicked` can harvest immediately (`f >= 1`) for hardness-0 blocks (grass, torches, flowers). | `turtle/ToolHostPlayer.java:118-142`; `ItemInWorldManager.java:153-217` | Drops from soft blocks are lost to the turtle; `dig()` still reports success. |
+| T4 | **Block protection bypass.** `dig` calls `ItemInWorldManager` directly and never checks `ComputerCraft.turtlesObeyBlockProtection` / `ComputerCraft.isBlockEditable`. CC's own `TurtleTool.dig` does. | `turtle/ToolHostPlayer.java:118-148`; `TurtleTool.java:169-193` | Tool-host turtles can break blocks in spawn protection / claims (GriefPrevention etc.) where normal turtles cannot. |
+| T5 | **Placement/activation protection bypass.** `onPlayerRightClick` places blocks and activates blocks without `isBlockEditable`; CC's `TurtlePlaceCommand` checks. | `turtle/ToolManipulatorPeripheral.java:194-262`; `TurtlePlaceCommand.java:265-270` | Same permission bypass for placing and right-clicking in protected areas. |
+| T6 | **`turtleDisabledActions` bypass.** `swing`/`use` are peripheral calls, not turtle commands, so the config list (`dig`, `place`, `attack`, `tool`) is never consulted. | `turtle/ToolManipulatorPeripheral.java:91-400`; `TurtleToolCommand.java:34-37` | Admins disabling turtle actions can still be bypassed via the manipulator peripheral. |
+| T7 | **`use(duration)` never waits.** `task.delay = duration` is set inside the task body; `DelayedTask.execute` reads `delay` *before* the task runs. Also `LuaEnvironment.sleep` discards its `MethodResult`, so even a correctly set delay would not suspend. | `ToolManipulatorPeripheral.java:115-121, 168`; CC `DelayedTask.java:12-16`, `LuaEnvironment.java:72-75` | `duration` only affects `onPlayerStoppedUsing`; it does not hold the Lua call. |
+| T8 | **`equals` ignores the turtle side.** Left and right manipulators on the same turtle compare equal. | `ToolManipulatorPeripheral.java:427-440` | Semantically wrong; currently harmless because CC keys by side, but any equality-based lookup/collection is wrong. |
+| T9 | **Cached `ToolHostPlayer` keeps the old world.** `players` is keyed by `ITurtleAccess`; `TurtleBrain` survives `teleportTo` to another dimension, but `ToolHostPlayer.worldObj`/`theItemInWorldManager.theWorld` are fixed at construction. | `TurtleUpgradeToolHost.java:27,80-84`; `ToolHostPlayer.java:41-44`; `TurtleBrain.java:439-474` | After a dimension change, digging/placing/drops happen in the old world. |
+| T10 | **Drop-consumer leaks.** `attack`/`dig` register a consumer and remove it without `finally`; an exception leaves `captureDrops = true` and the map entry behind. | `ToolHostPlayer.java:88-96, 132-136`; `McEvents.java:37-62` | Entity never drops loot; permanent map entry; world reload leaks. |
+| T11 | **Drop location mutation.** `dig` mutates the `coordinates` object returned by `getPlayerCoordinates()` to point at the target block; overflow drops are then spawned at the block, not the turtle. | `ToolHostPlayer.java:102-106`; `getConsumer` `:55-67` | Overflow items spawn in the wrong place. |
+| T12 | **`canUse` only checks registered interactions.** It never reports whether vanilla use/placement would succeed, despite the docs saying it should. | `ToolManipulatorPeripheral.java:336-361` | `canUse` returns false for ordinary block/place interactions. |
+| T13 | **Opposite-side fallback in `tryUseOnBlock`.** Tries `hit.sideHit` and `ForgeDirection.OPPOSITES[sideHit]`, which can activate/place against the far face. | `ToolManipulatorPeripheral.java:147-154` | Wrong-face interactions; possible double use. |
+| T14 | **Unknown method returns `null`.** `callMethod` falls through to `return null` instead of a `LuaException`. | `ToolManipulatorPeripheral.java:58-88` | Lua gets `nil` instead of a clear error. |
+| T15 | **Inventory-size assumption.** `load`/`unload` copy `i < turtleSize` into a 36-slot `InventoryPlayer` without guarding `turtleSize > 36`. | `ToolHostPlayer.java:196-228` | Custom turtles with >36 slots throw `ArrayIndexOutOfBoundsException`. |
+
+**Concrete fixes**
+
+```java
+// T1
+Vec3 dir = target.subtract(origin);
+Entity entity = WorldUtil.rayTraceEntities(player.worldObj, origin, dir, 1.0);
+```
+
+```java
+// T3/T4/T10
+if (ComputerCraft.turtlesObeyBlockProtection
+    && !ComputerCraft.isBlockEditable(world, x, y, z, this)) {
+    return TurtleCommandResult.failure("Cannot break protected block");
+}
+IWorldPosition position = new WorldPosition(world, x, y, z);
+McEvents.addBlockConsumer(position, getConsumer(turtle));
+try {
+    /* whole progress loop, including onBlockClicked() */
+} finally {
+    McEvents.removeBlockConsumer(position);
+}
+```
+
+```java
+// T2
+private ItemStack loadedStack;
+public void load(...) {
+    ...
+    loadedStack = turtle.getInventory().getStackInSlot(turtle.getSelectedSlot());
+    if (loadedStack != null) getAttributeMap().applyAttributeModifiers(loadedStack.getAttributeModifiers());
+}
+public void unload(...) {
+    if (loadedStack != null) getAttributeMap().removeAttributeModifiers(loadedStack.getAttributeModifiers());
+    loadedStack = null;
+    ...
+}
+```
+
+For T7, either delete `task.delay = duration` and document that duration controls item use, or chain two
+`LuaEnvironment.executeTask` calls (task 1 performs the use; task 2 is delayed by `duration` and returns the
+captured result).
+
+---
+
+### 1.2 Upgrade items and crafting
+
+| # | Issue | Evidence | Impact |
+|---|-------|----------|--------|
+| U1 | **In-world turtle upgrade stays a Normal computer.** `setMoved(true)` keeps the old `ServerComputer` in the registry; `createServerComputer()` returns it, so the terminal was constructed with `ComputerFamily.Normal`. `ServerTerminal.isColour` is fixed at construction. | `items/ItemComputerUpgrade.java:79-121`; CC `ServerComputer.java:33-39`, `ServerTerminal.java:14-25,64-66`; `TermAPI.java:191` | Advanced turtle block, but `term.isColour()` is false and the terminal renders greyscale. |
+| U2 | **In-world computer upgrade loses the running computer.** The old block is replaced; `BlockGeneric.breakBlock` unloads the registry before `transferStateFrom`, so the old `m_instanceID` is already `-1`. ID/label/on are copied, but the instance/terminal/program are not. | `ItemComputerUpgrade.java:57-75`; CC `BlockGeneric.java:90-101`, `TileComputerBase.java:385-397` | Program/terminal scrollback lost; documentation says “transfers state”. Could be acceptable, but should be documented, or use a metadata-only in-place upgrade. |
+| U3 | **Turtle overlays/hats are lost when crafting an advanced turtle.** `TurtleItemFactory.create(..., null, null)` is passed instead of `turtle.getOverlay(stack)` / `getHatOverlay(stack)`. | `items/CraftingComputerUpgrade.java:46-55`; `ITurtleItem.java:19-21` | Custom turtle overlays/hats disappear. |
+| U4 | **Pocket upgrades are lost.** Only `getHasModem` (ID 1) is preserved; ender modem, speaker, chat box, NPC upgrades and their `upgradeData` are dropped. | `CraftingComputerUpgrade.java:56-60`; `ItemPocketComputer.java:541-573`; `PocketAPI.java:163-185` | Crafting an advanced pocket computer erases the installed upgrade and its NBT. |
+| U5 | **Unsupported `IComputerItem` implementation matches but yields `null`.** `matches` accepts any `IComputerItem` with `Normal` family; `getCraftingResult` returns `null` for anything that is not `ItemComputer`/`ItemTurtleBase`/`ItemPocketComputer`. | `CraftingComputerUpgrade.java:31-63, 88-95` | The custom recipe can shadow a valid recipe and leave the output slot empty. |
+| U6 | **`getRecipeOutput()` returns `null`.** | `CraftingComputerUpgrade.java:118-121` | Other recipe browsers/crafting mods may NPE or hide the recipe. Return a representative advanced computer stack. |
+| U7 | **Gold is extracted before the upgrade is known to succeed.** If `setBlock`/tile transfer fails, the 7 ingots are gone. | `ItemComputerUpgrade.java:88-110` | Gold loss on failure (rare). Check count first, extract after success, or refund. |
+| U8 | **Modded computer/turtle tiles are converted to CC blocks.** `useComputer` hardcodes `ComputerCraft.Blocks.computer`; `useTurtle` hardcodes `turtleAdvanced`. A modded `TileComputerBase`/`TileTurtle` subclass (or custom block) is replaced, losing its data. | `ItemComputerUpgrade.java:58-59, 103-104` | Compatibility/data-loss bug on modded computers/turtles. Restrict to CC's exact tile/block classes. |
+| U9 | **`setBlock` failure/self-transfer not handled.** If `setBlock` returns false, `getTileEntity` returns the old tile; `transferStateFrom(this)` sets the tile's own `m_instanceID = -1`, and the item is consumed. | `ItemComputerUpgrade.java:58-68, 100-113` | Rare but catastrophic: normal computer/turtle left invalidated with the upgrade consumed. |
+| U10 | **Protection not checked.** `world.setBlock` bypasses spawn/claim protection; a player can replace computers/turtles inside protected regions. | `ItemComputerUpgrade.java:48-122` | Griefing/security issue on servers. |
+| U11 | **Gold count semantics are slot-based.** Seven ingots in one slot count as one; the recipe requires seven occupied slots. This is deliberate (vanilla crafting consumes one per slot, so stacking would be a free upgrade) but undocumented. | `CraftingComputerUpgrade.java:72-110` | Confusing UX; players with a stack of gold see no match. Add a comment or require exact stacks. |
+| U12 | **Advanced subtypes appear when disabled.** `getSubItems` always adds meta 1, even if `CCTweaks.advanced` is false; it also lists both items when `thEnabled` is false. | `items/ItemToolHost.java:36-40` | Dead creative entries for disabled features. |
+
+**Recommended upgrade path**
+
+For **computers**, avoid replacing the block at all: change the metadata in place, then invalidate/validate the tile
+so a new Advanced `ServerComputer` is created:
+
+```java
+int metadata = world.getBlockMetadata(x, y, z);
+world.setBlockMetadataWithNotify(x, y, z, metadata + 8, 3);
+computerTile.invalidate();   // unloads the Normal registry entry
+computerTile.validate();     // clears tileEntityInvalid
+computerTile.createServerComputer(); // recreates with the Advanced family
+computerTile.updateBlock();
+```
+
+This preserves the tile/label/ID/on-state and still gives the Advanced colour; the running program is restarted
+either way.
+
+For **turtles**, keep `transferStateFrom` + `setMoved`, but force a new `ServerComputer` after the block swap:
+
+```java
+newTurtle.transferStateFrom(computerTile);
+newTurtle.invalidate();   // remove the old Normal instance
+newTurtle.validate();
+newTurtle.createServerComputer(); // Advanced family, same computer ID
+newTurtle.updateBlock();
+```
+
+For **crafting**, pass `getOverlay`/`getHatOverlay`, and copy the pocket `upgrade` and `upgradeData` NBT keys.
+Restrict matching to CC's exact item classes (or explicitly support the modded ones) so `matches` and
+`getCraftingResult` agree.
+
+---
+
+### 1.3 Debug wand
+
+| # | Issue | Evidence | Impact |
+|---|-------|----------|--------|
+| D1 | **The debug wand is consumed on success.** `useComputer` returns true and `ItemComputerAction` decrements the stack; `useGeneric` returns false, so the wand only disappears when injection works. | `items/ItemDebugger.java:41-61`; `items/ItemComputerAction.java:42-46` | In survival the wand is destroyed on first successful use. Add a `consumeOnSuccess()` hook and override to `false` in `ItemDebugger`. |
+| D2 | **Security: any player with the item can inject `debug` into any computer.** `DebugLib.add` installs `debug.getlocal/setlocal/getupvalue/setupvalue/sethook/setfenv`, which is a sandbox-quality escape. The wand has no recipe (creative only), but packs can add one, and `debugWandEnabled` defaults true. | `ItemDebugger.java:45-59`; Cobalt `DebugLib.add` | Privilege escalation / griefing on multiplayer servers. Require op (`canCommandSenderUseCommand(2, ...)`), or default `debugWandEnabled` to false, or both. |
+| D3 | **Thread race.** `getLuaMachine()`/`getLuaState()` and `DebugLib.add(state)` are called from the server thread while the Cobalt worker thread can be executing the same state. `CobaltMachine.state` is not synchronized/volatile. | `ItemDebugger.java:45-59`; CC/Cobalt state | Potential Lua state corruption under load. If CC exposes no “run on computer thread” hook, document this as debug-only and consider requiring the computer to be off/inaccessible. |
+| D4 | **Errors are swallowed, and the wand consumes on partial success.** The `catch (NullPointerException)` is redundant; there is no log; no `isUsable`/range check. | `ItemDebugger.java:55-59, 65-111` | Hard to diagnose; can affect computers the player should not reach. Log at debug, use `computerTile.isUsable(player, false)`. |
+
+---
+
+### 1.4 Events, lifecycles, peripherals
+
+| # | Issue | Evidence |
+|---|-------|----------|
+| E1 | `McEvents.onEntityLivingDrops` ignores `event.isCanceled()`. A protection mod that cancels `LivingDropsEvent` still has the drops moved into the turtle. | `core/McEvents.java:89-97`; `LivingDropsEvent` is `@Cancelable` |
+| E2 | `TileBase` destroys twice: `BlockContainer.breakBlock` invalidates the tile (`TileBase.invalidate` → `destroy`) and `BlockBase.breakBlock` calls `tile.destroy()` again. `onChunkUnload` + `invalidate` can do the same. | `blocks/BlockBase.java:51-57`; `blocks/TileBase.java:48-69` |
+| E3 | `TileBase.validate()` does not call `super.validate()`, so `tileEntityInvalid` is never cleared after revalidation. | `blocks/TileBase.java:48-53`; `TileEntity.java:238-241` |
+| E4 | `PeripheralHelpers.getBasePeripheral`/`getTarget` loop forever on a proxy cycle (`getBasePeripheral()` returns itself). | `core/peripheral/PeripheralHelpers.java:12-40` |
+| E5 | `PeripheralProxy` is not thread-safe: `instance` is non-volatile, `mounts` is a `HashSet`, and `getBasePeripheral` iterates `mounts` while `attach`/`detach` can mutate it. | `core/peripheral/PeripheralProxy.java:20-44,63-78` |
+| E6 | `Registry` uses a `HashSet` (non-deterministic order) and iterates it while `addModule` can mutate it from a module hook → `ConcurrentModificationException`. | `core/registry/Registry.java:26,54-96` |
+| E7 | `FmlEvents` uses a singleton `instance` that `schedule` dereferences; a scheduled task that throws propagates out of the server tick. The client queue/`onConfigChanged` are dead. | `core/FmlEvents.java:16-67` |
+| E8 | `McEvents` static maps are never cleared on server stop; entities with `captureDrops=true` leak across world reloads. | `core/McEvents.java:28-29` |
+| E9 | `PeripheralHostProvider` is registered in `init`, after CC’s `DefaultPeripheralProvider` (registered in CC preInit). Any `IPeripheralHost` tile that is also an `IInventory` is shadowed by `InventoryPeripheral`; the host peripheral is never used. | `core/peripheral/PeripheralHostProvider.java:19-29`; CC `DefaultPeripheralProvider.java:38-63` |
+| E10 | `PortalGunIntegration` implements `swing`/`use` but not `canSwing`/`canUse`, so the manipulator reports false for portal guns even though the actions work. | `integration/PortalGunIntegration.java:38-57`; `AbstractTurtleInteraction.java:29-45` |
+| E11 | `ItemComputerAction` returns `false` on the client when sneaking (`world.isRemote` early return). `PlayerControllerMP` then performs the normal block activation (flickers/opens a menu) while the server performs the upgrade and consumes the item. | `items/ItemComputerAction.java:20-25`; `PlayerControllerMP.java:367-377` |
+| E12 | Config values are not validated: `digFactor <= 0` makes `dig` a no-op that reports success; `upgradeId < 64`, duplicate IDs, or `upgradeId == advancedUpgradeId` make CC throw during `init` and crash the game. | `CCTweaks.java:110-154`; CC `CCTurtleProxyCommon.java:70-81,186-198` |
+
+**Quick fixes**
+
+```java
+// E11
+if (world.isRemote) return player.isSneaking(); // suppress client-side block use only
+if (!player.isSneaking()) return false;
+```
+
+```java
+// E1
+if (event.isCanceled()) return;
+```
+
+```java
+// E4
+Set<IPeripheral> seen = Collections.newSetFromMap(new IdentityHashMap<>());
+while (peripheral != null && seen.add(peripheral)) { ... }
+```
+
+```java
+// E2/E3
+private boolean destroyed;
+@Override public void validate() { super.validate(); destroyed = false; create(); }
+public final void destroyOnce() { if (!destroyed) { destroyed = true; destroy(); } }
+```
+
+---
+
+## 2. Architecture / refactors worth doing
+
+1. **The `DelayedTasks` tick is load-bearing.** CC 3.3.0 never calls `DelayedTasks.update()` anywhere;
+   `FmlEvents.onServerTick` is the only caller. That means CCTweaks is silently keeping CC’s
+   `ILuaEnvironment.issueTask/sleep/executeTask` alive, and if another mod ever ticks it too, all delays halve.
+   Document this in `AGENTS.md`, add a test that schedules a task and ticks `FmlEvents`, and raise it upstream in
+   Computercraft-Legacy (it belongs in `ComputerCraftProxyCommon.onServerTick`).
+2. **Make the turtle/tool logic testable.** `ToolManipulatorPeripheral` and `ToolHostPlayer` are untestable because
+   they construct a `FakePlayer`/`WorldServer`. Extract:
+   - argument parsing (`duration`, `sneak`) into a pure helper;
+   - an `IToolHostPlayer` interface implemented by `ToolHostPlayer`, injected into `ToolManipulatorPeripheral`;
+   - hit resolution into a `HitResolver` taking an `IBlockAccess`/world.
+
+   Then a `StubTurtleAccess` + `StubLuaContext` can test `use`/`swing`/`canUse`/`canSwing` without a server.
+3. **Replace `Registry`’s static initializer** with explicit module construction in `preInit`/a factory. This
+   removes the `ComputerCraft.mainCreativeTab` static-init dependency and makes module lifecycle testable.
+4. **Replace `FmlEvents`’ singleton** with a static `ConcurrentLinkedQueue` + instance tick handler, and add
+   `reset()`.
+5. **Delete the dead `IClientModule` path** or add a real client module. There are currently no implementations, so
+   `RegisterWrapperClient`/`IClientModule` are pure dead weight.
+6. **Modernise `CCTweaksAPI`’s loader**: `Class.newInstance()` is deprecated; use
+   `getDeclaredConstructor().newInstance()`, catch `ReflectiveOperationException`/`ClassCastException`/
+   `ExceptionInInitializerError`, and keep the `CoreNotFoundException` messages.
+7. **Document the `IPeripheralHost` shadowing limitation** or move the provider registration earlier (not possible
+   with a hard CC dependency; a CC-side change is the real fix).
+8. **`TileLazyNBT` is dead** (removed with the network code); `BlockNotifyFlags` has one use; `FakeNetHandler` is
+   205 lines of defensive overrides worth keeping but worth a comment.
+
+---
+
+## 3. Optimizations
+
+- Cache `getMethodNames()` arrays in `ToolManipulatorPeripheral` and `TileDebugPeripheral.SidedPeripheral` (CC calls
+  these frequently).
+- `TurtleUpgradeToolManipulator.createPeripheral` allocates a new peripheral **every turtle tick** (CC calls it from
+  `TurtleBrain.updatePeripherals`). Cache one per `(turtle, side)` or return the previous instance from the upgrade.
+- Cache `ToolHostPlayer.getConsumer(turtle)` as a field instead of allocating an anonymous class per attack/dig.
+- `ItemToolHost.getSubItems` should return nothing when `thEnabled` is false, and only meta 0 when `advanced` is
+  false.
+- `TurtleRegistry` fields should be `final`; use `Collections.emptyList()` / null guards.
+- `Registry` → `LinkedHashSet` for deterministic module order.
+- `InventoryUtils`/`Helpers`: remove dead methods (below) — less class loading and less to maintain.
+- `DescriptionHandler.WIDTH` should be `static final`; `LanguageDocProvider` should stop at the first missing key (it
+  already does) and cache per item if docs are added.
+- `ItemComputerUpgrade.useComputer`: metadata-only upgrade avoids block replacement/particles and the phantom-tile
+  window (U2).
+
+---
+
+## 4. Dead code and stale assets
+
+| Item | Why dead |
+|------|----------|
+| `core/utils/InventoryUtils.java` (~240 of 276 lines) | Only `extractItems` is used; the rest is OpenMods copy-paste. |
+| `core/utils/Helpers.java` (~100 of 114 lines) | Only `translateOrDefault` is used; `translateAny`, `twoWayCrafting`, `alternateCrafting`, `swapCharacters`, `nextId`, `equals`, `THREAD_PRIORITY` are unused. |
+| `core/utils/IterableIterator.java` | No usages. |
+| `core/utils/EntityPosition.java` | No usages. |
+| `turtle/TurtlePosition.java` | No usages. |
+| `core/turtle/LuaDirection.java` | No usages (replaced by `InteractDirection`). |
+| `blocks/TileLazyNBT.java` | No subclasses; the lazy NBT feature was removed with the network code. |
+| `items/ItemBase.getTag` | Unused. |
+| `items/ItemToolHost.getMetadata(int)` | Pointless identity override. |
+| `items/ToolHostPlayer.loadWholeInventory`/`unloadWholeInventory` | Deprecated wrappers, no callers. |
+| `TurtleUpgradeToolHost.getItem(ITurtleAccess)` | Unused duplicate of `ToolHostPlayer.getItem`. |
+| `IClientModule` + `Registry.RegisterWrapper*` | No client modules. |
+| `FmlEvents.scheduleClient`/`clientQueue`/`onClientTick`/`onConfigChanged` | No producers/handlers. |
+| `CCTweaks.NETWORK` | Channel created, no messages registered. |
+| `CCTweaks.debug` | Config key never read. |
+| `cctweaks:networkedBlock`, `cctweaks:dataCard`, `cctweaks:multipart` | Removed features, but the dev world still contains them; FML prompts on load. Needs a `FMLMissingMappingsEvent` handler (see §5). |
+| `src/test/resources/.../core/network/data.json`, `core/patcher/*.lua` | Their tests were deleted in `acd88b6`. |
+| `src/main/resources/assets/cctweaks/docs/en_US/**` | Nothing reads them; `LanguageDocProvider` reads `.information.N` lang keys, and none exist. |
+| `gui.config.cctweaks.*` lang keys | No config GUI (documented as kept for a future factory). |
+| `AGENTS.md` “Docs” table | References `docs/remove-reflection.md`, etc., but there is no `docs/` directory. |
+
+**Estimate:** ~600–700 lines (≈13%) can be deleted with no behaviour change.
+
+---
+
+## 5. Features / gaps worth adding
+
+1. **Restore NEI documentation.** The README/AGENTS claim NEI documentation, but `LanguageDocProvider` looks for
+   `item.cctweaks.<name>.information.N` keys and `en_US.lang` has none. Either add those keys or add a
+   `ResourceDocProvider` that reads `assets/cctweaks/docs/en_US/item/<name>.txt` / `tile/<name>.txt` (page `***`,
+   bold `${**}` markup). The existing `debugger.txt` also describes the removed network visualiser — update it.
+2. **Migration mappings for removed content.** The dev server log shows
+   `Found a missing id from the world cctweaks:networkedBlock` / `dataCard` / `multipart` and an interactive FML
+   prompt. Add an `FMLMissingMappingsEvent` handler on the FML bus that `warn()`s/`ignore()`s the old `cctweaks:*`
+   names, so 2.x worlds load without a console prompt and the deletion is logged. Alternatively re-register hidden
+   placeholder blocks/items to preserve the data. This is important for a modpack update.
+3. **Config validation + config GUI.** Clamp `digFactor` (1–100), validate upgrade IDs (≥64, distinct, not
+   colliding), and either add a `GuiConfigFactory` using the existing lang keys or drop the keys.
+4. **Op-gate the debug wand**, or default `debugWandEnabled` to false; print a clear chat message when injection
+   succeeds/fails.
+5. **Enforce CC permissions in the tool host** (`isBlockEditable`, `turtleDisabledActions`) and add a config option
+   for the manipulator’s placement/activation.
+6. **Complete `canUse`** to mirror `doUse` (block activation/placeability), and add `canUse`/`canSwing` to
+   `PortalGunIntegration`.
+7. **Preserve data on upgrades**: overlays/hats, pocket upgrade ID + `upgradeData`, modded tile compatibility, and a
+   chat/tooltip warning that upgrading restarts a running computer.
+8. **Add a `tool_manipulator` API doc** (method list, arguments, return tuples) — currently only the NEI `.txt`
+   describes duration/sneak.
+9. **Dimension-change cache invalidation** for `ToolHostPlayer` (recreate when
+   `player.worldObj != turtle.getWorld()`).
+10. **Optional**: a `/cctweaks` command to inspect registered modules/config/upgrade IDs; useful on servers.
+    *(Done in batch 5, which also added `/cctweaks selftest`.)*
+
+---
+
+## 6. Testing plan
+
+### 6.1 Unit tests (JUnit 5 + Mockito, no MC bootstrap)
+
+Add `src/test/java/org/squiddev/cctweaks/testsupport/` with:
+
+- `StubInventory` (fixed-size `IInventory`, stack-limit/dirty tracking)
+- `StubTurtleAccess` (`ITurtleAccess`, synchronous `executeCommand`)
+- `StubComputerAccess` (`IComputerAccess`, records queued events)
+- `StubLuaContext` (runs `executeMainThreadTask` immediately and returns `MethodResult.of(...)`)
+- `StubPeripheral` (configurable type/methods/attach log)
+- Mockito mocks for `World`, `Block`, `IBlockAccess`, `MovingObjectPosition` where the test only needs a few
+  methods.
+
+Proposed classes:
+
+| Test | Covers |
+|------|--------|
+| `PeripheralHelpersTest` (expand) | existing chains + **cycles**, null inputs, proxy+target |
+| `PeripheralProxyTest` | lazy creation, attach-before-create replay, detach both states, default type, `equals` |
+| `LuaResultsTest` | `wrap(Object[])`, `wrap(MethodResult)`, null |
+| `WorldPositionTest` | equals/hash symmetry, different world/coords, mixed `IWorldPosition` |
+| `TurtleRegistryTest` | item-specific before generic, first non-null wins, `canUse`/`canSwing` OR, null stack/registration |
+| `ToolManipulatorPeripheralTest` | `toObjectArray`, method-name array, invalid method throws, duration/sneak parsing, `equals` includes side |
+| `CraftingComputerUpgradeTest` | empty/None, normal computer + upgrade, two computers, advanced/Command rejected, turtle + <7 slots vs 7 slots, unsupported `IComputerItem` returns no match, recipe output non-null |
+| `ItemComputerActionTest` | client sneak suppresses without effects; server not-sneaking; consumption; creative |
+| `McEventsTest` | block consumer consumes+clears, drop chance applied once, entity consumer captures+clears, **canceled event ignored**, reset clears maps |
+| `InventoryUtilsTest` | exact/partial/insufficient extraction, no mutation on failure, `markDirty`, new `countItems` |
+| `TileLifecycleTest` | `validate`→create once; `invalidate`/`onChunkUnload`→destroy once; breakBlock+invalidate→one destroy; description NBT roundtrip |
+| `TileDebugPeripheralTest` | per-side caching, out-of-range side, attach/detach set, `getSide` |
+| `FmlEventsTest` | schedule runs next tick; throwing task logged, not propagated; reset clears; **`DelayedTasks.update` is ticked** |
+| `LanguageDocProviderTest` | injected key lookup, pagination stops at first gap |
+| `ApiSurfaceTest` | reflective pin of `ICCTweaksAPI`/`ITurtleRegistry`/`ITurtleInteraction` signatures (like the CC-Legacy `AddonApiSurfaceTest`) |
+| `BuildArtifactTest` | built jar manifest contains `FMLAT: CCTweaks_at.cfg`; no `mixins.*.json`; `CCTweaks.DEPENDENCIES` matches `dependencies.gradle` CC version |
+
+### 6.2 Headless harness / integration
+
+- **Server smoke**: CI already runs `runServer` (aliased to `runServer25` by `addon.gradle.kts`). Add a test step
+  that greps the server log for:
+  - `cctweaks` in the FML mod list,
+  - no `cctweaks`-related `ERROR`/`Exception`,
+  - no missing-mapping prompt for a fresh world.
+- **Optional Horizon-QA**: the GTNH reusable workflow already supports `horizonqa: true`. Add `@GameTest` cases for:
+  - normal computer + upgrade → advanced, same ID/label, `term.isColour()`;
+  - normal turtle + upgrade → advanced, same ID/inventory/fuel/overlays, `term.isColour()`;
+  - tool host digs a grass/torch and the drop is in the turtle inventory;
+  - tool host respects a claim (protection provider);
+  - debug block side bindings.
+- **Gradle**: add `tasks.withType<Test> { useJUnitPlatform() }` in `addon.gradle.kts` (otherwise JUnit 5 tests are
+  silently not run), and a guard that fails if zero test XML files were produced (the CC-Legacy repo added exactly
+  this for `verifyTestSuiteExecuted`).
+
+### 6.3 Coverage
+
+No JaCoCo task exists today. Add the JaCoCo plugin and publish `build/reports/jacoco/test/html`; target the pure
+logic (helpers, registry, crafting matcher, upgrade NBT, events) first, then the fakes-backed manipulator paths.
+
+---
+
+## 7. Dependency audit
+
+| Dependency | Current | Recommended | Notes |
+|---|---|---|---|
+| ComputerCraft-Legacy | `3.3.0:dev` | **3.3.0** | Latest tag. `main` has post-3.3.0 commits (fuel handlers, pocket upgrades, full modem), but no newer tag; bump when 3.4.0 lands. |
+| CodeChickenCore | `1.4.10:dev` | **1.4.22:dev** | NEI 2.9.2 declares 1.4.22. 1.5.0 is newer but not what NEI 2.9.2 was built against; test before using it. |
+| NotEnoughItems | `2.7.4-GTNH:dev` | **2.9.2-GTNH:dev** | Latest; I compiled the tree against 2.9.0 + CCC 1.4.22 successfully. One NEI deprecation warning in `DescriptionHandler`; clean it up with the newer API. |
+| PortalGun | `curse.maven:PortalGun-229084:2480016` | **2480016** | Latest 1.7.10 file (4.0.0-beta-6-fix-1), confirmed via CurseForge widget. |
+| iChunUtil | `curse.maven:iChunUtil-229060:2338149` | **2338149** | The widget lists 2338148 as the newest 1.7.10 file; verify 2338149 exists / is newer, otherwise pin 2338148. |
+| JUnit | `junit:junit:4.13.1` | **JUnit 5.13.x** | Use `testImplementation` + `useJUnitPlatform()`; 4.13.2 if staying on JUnit 4. |
+| Mockito | none | **4.11.0** (Java 8-safe) or **5.24.0** | Add for fakes/mocks. |
+| GTNH settings plugin | `2.0.34` | **2.0.34** | Latest; ExampleMod is on 2.0.33. |
+| Gradle wrapper | `9.7.1` | **9.7.1** | Matches ExampleMod; 9.9.0 is current but test GTNHGradle compatibility before bumping. |
+| blowdryerTag | `0.2.2` | **0.2.2** | Matches ExampleMod. |
+| Forge | `10.13.4.1614` | **10.13.4.1614** | Latest 1.7.10. |
+| MCP mappings | `stable/12` | **stable/12** | Matches GTNH template. |
+
+Also:
+- `testCompile` is deprecated in Gradle 9 — switch to `testImplementation`.
+- CI’s reusable workflow rejects `-pre` dependency versions; none are present.
+- `./gradlew updateDependencies` exists if you want GTNH Maven bumps automated; review the diff, since it can pull
+  pre-releases.
+
+---
+
+## 8. Suggested order of work
+
+1. **P0 correctness (small, high value):** T1 entity ray, T2 attack attributes, T3 dig drop capture, T4/T5/T6
+   protection & disabled actions, U1 turtle family, U3/U4 upgrade NBT, D1 wand consumption, E1 canceled drops.
+2. **P0 release safety:** `FMLMissingMappingsEvent` for removed 2.x blocks/items; config ID/`digFactor` validation.
+3. **P1 data integrity:** U2 metadata-only computer upgrade, U5/U6 crafting matcher/output, U8 modded tile guards,
+   U7 gold ordering.
+4. **P1 security:** D2 op gate/default-off, D3 documented race, T4/T5 permissions.
+5. **P2 testability:** `IToolHostPlayer` extraction, `Stub*` harness, JUnit 5 + `useJUnitPlatform`, unit tests, CI
+   server smoke/optional Horizon-QA.
+6. **P3 cleanup:** delete dead code/resources, fix `TileBase` lifecycle, `Registry` ordering, `FmlEvents`
+   reset/exception handling, `PeripheralHelpers` cycles, `PeripheralProxy` locking.
+7. **P4 deps/docs:** NEI/CCC bump + verify in client, JUnit/Mockito, README/AGENTS corrections, NEI docs provider,
+   config GUI.
+
+The P0 list is about a dozen focused edits plus tests, and P0 + the test harness would make a good first PR.
+
+---
+
+## Batch 1 implementation status
+
+Implemented on this branch (with 83 headless tests, `./gradlew build` clean, and a clean
+`runServer25` bootstrap):
+
+- **Tool Host / Manipulator:** entity ray direction fixed; held-item attributes applied; dig drop
+  capture covers instant-break blocks and is removed in `finally`; `isBlockEditable` and
+  `turtleDisabledActions` checks; placement protection; world-change player invalidation; side-aware
+  equality; inventory-size guards; invalid-method `LuaException`; cached method table; argument
+  parsing extracted and tested.
+- **Upgrade items:** computer upgrade now changes the metadata family bit in place and recreates the
+  `ServerComputer` (ID/label/on-state preserved); turtle upgrade recreates the advanced
+  `ServerComputer` and rolls back the moved flag on failure; turtle overlays/hats and pocket
+  `upgrade`/`upgradeData` are preserved; unsupported `IComputerItem`s are rejected at match time;
+  `getRecipeOutput` is non-null; gold is counted before extraction and refunded on failure;
+  protection checks; modded tile/block guards.
+- **Debug wand:** no longer consumed; `isUsable` range check; failures logged.
+- **Events/lifecycle:** `LivingDropsEvent` cancellation respected; `McEvents`/`FmlEvents` reset on
+  server start/stop; `TileBase` destroys once; `Registry` uses `LinkedHashSet` and snapshots;
+  `FmlEvents` exception isolation; `PeripheralHelpers` cycle guard; `PeripheralProxy` locking;
+  `PortalGunIntegration.canUse`/`canSwing`; config
+  validation; `FMLMissingMappingsEvent` handler for removed 2.x names.
+- **Build/tests:** JUnit 5 + Mockito, `useJUnitPlatform`, 26 test classes/103 tests, headless
+  `StubTurtleAccess`/`StubComputerAccess` harness, API/AT/dependency guard tests.
+- **Dependencies:** NEI 2.9.2-GTNH, CodeChickenCore 1.4.22, JUnit 5.13.4, Mockito 4.11.0.
+
+Remaining from the audit (next batches): T7 `use(duration)` wait semantics, T12 complete `canUse`,
+T13 opposite-side fallback, D2/D3 debug-wand privilege/threading, E9 `IPeripheralHost` inventory
+shadowing, NEI documentation provider, dead-code/resource cleanup, config GUI, and in-world
+integration coverage (tool host mining/placement, debug wand injection, NEI GUI).
+
+### Post-batch in-game corrections
+
+- **E11 revert:** the batch-1 client-side suppression in `ItemComputerAction` was wrong — returning
+  `true` from `onItemUseFirst` on the client makes `PlayerControllerMP.onPlayerRightClick` return
+  before queueing the C08 packet, so the server never ran the upgrade/wand action. The client now
+  always returns `false` (no GUI flicker: sneaking skips `onBlockActivated`, and
+  `TileComputerBase.onActivate` returns `false` while sneaking). E11 as originally filed was a
+  non-issue.
+- **Portal gun click semantics:** `swing` now fires portal type 1 and `use` type 2, matching
+  PortalGun's left=blue/right=orange keybind semantics. Previously `use` keyed off the held item
+  (`ItemPortalGunBlue` → 1), so both actions fired blue with a blue gun.
+
+## Batch 2 implementation status
+
+- **Debug wand (D1–D4):** every failure path now reports a distinct chat message (out of range,
+  not started, switched off, unsupported Lua machine, injection error) and success names the
+  computer id, so a silent wand is diagnosable in-game. Added `computer.debugWandRequiresOp`
+  (default false) as the op gate for D2; D3 (the `LuaState` write racing the computer thread) is
+  documented in `AGENTS.md` rather than "fixed", because CC exposes no "run on the computer thread"
+  hook. The NEI doc text no longer describes the deleted network visualiser.
+- **T7 `use(duration)`:** `DelayedTask` never worked (it reads `delay` after the task has run, and
+  `LuaEnvironment.sleep` drops the `MethodResult` that `executeTask` returns). `use` now chains two
+  suspensions — the main-thread task, then a no-op delayed task — via `MethodResult.pullEvent`, so
+  `duration` really holds the Lua call for that many ticks.
+- **T12 `canUse`:** now mirrors `use`: registered interactions, an entity in range with an item,
+  placeable item blocks (with `isBlockEditable`), and tile-entity blocks (block activation cannot be
+  probed without side effects, which is documented on the method).
+- **T13 opposite-side fallback:** gone. `resolveSide` keeps `hit.sideHit` when valid and otherwise
+  derives the face from the hit vector, so a ray that starts inside a block no longer activates or
+  places against the far face or fires twice.
+- **NEI documentation:** added `ResourceDocProvider`, reading
+  `assets/cctweaks/docs/<lang>/{item,tile}/<name>.txt` with `***` page breaks and `${**}`/`${*}`
+  markup. This is the provider the shipped docs were written for; without it the NEI page was
+  always empty because `en_US.lang` has no `.information.N` keys.
+- **Dead code:** deleted `IterableIterator`, `EntityPosition`, `TurtlePosition`, `LuaDirection`,
+  `TileLazyNBT`, `IClientModule` + the `Registry` client wrappers, the unused half of
+  `InventoryUtils`/`Helpers`, `ItemBase.getTag`, `ItemToolHost.getMetadata`,
+  `ToolHostPlayer.loadWholeInventory`/`unloadWholeInventory`, `TurtleUpgradeToolHost.getItem`, and
+  the orphaned `src/test/resources` fixtures.
+
+Still open: E9 (`IPeripheralHost` inventory shadowing — documented, needs a CC-side fix), config GUI,
+and real in-world integration coverage.
+
+## Batch 3 implementation status
+
+- **Config GUI (audit §5.3):** added `client/gui/GuiConfigFactory` (referenced by name from
+  `@Mod(guiFactory = ...)`, so it is never loaded on a dedicated server) and
+  `GuiCCTweaksConfig`, which shows every option on one page, flags them all as requiring a restart,
+  and on close saves the file and re-reads the statics (`CCTweaks.saveConfiguration`). `CCTweaks`
+  now keeps the live `Configuration`, and `setConfig` became a static `readConfig(Configuration)`
+  so the GUI, the initial load and the tests share one code path. Every option got a
+  `gui.config.cctweaks.<category>.<name>` language key, including a new one for
+  `debugWandRequiresOp`; `CCTweaksConfigIoTest` asserts each key is present in `en_US.lang`.
+  `Configuration` cannot be instantiated outside a game (its constructor reads the Minecraft home
+  directory out of FML), so the test mocks the config and property objects.
+- **E9 `IPeripheralHost` shadowing:** cannot be fixed without a CC change — CC's provider list is
+  private, its `DefaultPeripheralProvider` is registered during CC's pre-init (before any addon)
+  and wraps every `IInventory` tile. Documented in the `IPeripheralHost` javadoc with the three
+  workarounds (implement CC's `IPeripheralTile`, drop `IInventory`, split the inventory tile) and
+  in `AGENTS.md`; added `PeripheralHostProviderTest` for the unwrapping that does work.
+- **`CCTweaksAPI` loader (audit §2.6):** replaced deprecated `Class.newInstance()` with
+  `getDeclaredConstructor().newInstance()`, and the loader is now a package-private
+  `load(Class, String)` so the failure paths are testable. It now reports a missing no-argument
+  constructor, a wrong interface, a `LinkageError` and a throwing constructor/static initialiser as
+  distinct `CoreNotFoundException`s (`CoreNotFoundException(String)` added for the no-cause case).
+- **Test-harness automation:** `addon.gradle.kts` gained (a) `verifyTestSuiteExecuted`, wired into
+  `check`, which fails when the test task produced no JUnit XML, and (b) `-PsmokeTest`, which makes
+  `runServer25` hand the dev server a stdin pipe and write `stop` into it a few seconds after FML
+  logs `Done` (or after `-PsmokeStopAfter` seconds). `scripts/headless-smoke.sh` drives that and
+  asserts on `run/server/logs/latest.log` + `fml-server-latest.log`: CCTweaks in the mod list, no
+  CCTweaks ERRORs/exceptions, no unresolved 2.x mappings, no `ModSortingException`, clean
+  shutdown, Gradle exit 0. Verified end to end (`SMOKE PASSED`) on this branch.
+- **Docs:** new `docs/tool-manipulator-api.md` (method table, `duration`/`sneak` semantics, result
+  tuples, protection/`turtleDisabledActions` behaviour); `README.md` and `AGENTS.md` updated for
+  the config GUI, the smoke script and the new tests.
+- **Audit correction:** §3 claimed `TurtleUpgradeToolManipulator.createPeripheral` allocates a new
+  peripheral every turtle tick. It does not: CC calls `createPeripheral` from
+  `TurtleBrain.updatePeripherals`, which only runs from `setupComputer`/`setUpgrade`. Caching adds
+  no measurable benefit, so the finding is withdrawn.
+- **Still open:** everything needs in-world sign-off (mining/placement, wand injection, NEI pages,
+  the new config GUI); the config GUI save path is only unit-tested to `readConfig` because
+  `GuiScreen` cannot be initialised headlessly.
+
+## Batch 4 implementation status
+
+- **Testability seam (audit §2.2, the last P2 item):** `ToolManipulatorPeripheral` no longer depends
+  on the concrete `ToolHostPlayer`. It talks to the new `IToolHostPlayer` interface (`asPlayer`,
+  world/position accessors, `load`/`unload`, `moveTowards`, `interactWith`, `finishUseItem`,
+  `attack`, `dig`) and finds what it would hit through `ToolHitResolver` (`ToolHitResolver.DEFAULT`
+  is the ray trace that used to live in `findHit`). `ToolHostPlayer` is the in-game implementation;
+  the `clearItemInUse` + `onUseItemStop` block moved into `ToolHostPlayer.finishUseItem`, and
+  `unload` now always releases the item in use. The peripheral's constructor still accepts
+  `IToolHostPlayer`, so `TurtleUpgradeToolManipulator` is unchanged.
+  New `ToolManipulatorActionsTest` (26 cases) drives the whole decision tree with
+  `StubToolHostPlayer` and a fixed hit: registered interaction first, entity interaction, block
+  activation, the `place`/`dig`/`attack` gating, item use in air (stack replacement, `finishUseItem`,
+  the 0.6 nudge), `canUse` tile-entity/placeable/air heuristics, `canSwing` harvest checks, and
+  "animate only on success". Two findings while writing it: `ItemStack.getItem()` resolves through
+  Forge's `RegistryDelegate` on `Item`, so a Mockito `mock(Item.class)` makes every `ItemStack` look
+  empty (the tests use real `Item` subclasses now); and `use()` returns the disabled message as a raw
+  `Object[]` while every other path comes back wrapped.
+- **`ModuleRegistry` (audit §2.3):** the static phase flags moved into an instance-based
+  `ModuleRegistry`; `Registry` is now a thin facade that owns one instance, registers the built-in
+  modules and exposes `modules()` for inspection. `ModuleRegistryTest` covers ordering, `canLoad`
+  gating, duplicate registration, late-registration catch-up, the out-of-order/duplicate phase
+  exceptions and snapshot immutability. Item construction still has to happen at class-init because
+  `ItemBase`/`BlockBase` take CC's creative tab; that is now documented rather than implied.
+- **Coverage (audit §6.3):** `jacoco` is applied in `addon.gradle.kts` and `jacocoTestReport` is
+  attached to `check`, writing `build/reports/jacoco/test/html` (XML at
+  `build/reports/jacoco/test/jacocoTestReport.xml`). Baseline: **53.0% lines / 54.5% branches**,
+  with `core/peripheral` at 92.9% and `client/gui` at 13.0% (the GUI cannot be initialised).
+  No coverage floor is enforced: a threshold on this codebase would mostly measure GUI and
+  world-interaction code that cannot run headless.
+- **CI harness (audit §6.2):** `.github/workflows/build-and-test.yml` gained a `headless-smoke` job
+  (checkout, Temurin 21, Gradle cache, `scripts/headless-smoke.sh`, log artifact upload), so the
+  server boot is verified on every push/PR and not just by hand. The script now also writes
+  `run/server/eula.txt` when a fresh checkout has none, which is what made a CI run impossible
+  before. Found while re-running it: the script waited 180s for the server to stop, but Gradle's
+  own fallback is 300s, so a server that *did* stop on the fallback was killed early and reported as
+  a crash. The wait now derives from `SMOKE_STOP_AFTER` (fallback + 150s); a full local run passes.
+- **Optimization:** `ToolHostPlayer.getConsumer` caches its `IDropConsumer` per turtle instead of
+  allocating one for every attack/dig.
+- **Test suite:** 153 tests / 28 classes, `./gradlew build` clean.
+- **Still open:** in-world sign-off for everything batch 1-3 touched, `/cctweaks` inspection
+  command (§5.10), `ModIntegration`/`PortalGunIntegration` have no headless coverage (they need
+  PortalGun on the test classpath), and the GUI save path is only unit-tested up to `readConfig`.
+
+## Batch 5 implementation status
+
+- **`/cctweaks` command (audit §5.10):** `commands/CommandCCTweaks` (permission level 2) with
+  `modules` (registration order), `config` (every live flag), `selftest`, tab completion and a
+  `WrongUsageException` for unknown sub-commands. Registered from `CCTweaks.onServerStarting`
+  (`FMLServerStartingEvent`), so a dedicated server and the integrated server both get it.
+- **In-world self test (the testing gap left by batches 1-4):** `selfTest/InWorldSelfTest` builds a
+  scratch area a few blocks above the world spawn, snapshots it, clears it, runs 12 checks and
+  restores the original blocks in a `finally`. `selfTest/SelfTestTurtle` is the runtime
+  `ITurtleAccess` (a real world plus `InventoryBasic`), because `testsupport.StubTurtleAccess` is
+  test-source-set only. Coverage that did not exist before:
+  - `ToolHostPlayer`: inventory load/unload round-trip including overflow storage, held-item
+    attribute modifiers applied and removed, `dig` of stone with a real `ItemInWorldManager`
+    (block broken, drop consumed into the turtle), refusals for bedrock/air/protected blocks,
+    `attack` killing a zombie.
+  - `ItemComputerUpgrade`: in-place computer upgrade (same tile instance, `+8` metadata, Advanced
+    family, second use refused), turtle upgrade in creative and with 7 gold ingots (and refusal
+    without gold), refusal on an unsupported tile, and the resulting chat messages (which also
+    exercise `FakeNetHandler`).
+  - Registry/config sanity: `digFactor` validation, module list, item presence.
+- **Harness wiring:** `-PselfTest` sets `-Dcctweaks.selftest=true` on `runServer25`;
+  `scripts/headless-smoke.sh` passes it by default (`SMOKE_SELFTEST=0` to skip), then greps
+  `CCTWEAKS-SELFTEST PASS|FAIL|RESULT` from the server logs and fails the run on any `FAIL` or a
+  missing `RESULT`. The CI `headless-smoke` job therefore runs the in-world checks on every push.
+  Local run: 12/12 checks pass.
+- **Coverage:** 166 tests / 30 classes, `./gradlew build` clean.
+  `build/reports/jacoco/test/jacocoTestReport.xml` is **55.8% lines / 54.8% branches** (up from
+  53.0%/54.5% with a smaller denominator). The `selfTest` package is excluded from the report
+  because it only runs in the game JVM, which JaCoCo cannot instrument; the harness asserts its
+  results instead.
+- **Bugs/frictions found while writing it:** none in the mod. Two MV mechanics had to be handled in
+  the test itself: `EntityLivingBase.hurtResistantTime` never decays without world ticks (so every
+  attack after the first was a no-op), and `Entity.isDead` only flips after the 20-tick death
+  animation, so the attack check waits on health. The `dig` loop needs 3 calls with `digFactor=10`,
+  and drops do reach the turtle.
+- **Still open:** the debug wand's Lua injection on a running computer, NEI rendering, the config
+  GUI and PortalGun interaction still need a dev client/`runClient25`. `ModIntegration` (the
+  PortalGun hook) remains uncovered because PortalGun is dev-only and absent from the dedicated
+  server.
+
+## Batch 6 implementation status
+
+Batch 5 covered the world-facing behaviour; batch 6 closes the last untested feature (the debug
+wand) and the remaining hot-path leftovers.
+
+- **Debug wand is now covered in-world** (`debug-wand-refused-off`, `debug-wand-inject`):
+  - a computer that has not been switched on is refused (with the range check asserted separately,
+    so the test cannot pass because the fake player is out of reach);
+  - injection into a **running** computer succeeds, the wand is not consumed and a second injection
+    also succeeds. This is the first automated coverage of the `DebugLib.add(CobaltMachine)` path.
+  - Booting the computer inside the test needed two non-obvious steps: `ServerComputer` only
+    advances from `ServerComputer.update()` (which the world tick calls), so the loop calls it and
+    sleeps to let CC's own computer thread build the Cobalt machine; and the fake player must be
+    positioned next to the computer or `TileComputerBase.isUsable` rejects the use.
+- **Turtle-facing upgrade paths** (`toolhost-upgrade-dig`, `toolhost-upgrade-disabled`,
+  `toolhost-manipulator-peripheral`): `TurtleUpgradeToolHost.useTool(Dig)` breaks stone and stores
+  the drop in the turtle, the disabled-config refusal returns a failure (not `null`), and
+  `TurtleUpgradeToolManipulator.createPeripheral` returns the `tool_manipulator` peripheral with 12
+  methods while the plain tool host returns `null`.
+- **`TurtleUpgradeMetadataTest`** (unit): config-driven ids stay distinct, both upgrades are
+  `Tool` upgrades, crafting-item metadata (0/1), peripheral-ness, and that both adjectives actually
+  exist in `en_US.lang` (an untranslated adjective shows up in the turtle GUI).
+- **Optimization (audit §3):** `TileDebugPeripheral.SidedPeripheral.getMethodNames()` returned a new
+  array on every call; it now returns a static constant. `ToolManipulatorPeripheral` already did.
+- **Bug found by the new checks:** the permission provider installed by the batch-5
+  `toolhost-dig-protected` check denied one coordinate *forever*, because CC has no unregister API.
+  That broke every later dig at the same block. It is now installed once and only denies while a
+  static "armed" flag matches.
+- **Bug found in the test, worth knowing:** `EntityLivingBase.isDead` (and `Computer.isOn()` before
+  `update()`) lag behind the actual state in an untick'd world - see batch 5 notes and above.
+- **Test suite:** 171 tests / 31 classes, `./gradlew build` clean, self test **17/17 checks**.
+  JaCoCo: **56.7% lines / 54.8% branches**.
+- **Still open:** the config GUI and NEI rendering (client-only), PortalGun interaction (dev-only
+  dependency, absent from a dedicated server), and the CC-side `IPeripheralHost` inventory
+  shadowing (E9, documented).
+
+## Batch 7 implementation status
+
+The last items on the backlog were the client-only and optional-dependency surfaces. None of them
+can be rendered headlessly, but most of them are logic, so the logic was pulled out of the
+unloadable classes and tested.
+
+- **Config GUI (client-only) is now testable.** `GuiCCTweaksConfig.getConfigElements()` moved to
+  `core/config/ConfigElements` - the same reason `GuiConfigFactory` is only class-*loaded* in tests:
+  anything that lives in a `GuiScreen` subclass cannot even initialise in a headless JVM.  The new
+  `ConfigElementsTest` asserts the invariant that matters: **every category `CCTweaks.readConfig`
+  reads appears in the GUI** (recorded by mocking `Configuration.get` and comparing with
+  `CATEGORIES`), plus category/property display order and the title key. A future option added
+  under a new category can no longer become invisible to players.
+- **NEI provider logic is now tested.** `DescriptionHelpers` gained an instance provider list (the
+  static `INSTANCE` is what the mod uses) and `LanguageDocProvider` a `Translator` seam, so
+  `DescriptionProvidersTest` covers the chain order (shipped resources before language keys), first
+  non-empty wins, the `information.N` loop stopping at the first missing key, the stack→item
+  fallback and `
+` → paragraph conversion. `NEICCTweaksConfig` identity is covered too. Only the
+  actual rendering in `DescriptionHandler` still needs a client.
+  While writing this: a translator that answers forever made the provider loop allocate until the
+  test JVM hit `OutOfMemoryError` - the test now answers a fixed number of keys, which is also a
+  reminder that the loop is unbounded by design and only terminates on a missing key.
+- **PortalGun is now tested.** The anonymous interaction in `PortalGunIntegration.init()` became
+  `integration/PortalGunInteraction`, with a `Shooter` seam replacing
+  `EntityHelper.shootPortal`. `PortalGunInteractionTest` (5 cases) locks in the behaviour that
+  caused an in-game bug report: **`swing` fires the blue portal (1) and `use` the orange one (2)
+  regardless of which gun is held**; both previously keyed off the held item, so a blue gun fired
+  blue for both actions. `dependencies.gradle` gains `testImplementation`/`testRuntimeOnly` entries
+  for PortalGun + iChunUtil so the test classpath can see `instanceof ItemPortalGun`.
+- **`BlockBase`/`BlockDebug`/`ItemMultiBlock`** had no coverage: `BlockBaseTest` covers tile lookup
+  with foreign/missing tiles, activation, server-only neighbour notification, destroy-once on break;
+  `BlockDebugTest` covers the meta-0-only tile, drop metadata, unlocalised names, creative
+  subtypes, `debugItems` gating and the `ItemMultiBlock` contract.
+- **Test suite:** 209 tests / 36 classes, `./gradlew build` clean, self test 17/17.
+  JaCoCo: **62.3% lines / 60.8% branches** (53.0%/54.5% before this audit).
+- **Bucket interaction was `canUse`-only** (found in batch 7, fixed in batch 8 - see below).
+- **CI fix:** the first real run of the `headless-smoke` job failed on
+  `./gradlew: Permission denied` - the wrapper's executable bit was never recorded in Git
+  (`100644`), which a Linux checkout cannot recover. `gradlew` and `scripts/headless-smoke.sh` are
+  now committed as `100755`, the workflow chmods them defensively, and the script invokes
+  `sh ./gradlew` so a Windows working copy or an older checkout still works.
+- **Remaining untested, by necessity:** `GuiCCTweaksConfig` (rendering), `DescriptionHandler`
+  (rendering), `ToolHostPlayer`/`FakeNetHandler` (unit suite - they are covered by the in-world self
+  test instead) and `ModIntegration.canLoad` (needs FML's `Loader`).
+
+## Batch 8 implementation status
+
+**Bucket tool support.** `DefaultTurtleProviders` used to register an interaction that answered
+`canUse` and implemented no action at all, and ComputerCraft 3.3.0 ships no bucket support of its
+own - so a tool-host turtle holding a bucket reported "usable" and then did nothing. It is now
+`core/turtle/BucketInteraction`, registered the same way, and faithfully reproduces vanilla
+`ItemBucket`:
+
+* **Fill** - an empty bucket on a water/lava *source* (metadata 0) drains it and becomes the filled
+  bucket. Modded fluid blocks go through `IFluidBlock.drain(..., false)` to check the fluid, then
+  `FluidContainerRegistry.fillFluidContainer` to check the container accepts it, and only then
+  `drain(..., true)` - so a fluid the container cannot hold leaves the world untouched. Flowing
+  fluid is not a source, so nothing happens.
+* **Empty** - a filled bucket pours into the block on the clicked side (`hit.blockX + side`
+  offsets, exactly like vanilla `ItemBucket`'s right-click), never replacing the clicked block.
+* **Protection** - both directions check `ComputerCraft.isBlockEditable` on the position they would
+  actually modify, because interactions run before the manipulator's own protection check.
+* **Inventory** - the used bucket is swapped for its container in the held slot; for a stack, the
+  stack is decremented and the container goes into a spare slot (which the tool host writes back to
+  the turtle). Failure paths never touch the stack.
+* `canUse` mirrors `use` exactly (same target position, same acceptance rules) and never changes
+  the world; `canSwing` stays false.
+
+`Actions` is the seam between the decision tree and Forge: `BucketInteractionTest` (11 cases)
+covers targeting, refusal, inventory bookkeeping and `canUse` with a stub, and three new in-world
+checks cover the real `ForgeActions` against the running server: `bucket-fill` (water source
+drained, water bucket obtained), `bucket-place` (water poured onto the clicked side, clicked block
+untouched, empty bucket returned) and `bucket-not-a-source` (a solid block is refused and the stack
+is untouched). **20/20 self-test checks pass.**
+
+Also updated: `docs/tool-manipulator-api.md` documents the bucket behaviour and its result tuples,
+and `AGENTS.md` lists the interaction in the feature catalogue.
+
+**Test suite:** 220 tests / 37 classes, `./gradlew build` clean, self test 20/20. JaCoCo is
+**61.7% lines / 57.7% branches**: the unit-report number dipped slightly because `ForgeActions` (the
+real fluid/placement implementation) is only exercised by the in-world harness, which JaCoCo does
+not instrument. The decision tree around it is fully unit tested.

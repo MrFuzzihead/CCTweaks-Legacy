@@ -20,9 +20,17 @@ public abstract class ItemComputerAction extends ItemBase {
     @Override
     public boolean onItemUseFirst(ItemStack stack, EntityPlayer player, World world, int x, int y, int z, int side,
         float hitX, float hitY, float hitZ) {
-        if (!player.isSneaking() || world.isRemote) {
+        if (world.isRemote) {
+            // Must return false here: PlayerControllerMP.onPlayerRightClick returns immediately
+            // when onItemUseFirst returns true, before queueing the C08 block-placement packet,
+            // so the server would never see the click and the action would never run. Returning
+            // false lets the packet through; while sneaking, PlayerControllerMP also skips
+            // onBlockActivated (doesSneakBypassUse is false) and TileComputerBase.onActivate
+            // returns false when sneaking, so no GUI flickers open on the client either.
             return false;
         }
+
+        if (!player.isSneaking()) return false;
 
         TileEntity tile = world.getTileEntity(x, y, z);
         if (tile == null) return false;
@@ -39,13 +47,21 @@ public abstract class ItemComputerAction extends ItemBase {
             result = useGeneric(stack, player, tile, side);
         }
 
-        if (result) {
+        if (result && shouldConsume(stack, player)) {
             if (!player.capabilities.isCreativeMode) {
-                stack.stackSize -= 1;
+                if (--stack.stackSize <= 0) player.destroyCurrentEquippedItem();
             }
         }
 
         return result;
+    }
+
+    /**
+     * Whether a successful use should consume one item from the held stack. The debug wand
+     * overrides this: its whole purpose is repeatable inspection.
+     */
+    protected boolean shouldConsume(ItemStack stack, EntityPlayer player) {
+        return true;
     }
 
     protected abstract boolean useComputer(ItemStack stack, EntityPlayer player, TileComputerBase computerTile,

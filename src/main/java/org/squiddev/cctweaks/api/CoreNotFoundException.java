@@ -10,4 +10,8 @@ public class CoreNotFoundException extends RuntimeException {
     public CoreNotFoundException(String message, Throwable cause) {
         super(message, cause);
     }
+
+    public CoreNotFoundException(String message) {
+        super(message);
+    }
 }

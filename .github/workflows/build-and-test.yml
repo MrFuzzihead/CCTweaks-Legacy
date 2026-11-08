@@ -1,4 +1,3 @@
-
 name: Build and test
 
 on:
@@ -11,3 +10,57 @@ jobs:
   build-and-test:
     uses: GTNewHorizons/GTNH-Actions-Workflows/.github/workflows/build-and-test.yml@master
     secrets: inherit
+
+  # The unit suite runs on the JVM without a game. That cannot catch the failures that only appear
+  # at mod-load time (an Access Transformer that stopped matching, a @Mod annotation change, a
+  # dependency that is no longer satisfied, an API method CC renamed) nor anything that needs a
+  # real world. This job boots a real dedicated dev server, lets it stop itself
+  # (scripts/headless-smoke.sh + -PsmokeTest) and asserts on its log. `-PselfTest` also runs the
+  # in-world checks (digging with a tool host, block protection, attacking, the upgrade items) on
+  # that server, which is what covers the code the JVM suite cannot reach.
+  headless-smoke:
+    name: Headless server smoke + in-world self test
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Make the wrapper executable
+        # `git update-index --chmod=+x` now records the bit, but a checkout from an older commit
+        # or from a Windows working copy can still lose it. Cheap and idempotent.
+        run: chmod +x gradlew scripts/headless-smoke.sh
+
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-smoke-${{ runner.os }}-${{ hashFiles('gradle/wrapper/gradle-wrapper.properties', 'gradle.properties', 'dependencies.gradle', 'settings.gradle.kts') }}
+          restore-keys: |
+            gradle-smoke-${{ runner.os }}-
+
+      - name: Boot a dedicated server and assert on its log
+        # The server is told to stop ~10s after FML reports "Done"; SMOKE_STOP_AFTER is only the
+        # fallback for when the log cannot be read while log4j holds it open.
+        env:
+          SMOKE_STOP_AFTER: 120
+        run: bash scripts/headless-smoke.sh
+
+      - name: Upload smoke logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: headless-smoke-logs
+          path: |
+            build/smoke-gradle.log
+            run/server/logs/
+          retention-days: 7

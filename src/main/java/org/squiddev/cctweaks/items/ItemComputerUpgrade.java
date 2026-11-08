@@ -2,6 +2,7 @@ package org.squiddev.cctweaks.items;
 
 import java.util.List;
 
+import net.minecraft.block.Block;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.init.Blocks;
 import net.minecraft.init.Items;
@@ -49,28 +50,26 @@ public class ItemComputerUpgrade extends ItemComputerAction {
         int x = computerTile.xCoord, y = computerTile.yCoord, z = computerTile.zCoord;
         World world = computerTile.getWorldObj();
 
-        // Check it is a normal computer
-        if (computerTile.getFamily() != ComputerFamily.Normal) {
-            return false;
-        }
+        // Only upgrade CC's own computer block. Replacing a modded TileComputerBase would lose
+        // whatever state the modded tile keeps.
+        if (computerTile.getBlock() != ComputerCraft.Blocks.computer) return false;
+        if (computerTile.getFamily() != ComputerFamily.Normal) return false;
+        if (!ComputerCraft.isBlockEditable(world, x, y, z, player)) return false;
 
-        // Set metadata
         int metadata = world.getBlockMetadata(x, y, z);
-        world.setBlock(x, y, z, ComputerCraft.Blocks.computer, metadata + 8, BlockNotifyFlags.ALL);
+        if ((metadata & 8) != 0) return false;
 
-        TileEntity newTile = world.getTileEntity(x, y, z);
+        // Change the family bit in place. Replacing the block (the obvious approach) destroys the
+        // old tile and its ServerComputer, so transferStateFrom only sees an unloaded instance.
+        // Keeping the tile also keeps the computer ID, label and on-state without any copying.
+        if (!world.setBlockMetadataWithNotify(x, y, z, metadata | 8, BlockNotifyFlags.ALL)) return false;
 
-        if (newTile == null || !(newTile instanceof TileComputerBase)) {
-            return false;
-        }
-
-        TileComputerBase newComputer = (TileComputerBase) newTile;
-        newComputer.transferStateFrom(computerTile);
-
-        // Setup computer
-        newComputer.createServerComputer()
-            .setWorld(world);
-        newComputer.updateBlock();
+        // The existing ServerComputer was created with the Normal family, and ServerTerminal's
+        // colour flag is fixed at construction. Recreate it so the advanced terminal is colourful.
+        computerTile.invalidate();
+        computerTile.validate();
+        computerTile.createServerComputer();
+        computerTile.updateBlock();
 
         return true;
     }
@@ -79,13 +78,23 @@ public class ItemComputerUpgrade extends ItemComputerAction {
     protected boolean useTurtle(ItemStack stack, EntityPlayer player, TileTurtle computerTile, int side) {
         int x = computerTile.xCoord, y = computerTile.yCoord, z = computerTile.zCoord;
         World world = computerTile.getWorldObj();
+        Block block = computerTile.getBlock();
 
-        // Ensure it is a normal computer
-        if (computerTile.getFamily() != ComputerFamily.Normal) {
-            return false;
-        }
+        // Only upgrade CC's own normal turtles. A modded TileTurtle subclass would be replaced by
+        // a base CC tile below and lose its extra state.
+        if (block != ComputerCraft.Blocks.turtle && block != ComputerCraft.Blocks.turtleExpanded) return false;
+        if (computerTile.getFamily() != ComputerFamily.Normal) return false;
+        if (!ComputerCraft.isBlockEditable(world, x, y, z, player)) return false;
 
+        boolean paid = false;
         if (!player.capabilities.isCreativeMode) {
+            if (InventoryUtils.countItems(player.inventory, Items.gold_ingot, 7) < 7) {
+                player.addChatMessage(
+                    new ChatComponentText("7 gold required.")
+                        .setChatStyle(new ChatStyle().setColor(EnumChatFormatting.DARK_RED)));
+                return false;
+            }
+
             int remaining = InventoryUtils.extractItems(player.inventory, Items.gold_ingot, 7);
             if (remaining > 0) {
                 player.addChatMessage(
@@ -94,31 +103,43 @@ public class ItemComputerUpgrade extends ItemComputerAction {
                 return false;
             }
 
+            paid = true;
             player.inventoryContainer.detectAndSendChanges();
         }
 
+        boolean success = false;
+
         // If we set the turtle as moved, the destroy method won't drop the items
         computerTile.setMoved(true);
+        try {
+            if (!world.setBlock(x, y, z, ComputerCraft.Blocks.turtleAdvanced)) return false;
+            TileEntity newTile = world.getTileEntity(x, y, z);
 
-        // Set block as AdvancedTurtle
-        world.setBlock(x, y, z, ComputerCraft.Blocks.turtleAdvanced);
-        TileEntity newTile = world.getTileEntity(x, y, z);
+            // A failed setBlock leaves the old tile in place; transferStateFrom(this) would wipe
+            // its own instance ID and consume the upgrade for nothing.
+            if (!(newTile instanceof TileTurtle) || newTile == computerTile) return false;
 
-        // Transfer state
-        if (newTile == null || !(newTile instanceof TileTurtle)) {
-            return false;
+            TileTurtle newTurtle = (TileTurtle) newTile;
+            newTurtle.transferStateFrom(computerTile);
+
+            // The old ServerComputer was created with the Normal family. Recreate it with the new
+            // advanced family; otherwise term.isColour() stays false on an advanced turtle.
+            newTurtle.invalidate();
+            newTurtle.validate();
+            newTurtle.createServerComputer();
+            newTurtle.updateBlock();
+
+            success = true;
+            return true;
+        } finally {
+            if (!success) {
+                computerTile.setMoved(false);
+                if (paid) {
+                    player.inventory.addItemStackToInventory(new ItemStack(Items.gold_ingot, 7));
+                    player.inventoryContainer.detectAndSendChanges();
+                }
+            }
         }
-
-        TileTurtle newTurtle = (TileTurtle) newTile;
-        newTurtle.transferStateFrom(computerTile);
-
-        newTurtle.createServerComputer()
-            .setWorld(world);
-        newTurtle.createServerComputer()
-            .setPosition(x, y, z);
-        newTurtle.updateBlock();
-
-        return true;
     }
 
     @Override

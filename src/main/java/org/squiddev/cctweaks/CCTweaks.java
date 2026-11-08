@@ -1,40 +1,57 @@
 package org.squiddev.cctweaks;
 
 import net.minecraft.creativetab.CreativeTabs;
+import net.minecraft.server.MinecraftServer;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.common.config.Configuration;
 import net.minecraftforge.common.config.Property;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.squiddev.cctweaks.commands.CommandCCTweaks;
 import org.squiddev.cctweaks.core.FmlEvents;
 import org.squiddev.cctweaks.core.McEvents;
 import org.squiddev.cctweaks.core.registry.Registry;
+import org.squiddev.cctweaks.selfTest.InWorldSelfTest;
 
 import cpw.mods.fml.common.FMLCommonHandler;
 import cpw.mods.fml.common.Mod;
 import cpw.mods.fml.common.Mod.EventHandler;
 import cpw.mods.fml.common.event.FMLInitializationEvent;
+import cpw.mods.fml.common.event.FMLMissingMappingsEvent;
 import cpw.mods.fml.common.event.FMLPostInitializationEvent;
 import cpw.mods.fml.common.event.FMLPreInitializationEvent;
 import cpw.mods.fml.common.event.FMLServerStartedEvent;
+import cpw.mods.fml.common.event.FMLServerStartingEvent;
 import cpw.mods.fml.common.event.FMLServerStoppedEvent;
-import cpw.mods.fml.common.network.NetworkRegistry;
-import cpw.mods.fml.common.network.simpleimpl.SimpleNetworkWrapper;
 import cpw.mods.fml.relauncher.Side;
 import dan200.computercraft.ComputerCraft;
 import dan200.computercraft.core.lua.lib.DelayedTasks;
 
-@Mod(modid = CCTweaks.MODID, name = CCTweaks.NAME, version = CCTweaks.VERSION, dependencies = CCTweaks.DEPENDENCIES)
+@Mod(
+    modid = CCTweaks.MODID,
+    name = CCTweaks.NAME,
+    version = CCTweaks.VERSION,
+    dependencies = CCTweaks.DEPENDENCIES,
+    guiFactory = CCTweaks.GUI_FACTORY)
 public class CCTweaks {
 
     public static final String MODID = "cctweaks";
     public static final String NAME = "CCTweaks";
     public static final String VERSION = Tags.VERSION;
     public static final String DEPENDENCIES = "required-after:ComputerCraft@[3.3.0,)";
-    public static final Logger logger = LogManager.getLogger();
+    public static final Logger logger = LogManager.getLogger(MODID);
 
-    public static SimpleNetworkWrapper NETWORK;
+    /**
+     * The config GUI factory, loaded by name so the client-only class is never touched on a server.
+     */
+    public static final String GUI_FACTORY = "org.squiddev.cctweaks.client.gui.GuiConfigFactory";
+
+    /**
+     * The live configuration object. The GUI edits this in place and then calls
+     * {@link #saveConfiguration()}, so it has to outlive {@link #preInit}.
+     */
+    private static Configuration configuration;
 
     public static CreativeTabs getCreativeTab() {
         return ComputerCraft.mainCreativeTab;
@@ -45,10 +62,10 @@ public class CCTweaks {
     public static boolean computerUpgradeEnabled = true;
     public static boolean computerUpgradeCrafting = true;
     public static boolean debugWandEnabled = true;
+    public static boolean debugWandRequiresOp = false;
     // endregion
     // endregion
     // region testing
-    public static boolean debug = false;
     public static boolean debugItems = false;
     // endregion
     // region turtle
@@ -68,17 +85,26 @@ public class CCTweaks {
         // Config additions
         Configuration config = new Configuration(event.getSuggestedConfigurationFile());
         config.load();
-        setConfig(config);
+        readConfig(config);
         config.save();
+        configuration = config;
 
         FMLCommonHandler.instance()
             .bus()
             .register(new FmlEvents());
         MinecraftForge.EVENT_BUS.register(new McEvents());
 
-        NETWORK = NetworkRegistry.INSTANCE.newSimpleChannel(MODID);
-
         Registry.preInit();
+    }
+
+    @EventHandler
+    public void onMissingMappings(FMLMissingMappingsEvent event) {
+        for (FMLMissingMappingsEvent.MissingMapping mapping : event.getAll()) {
+            if (mapping.name.startsWith("cctweaks:")) {
+                logger.warn("Discarding removed CCTweaks mapping '{}' (block/item was removed in 3.x)", mapping.name);
+                mapping.warn();
+            }
+        }
     }
 
     @EventHandler
@@ -92,10 +118,36 @@ public class CCTweaks {
     }
 
     @EventHandler
+    public void onServerStarting(FMLServerStartingEvent event) {
+        event.registerServerCommand(new CommandCCTweaks());
+    }
+
+    @EventHandler
     public void onServerStart(FMLServerStartedEvent event) {
         if (FMLCommonHandler.instance()
-            .getEffectiveSide() == Side.SERVER) {
-            DelayedTasks.reset();
+            .getEffectiveSide() != Side.SERVER) return;
+
+        FmlEvents.reset();
+        McEvents.reset();
+        DelayedTasks.reset();
+
+        // The headless harness (scripts/headless-smoke.sh, CI) sets this so the in-world checks
+        // run without a player. It is off by default, so this is inert in normal play.
+        if (Boolean.getBoolean("cctweaks.selftest")) runSelfTest();
+    }
+
+    private static void runSelfTest() {
+        try {
+            MinecraftServer server = MinecraftServer.getServer();
+            if (server == null || server.worldServers.length == 0) {
+                logger.warn("{} requested but no server world is loaded", InWorldSelfTest.MARKER);
+                return;
+            }
+            InWorldSelfTest.atSpawn(server.worldServers[0])
+                .run();
+        } catch (Throwable throwable) {
+            // A diagnostic must never take down server startup.
+            logger.error("{} crashed", InWorldSelfTest.MARKER, throwable);
         }
     }
 
@@ -103,53 +155,132 @@ public class CCTweaks {
     public void onServerStopped(FMLServerStoppedEvent event) {
         if (FMLCommonHandler.instance()
             .getEffectiveSide() == Side.SERVER) {
+            FmlEvents.reset();
+            McEvents.reset();
             DelayedTasks.reset();
         }
     }
 
-    private void setConfig(Configuration config) {
-        Property prop;
+    /**
+     * The configuration being edited by the running game, or {@code null} before pre-init.
+     *
+     * @return The live configuration, or {@code null} if the mod has not been pre-initialised yet
+     */
+    public static Configuration getConfiguration() {
+        return configuration;
+    }
+
+    /**
+     * Persist the live configuration and re-read every static config field from it. Called by the
+     * config GUI after the user presses Done; the values it edits are written into the
+     * {@link Configuration}'s {@link Property} objects, so saving is all that is needed to persist
+     * them, and re-reading applies them without a restart where possible.
+     */
+    public static void saveConfiguration() {
+        Configuration config = configuration;
+        if (config == null) return;
+
+        if (config.hasChanged()) config.save();
+        readConfig(config);
+    }
+
+    static Property bool(Configuration config, String category, String name, boolean value, String comment) {
+        Property prop = config.get(category, name, value);
+        prop.comment = comment;
+        prop.setLanguageKey("gui.config." + MODID + "." + category + "." + name);
+        return prop;
+    }
+
+    static Property integer(Configuration config, String category, String name, int value, String comment) {
+        Property prop = config.get(category, name, value);
+        prop.comment = comment;
+        prop.setLanguageKey("gui.config." + MODID + "." + category + "." + name);
+        return prop;
+    }
+
+    /**
+     * Read every config value out of {@code config} into the static fields, then validate them.
+     *
+     * <p>
+     * Properties are read via {@link Configuration#get(String, String, boolean)} and the property's
+     * own value, so this works both for the initial load and for re-reading after the GUI has
+     * edited the properties in memory.
+     * </p>
+     *
+     * @param config The configuration to read from. Not {@code null}.
+     */
+    static void readConfig(Configuration config) {
         // region computer
-        prop = config.get("computer", "computerUpgradeEnabled", true);
-        prop.comment = "Enable upgrading computers.";
-        computerUpgradeEnabled = prop.getBoolean(computerUpgradeEnabled);
-        prop = config.get("computer", "computerUpgradeCrafting", true);
-        prop.comment = "Enable crafting the computer upgrade. Requires computerUpgradeEnabled.";
-        computerUpgradeCrafting = prop.getBoolean(computerUpgradeCrafting);
-        prop = config.get("computer", "debugWandEnabled", true);
-        prop.comment = "Enable using the debug wand.";
-        debugWandEnabled = prop.getBoolean(debugWandEnabled);
-        // endregion
+        computerUpgradeEnabled = bool(config, "computer", "computerUpgradeEnabled", true, "Enable upgrading computers.")
+            .getBoolean(computerUpgradeEnabled);
+        computerUpgradeCrafting = bool(
+            config,
+            "computer",
+            "computerUpgradeCrafting",
+            true,
+            "Enable crafting the computer upgrade. Requires computerUpgradeEnabled.")
+                .getBoolean(computerUpgradeCrafting);
+        debugWandEnabled = bool(config, "computer", "debugWandEnabled", true, "Enable using the debug wand.")
+            .getBoolean(debugWandEnabled);
+        debugWandRequiresOp = bool(
+            config,
+            "computer",
+            "debugWandRequiresOp",
+            false,
+            "Require operator permissions to inject the debug library. Recommended on public servers: "
+                + "the Cobalt debug library allows scripts to reach outside the computer sandbox.")
+                    .getBoolean(debugWandRequiresOp);
         // endregion
         // region testing
-        prop = config.get("testing", "debug", false);
-        prop.comment = "Enable debug mode.";
-        debug = prop.getBoolean(debug);
-        prop = config.get("testing", "debugItems", false);
-        prop.comment = "Enable debug items.";
-        debugItems = prop.getBoolean(debugItems);
+        debugItems = bool(config, "testing", "debugItems", false, "Enable debug items.").getBoolean(debugItems);
         // endregion
-        // region turtle
-        // region toolhost
-        prop = config.get("turtle.toolhost", "advanced", true);
-        prop.comment = "Enable the Advanced Tool Host upgrade.";
-        advanced = prop.getBoolean(advanced);
-        prop = config.get("turtle.toolhost", "advancedUpgradeId", 333);
-        prop.comment = "The Advanced Tool Host upgrade Id.";
-        advancedUpgradeId = prop.getInt(advancedUpgradeId);
-        prop = config.get("turtle.toolhost", "thCrafting", true);
-        prop.comment = "Enable crafting the Tool Host upgrade. Requires advanced.";
-        thCrafting = prop.getBoolean(thCrafting);
-        prop = config.get("turtle.toolhost", "digFactor", 10);
-        prop.comment = "The digging speed factor for the Tool Host.";
-        digFactor = prop.getInt(digFactor);
-        prop = config.get("turtle.toolhost", "thEnabled", true);
-        prop.comment = "Enable the Tool Host upgrade.";
-        thEnabled = prop.getBoolean(thEnabled);
-        prop = config.get("turtle.toolhost", "upgradeId", 332);
-        prop.comment = "The Tool Host upgrade Id.";
-        upgradeId = prop.getInt(upgradeId);
+        // region turtle.toolhost
+        advanced = bool(config, "turtle.toolhost", "advanced", true, "Enable the Advanced Tool Host upgrade.")
+            .getBoolean(advanced);
+        advancedUpgradeId = integer(
+            config,
+            "turtle.toolhost",
+            "advancedUpgradeId",
+            333,
+            "The Advanced Tool Host upgrade Id.").getInt(advancedUpgradeId);
+        thCrafting = bool(
+            config,
+            "turtle.toolhost",
+            "thCrafting",
+            true,
+            "Enable crafting the Tool Host upgrade. Requires advanced.").getBoolean(thCrafting);
+        digFactor = integer(config, "turtle.toolhost", "digFactor", 10, "The digging speed factor for the Tool Host.")
+            .getInt(digFactor);
+        thEnabled = bool(config, "turtle.toolhost", "thEnabled", true, "Enable the Tool Host upgrade.")
+            .getBoolean(thEnabled);
+        upgradeId = integer(config, "turtle.toolhost", "upgradeId", 332, "The Tool Host upgrade Id.").getInt(upgradeId);
         // endregion
-        // endregion
+
+        validateToolHostConfig();
+    }
+
+    static void validateToolHostConfig() {
+        if (digFactor < 1) {
+            logger.warn("turtle.toolhost.digFactor must be at least 1; using 1 (configured {})", digFactor);
+            digFactor = 1;
+        } else if (digFactor > 100) {
+            logger.warn("turtle.toolhost.digFactor is unreasonably high; using 100 (configured {})", digFactor);
+            digFactor = 100;
+        }
+
+        if (upgradeId < 64 || upgradeId > 32767) {
+            logger.error(
+                "turtle.toolhost.upgradeId {} is outside CC's custom range 64..32767; disabling Tool Host",
+                upgradeId);
+            thEnabled = false;
+        }
+
+        if (advancedUpgradeId < 64 || advancedUpgradeId > 32767 || advancedUpgradeId == upgradeId) {
+            logger.error(
+                "turtle.toolhost.advancedUpgradeId {} is invalid or duplicates upgradeId {}; disabling the advanced manipulator",
+                advancedUpgradeId,
+                upgradeId);
+            advanced = false;
+        }
     }
 }

@@ -10,13 +10,15 @@ gui.tooltip.cctweaks.computerUpgrade.normal=Normal to Advanced
 turtle.cctweaks.toolHost.adjective=Gripping
 turtle.cctweaks.toolHost.advanced.adjective=Manipulative
 
+gui.config.cctweaks.title=CCTweaks Configuration
+
 gui.config.cctweaks.computer=Computer
 gui.config.cctweaks.computer.computerUpgradeEnabled=Computer Upgrade Enabled
 gui.config.cctweaks.computer.computerUpgradeCrafting=Computer Upgrade Crafting
 gui.config.cctweaks.computer.debugWandEnabled=Debug Wand Enabled
+gui.config.cctweaks.computer.debugWandRequiresOp=Debug Wand Requires Operator
 
 gui.config.cctweaks.testing=Testing
-gui.config.cctweaks.testing.debug=Debug Logging
 gui.config.cctweaks.testing.debugItems=Debug Items
 
 gui.config.cctweaks.turtle.toolhost=Tool Host

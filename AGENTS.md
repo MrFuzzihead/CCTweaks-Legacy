@@ -31,12 +31,14 @@ was deleted. OpenPeripheral is no longer required or touched.
 
 | # | Feature | Key Source Files |
 |---|---------|-----------------|
-| 1 | **Computer Upgrade Item** — upgrades Normal computer → Advanced in-world (transfers state); Normal turtle → Advanced (costs 7 gold ingots) | `items/ItemComputerUpgrade.java`, `items/CraftingComputerUpgrade.java` |
-| 2 | **Debug Wand** — prints tile/peripheral/peripheral-binding info in chat; right-clicking a computer injects Cobalt's `DebugLib` into its running Lua state | `items/ItemDebugger.java`, `blocks/debug/TileDebugPeripheral.java` |
+| 1 | **Computer Upgrade Item** — upgrades Normal computer → Advanced in place (metadata family bit; ID, label and on-state kept; the running program restarts); Normal turtle → Advanced, transferring the brain/inventory/fuel/overlays and recreating the Advanced ServerComputer (costs 7 gold ingots) | `items/ItemComputerUpgrade.java`, `items/CraftingComputerUpgrade.java` |
+| 2 | **Debug Wand** — prints tile/peripheral/peripheral-binding info in chat; shift-right-clicking a **running** computer injects Cobalt's `DebugLib` into its Lua state and reports success or the exact reason it failed in chat. Never consumed | `items/ItemDebugger.java`, `blocks/debug/TileDebugPeripheral.java` |
 | 3 | **Debug Block** — one debug peripheral tile (`meta 0`, `debugPeripheral`), gated by `debugItems` | `blocks/debug/BlockDebug.java` |
-| 4 | **Tool Host Turtle Upgrades** — Normal (`Gripping`) and Advanced (`Manipulative`) variants; turtles hold and swing arbitrary tools as interactions | `turtle/TurtleUpgradeToolHost.java`, `turtle/TurtleUpgradeToolManipulator.java`, `turtle/ToolHostPlayer.java`, `turtle/ToolManipulatorPeripheral.java` |
+| 4 | **Tool Host Turtle Upgrades** — Normal (`Gripping`) and Advanced (`Manipulative`) variants; turtles hold and swing arbitrary tools as interactions. The manipulator peripheral's `use(duration)` really waits `duration` ticks; `canUse` mirrors `use`. Buckets work as tools via `BucketInteraction` (fill from a source, empty on the clicked side) | `turtle/TurtleUpgradeToolHost.java`, `turtle/TurtleUpgradeToolManipulator.java`, `turtle/ToolHostPlayer.java`, `turtle/ToolManipulatorPeripheral.java`, `core/turtle/BucketInteraction.java` |
 | 5 | **Portal Gun Turtle Interaction** — registers the portal gun item as a swing/use turtle tool interaction | `integration/PortalGunIntegration.java` |
-| 6 | **NEI Documentation** — language-file-backed docs rendered in NEI recipe pages | `integration/nei/*` |
+| 6 | **NEI Documentation** — `assets/cctweaks/docs/<lang>/{item,tile}/<name>.txt` rendered in NEI usage/recipe pages (`ResourceDocProvider`; `${**}` bold, `${*}` italic, `***` page break). `LanguageDocProvider` `.information.N` keys are the fallback | `integration/nei/*` |
+| 7 | **In-game config GUI** — every option in Mods list → Config; edits Forge's live `Configuration`, then saves `config/cctweaks.cfg` and re-reads the statics on close | `client/gui/GuiConfigFactory.java`, `client/gui/GuiCCTweaksConfig.java`, `CCTweaks.getConfiguration/saveConfiguration` |
+| 8 | **`/cctweaks` diagnostics** — operator command (level 2): `modules`, `config`, `selftest`. `selftest` runs the in-world checks (see Test Coverage) near the world spawn and restores the area; the same suite runs at server start when `-Dcctweaks.selftest=true` (dev harness/CI) | `commands/CommandCCTweaks.java`, `selfTest/InWorldSelfTest.java`, `selfTest/SelfTestTurtle.java` |
 
 ### Removed Features (do not re-add without a CC gap to fill)
 
@@ -57,9 +59,19 @@ was deleted. OpenPeripheral is no longer required or touched.
 
 ## Bugfixes Made
 
-> None remain. Every fix CCTweaks once carried (cable tile rewrite, `isCable` broadening,
-> neighbour-change type capture, `PeripheralWrapper.detach` race, turtle refuel routing) lived in
-> a mixin that CC 3.x has since made unnecessary.
+The original mixin-era fixes (cable tile rewrite, `isCable` broadening, neighbour-change type
+capture, `PeripheralWrapper.detach` race, turtle refuel routing) are gone with the mixins. The
+current tree still carries these ordinary-source fixes:
+
+- Tool Host/Manipulator: entity ray direction, held-item attribute modifiers, drop capture for
+  instant-break blocks, `isBlockEditable` and `turtleDisabledActions` checks, consumer cleanup in
+  `finally`, world-change cache invalidation, side-aware peripheral equality.
+- Upgrade items: Advanced turtle/computer `ServerComputer` family/colour recreation, turtle
+  overlay/hat and pocket upgrade NBT preservation, unsupported-`IComputerItem` rejection,
+  protection checks and rollback on failed block swaps.
+- Debug wand: no longer consumed, uses the real player range check, logs injection failures.
+- Events/lifecycle: cancelled `LivingDropsEvent` is respected; `McEvents`/`FmlEvents` reset on
+  server stop; `TileBase` destroys exactly once; `PeripheralHelpers` stops on proxy cycles.
 
 ---
 
@@ -69,7 +81,7 @@ was deleted. OpenPeripheral is no longer required or touched.
 |-----------|--------|
 | Mixins | **None.** Deleted: `mixins/` package, `mixins.cctweaks.json`, `mixins.cctweaks.late.json`, UniMixins `LateMixinsLoader`, `Mixins` enum, `TargetMods` enum. `usesMixins = false` in `gradle.properties`. |
 | Access Transformers | **One**, load-bearing: `META-INF/CCTweaks_at.cfg` widens `ItemInWorldManager.field_73094_o` (`durabilityRemainingOnBlock`) to public for `ToolHostPlayer`. `gradle.properties` sets `accessTransformersFile = CCTweaks_at.cfg` so FML emits `FMLAT` in the jar manifest — **do not delete the file or blank that property**: `ToolHostPlayer` stops compiling, and (if the property is blanked while the file remains) production builds ship without `FMLAT` and fail at runtime with `IllegalAccessError`. |
-| Reflection | **None.** Zero `import java.lang.reflect` in the tree. |
+| Reflection | **No `java.lang.reflect` imports.** `CCTweaksAPI` still loads `core.API` through `Class.forName`, as it must to keep the API jar optional. |
 | Bytecode / core mod | **None.** |
 
 If a future feature genuinely needs to patch CC, re-enable `usesMixins`, re-add the GTNH
@@ -126,9 +138,11 @@ Facts worth remembering about CC's peripheral API:
 
 ## Module System
 
-All registerable content implements `IModule` (or `IClientModule`).
-`Registry` holds a static `Set<IModule>` and sequences `preInit → init → postInit`.
-Client-only modules are wrapped in `RegisterWrapperClient` (uses `@SideOnly(CLIENT)` on `clientInit`).
+All registerable content implements `IModule` (the `IClientModule`/`RegisterWrapperClient` path was
+deleted - there are no client-only modules). `ModuleRegistry` sequences `preInit → init → postInit`
+on a `LinkedHashSet` (registration order, duplicate-safe, snapshot per phase so a module that
+registers another module cannot break the current pass). `Registry` is the static facade that owns
+that instance and registers the built-in modules in its initialiser.
 
 ```
 Registry (static initialiser — runs when CCTweaks.preInit is called)
@@ -150,12 +164,11 @@ JVM Startup
   └─ No mixin subsystem, no core mod. One AT (`CCTweaks_at.cfg`). CCTweaks is otherwise an ordinary Forge mod.
 
 FMLPreInitializationEvent  →  CCTweaks.preInit()
-  ├─ Load config file → populate CCTweaks.* static config fields
+  ├─ Load config file → populate CCTweaks.* static config fields, keeping the Configuration
+  │    object in CCTweaks.configuration so the client config GUI can save and re-read it
   ├─ Register FmlEvents on FMLCommonHandler bus
   │    ServerTickEvent → DelayedTasks.update() + drain serverQueue
-  │    ClientTickEvent → drain clientQueue
   ├─ Register McEvents on MinecraftForge.EVENT_BUS
-  ├─ Create SimpleNetworkWrapper channel "cctweaks"
   └─ Registry.preInit()
        └─ IModule.preInit() for each module
             • Items/blocks registered with GameRegistry
@@ -170,8 +183,15 @@ FMLInitializationEvent  →  CCTweaks.init()
 FMLPostInitializationEvent  →  CCTweaks.postInit()
   └─ Registry.postInit() (no module currently implements it)
 
-FMLServerStartedEvent / FMLServerStoppedEvent
-  └─ DelayedTasks.reset()
+FMLServerStartingEvent  →  CCTweaks.onServerStarting()
+  └─ register CommandCCTweaks  (/cctweaks modules|config|selftest)
+
+FMLServerStartedEvent   →  CCTweaks.onServerStart()
+  ├─ FmlEvents.reset() / McEvents.reset() / DelayedTasks.reset()
+  └─ if -Dcctweaks.selftest=true → InWorldSelfTest.atSpawn(overworld).run()
+
+FMLServerStoppedEvent   →  CCTweaks.onServerStopped()
+  └─ FmlEvents.reset() / McEvents.reset() / DelayedTasks.reset()
 
 ─── Server Runtime ──────────────────────────────────────────────────
 
@@ -181,8 +201,7 @@ ServerTickEvent (Phase.START)
 
 ─── Client Runtime ──────────────────────────────────────────────────
 
-ClientTickEvent (Phase.START)
-  └─ Drain FmlEvents.clientQueue
+No client-side tick work: the client queue/handler was removed with the network featureset.
 ```
 
 ---
@@ -204,15 +223,126 @@ ClientTickEvent (Phase.START)
 
 ## Test Coverage
 
-| Test Class | What Is Tested |
-|------------|----------------|
-| `core/peripheral/PeripheralHelpersTest.java` | `PeripheralHelpers` unwrapping: base-peripheral chains, targeted peripherals, proxy + target combinations, null-target fallbacks |
+| Suite | What Is Tested |
+|-------|----------------|
+| `ApiSurfaceTest` | Public API signatures and `@Mod` dependency string |
+| `BuildArtifactTest` | AT resource is shipped; `dependencies.gradle` CC version matches `CCTweaks.DEPENDENCIES` |
+| `CCTweaksConfigTest` | Tool Host config clamping/ID validation |
+| `CCTweaksConfigIoTest` | `readConfig` defaults/overrides/validation, one language key per option (and each key is translated in `en_US.lang`), `saveConfiguration` before pre-init |
+| `core.FmlEventsTest` | Tick scheduling, exception isolation, reset, CC `DelayedTasks` tick, missing-mapping resolution |
+| `core.McEventsTest` | Block/entity drop consumers, drop chance, cancellation, reset |
+| `core.peripheral.PeripheralHelpersTest` | Chains, targets, nulls, proxy cycles |
+| `core.peripheral.PeripheralProxyTest` | Lazy creation, attach replay, detach, default type, equality |
+| `core.turtle.TurtleRegistryTest` | Item-before-generic dispatch, first-result wins, null handling, registration guards |
+| `core.turtle.BucketInteractionTest` | Bucket decision tree: fill target is the hit block, empty target is the clicked side (all six), invalid side/entity/null hit ignored, non-bucket ignored, `canUse` mirroring, stack bookkeeping (single replaced, stack decremented + container stored), failures leave the stack alone |
+| `core.utils.InventoryUtilsTest` / `LuaResultsTest` / `WorldPositionTest` | Extraction/counting, Lua suspension wrapping, positions |
+| `blocks.TileBaseLifecycleTest` | `create`/`destroy` exactly once across validate/invalidate/chunk unload |
+| `blocks.debug.TileDebugPeripheralTest` | Per-side cache, bounds, `getSide`, computer tracking |
+| `items.CraftingComputerUpgradeTest` | Matching, gold-slot semantics, unsupported items, pocket NBT preservation |
+| `items.ItemComputerActionTest` | Client always defers to the server (packet flow), consumption hook, debug wand non-consumption |
+| `items.ItemDebuggerTest` | Every wand failure path reports a distinct chat message; operator gate on/off; generic tile info |
+| `items.ItemToolHostTest` | Creative subtype gating |
+| `items.UpgradeItemTest` | In-place computer metadata/family recreation, turtle transfer/recreation, failed-swap rollback |
+| `turtle.ToolManipulatorPeripheralTest` | Argument parsing, disabled actions, result shape, method table, side equality, hit-side resolution, `use(duration)` wait chaining, `canUse` item heuristics |
+| `turtle.ToolManipulatorFindHitTest` | Entity ray ends at the target, not beyond it |
+| `turtle.TurtleUpgradeMetadataTest` | Upgrade ids come from the config and stay distinct, both are tool upgrades, crafting item metadata, only the manipulator is a peripheral, adjectives are translated in `en_US.lang` |
+| `turtle.ToolManipulatorActionsTest` | The full `use`/`swing`/`canUse`/`canSwing` decision tree through the `IToolHostPlayer` + `ToolHitResolver` seams: registered interaction first, entity interact, block activation, place gating, item use in air, disabled actions, animation only on success |
+| `core.registry.ModuleRegistryTest` | Phase ordering, `canLoad` gating, duplicate registration, late registration catch-up, out-of-order/duplicate phase errors, immutable snapshot |
+| `harness.HeadlessTurtleHarnessTest` | Stub turtle + stub computer drive the real registry with no server/world |
+| `api.CCTweaksAPILoaderTest` | API instance stability; missing/wrong-type/constructor-less/throwing implementations raise `CoreNotFoundException` |
+| `client.gui.GuiConfigFactoryTest` | `@Mod(guiFactory = ...)` names a real factory returning a `GuiConfig` subclass; the screen fields/methods it relies on exist (the class is loaded but never initialised, since `GuiScreen` needs LWJGL) |
+| `core.peripheral.PeripheralHostProviderTest` | `IPeripheralHost` tiles are unwrapped per side; non-hosts, empty positions and declining hosts return null |
+| `integration.nei.ResourceDocProviderTest` | Doc path derivation, page splitting, markup conversion, shipped resources readable |
+| `integration.nei.DescriptionProvidersTest` | Provider-chain ordering (resources before language keys), first non-empty wins, the `information.N` loop stopping at the first missing key and its stack→item fallback, `
+` → paragraph conversion, NEI config identity |
+| `integration.PortalGunInteractionTest` | `swing` fires blue and `use` fires orange regardless of which gun is held (the left/right click regression), non-portal-gun and null stacks ignored, `canSwing`/`canUse` accept subclasses |
+| `ConfigElementsTest` | Every category `readConfig` reads appears in the config GUI (so no option can be invisible), category/property display order, title key, null configuration |
+| `blocks.BlockBaseTest` | Tile lookup tolerates foreign/missing tiles, activation and neighbour hooks, client-side neighbour suppression, destroy-once on break |
+| `blocks.debug.BlockDebugTest` | Meta 0 is the peripheral, other metas unsupported, drop metadata, unlocalised names, creative subtypes, `debugItems` gating, `ItemMultiBlock` contract |
+| `commands.CommandCCTweaksTest` | Command name/permission/usage, sub-command tab completion, help/modules/config output, unknown sub-command, world-less sender |
+| `selfTest.SelfTestTurtleTest` | The runtime `ITurtleAccess` stub: slot IR, `count`, defensive position, direction/teleport, inert fuel/upgrades |
+
+`./gradlew test` runs the JUnit 5 suite headlessly (220 tests / 37 classes at the time of writing).
+`./gradlew build` also runs Spotless, Checkstyle, `verifyTestSuiteExecuted` (fails the build if the
+test task produced zero XML results - a refactor that moves tests out of a detected package would
+otherwise pass silently) and `jacocoTestReport`, which writes
+`build/reports/jacoco/test/html/index.html` (~62% lines / ~58% branches at the time of writing). The
+`selfTest` package is excluded from the report: it only runs inside the game JVM, which JaCoCo does
+not instrument, and its results are asserted by the harness instead.
+
+`PortalGun` is `devOnlyNonPublishable` (optional at runtime, needed at compile time for
+`instanceof ItemPortalGun`), so `dependencies.gradle` also adds it to `testImplementation` +
+`testRuntimeOnly` for `PortalGunInteractionTest`. `iChunUtil` is PortalGun's hard dependency.
+
+Three headless-testing traps worth knowing before writing another test:
+
+* `net.minecraft.init.Items`/`Blocks` are **not bootstrapped** in a plain JUnit JVM - every field is
+  null, so `new ItemStack(Items.gold_ingot)` makes a stack whose `getItem()` is null and
+  `getItemDamage()` NPEs. Construct items directly (`new Item()`), or assert only constructor-set
+  fields such as `stackSize`.
+* `World.isRemote` is a **field**, not a method: stub it by assignment (`world.isRemote = true`),
+  never `when(world.isRemote)` - that silently becomes `when(false)`.
+* Mockito forbids nested stubbing: build and stub helper mocks before passing them to
+  `when(...).thenReturn(...)`.
+
+`ToolManipulatorPeripheral` talks to its fake player only through `IToolHostPlayer` and finds hits
+through `ToolHitResolver`; `ToolHostPlayer` and `ToolHitResolver.DEFAULT` are the in-game
+implementations, and `testsupport.StubToolHostPlayer` plus a fixed-hit resolver let the action
+decision tree run with no `WorldServer`.
+
+`bash scripts/headless-smoke.sh` is the automated server harness (also run by the
+`headless-smoke` job in `.github/workflows/build-and-test.yml`; it creates a dev-server `eula.txt`
+if a fresh checkout has none). It runs
+`./gradlew runServer25 -PsmokeTest`, which hands the dev server a stdin pipe so it can be told to
+`stop` (a few seconds after FML logs `Done`, or after `SMOKE_STOP_AFTER` seconds), then asserts on
+`run/server/logs/latest.log` + `fml-server-latest.log`: CCTweaks loaded, no CCTweaks
+ERRORs/exceptions, no unresolved 2.x mappings, no mod-sorting failures, clean shutdown. It catches
+runtime-only breakage (the AT stopped matching, `@Mod`/dependency change, a CC API rename).
+
+By default the script also passes `-PselfTest`, which sets `-Dcctweaks.selftest=true` on the run
+task; `CCTweaks.onServerStart` then runs `selfTest.InWorldSelfTest.atSpawn(world)` and logs one
+`CCTWEAKS-SELFTEST PASS|FAIL <name>` line per check plus a `RESULT n passed, m failed` summary. The
+script fails the run on any `FAIL` line or a missing `RESULT`. `SMOKE_SELFTEST=0` disables it.
+
+What the self test covers (and nothing else does, because it needs a live `WorldServer`):
+
+* `ToolHostPlayer` load/unload inventory round-trip (including overflow storage) and held-item
+  attribute modifiers being applied and removed;
+* `dig` on stone with a real `ItemInWorldManager` - block broken, cobblestone ending up in the
+  turtle's inventory through the `McEvents` drop consumer;
+* `dig` refusals: bedrock, air, and a block denied by an `ITurtlePermissionProvider`
+  (`ComputerCraft.turtlesObeyBlockProtection`);
+* `attack` killing a zombie (the world does not tick during the test, so the loop resets
+  `hurtResistantTime` and waits on health, not `isDead` - `isDead` only flips after the 20-tick
+  death animation);
+* the computer upgrade applying in place (same tile instance, `+8` metadata, Advanced family,
+  second application refused) and the turtle upgrade in creative and with 7 gold ingots, plus
+  refusal on an unsupported tile;
+* the turtle-facing tool host (`TurtleUpgradeToolHost.useTool(Dig)` and its disabled-config
+  refusal) and `TurtleUpgradeToolManipulator.createPeripheral` returning the `tool_manipulator`
+  peripheral with its 12 methods;
+* the bucket interaction against the real Forge fluid registry: filling from a water source, pouring
+  a water bucket onto the clicked side, and refusing a non-fluid block (both `use` and `canUse`);
+* the bucket interaction against the real Forge fluid registry (fill from a source, pour onto the
+  clicked side, refuse a non-fluid block) - see above;
+* the debug wand: refusal on a switched-off computer and a successful `DebugLib` injection into a
+  **running** computer (the wand is not consumed and a second injection succeeds). The computer has
+  to be booted by hand: the test calls `ServerComputer.update()` in a sleep loop, because the state
+  machine only advances from the world tick, and gives CC's own computer thread time to build the
+  Cobalt machine.
+
+The permission provider used by `toolhost-dig-protected` is a global CC hook that cannot be
+unregistered, so it is installed once and denies only while a single coordinate is armed.
+
+It builds its own `selfTest.SelfTestTurtle` (a real-world `ITurtleAccess` over `InventoryBasic`),
+because `testsupport.StubTurtleAccess` is test-source-set only. `SelfTestTurtle` is not
+`ToolHostPlayer`'s production turtle: no computer, no peripheral, no fuel.
+
+**Still needs a dev client:** the config GUI, NEI rendering, and Portal Gun interaction (PortalGun
+is a dev-only dependency, so it is absent from the dedicated server).
 
 Removed with their subjects: `NetworkTest`, `PacketTest`, `ComputerNetworkAccessTest`,
 `core/network/mock`.
-
-**Gap:** in-world behaviour (computer upgrade, tool host, debug wand) has no automated coverage
-and needs integration testing in a dev client.
 
 ---
 
@@ -223,11 +353,14 @@ and needs integration testing in a dev client.
 | `computerUpgradeEnabled` | true | Enable Computer Upgrade item |
 | `computerUpgradeCrafting` | true | Enable its crafting recipe |
 | `debugWandEnabled` | true | Enable Debug Wand item |
+| `debugWandRequiresOp` | false | Require permission level 2 to inject the debug library (recommended on public servers) |
 | `debugItems` | false | Enable the debug block |
 | `thEnabled` | true | Enable Tool Host turtle upgrade |
 | `advanced` | true | Enable the Advanced Tool Manipulator variant |
 | `thCrafting` | true | Enable Tool Host crafting |
-| `advancedUpgradeId` | 333 | Advanced tool manipulator upgrade id |
+| `upgradeId` | 332 | Tool Host upgrade id (must be 64..32767) |
+| `advancedUpgradeId` | 333 | Advanced tool manipulator upgrade id (must be distinct, 64..32767) |
+| `digFactor` | 10 | Dig progress per Tool Host call (clamped to 1..100) |
 
 Removed with their features: `cbMultipart`, `openPeripheralInventories`, `wbEnabled`,
 `wbCrafting`, `turtleEnabled`, `pocketEnabled`, `pocketId`, `fullBlockModemCrafting`,
@@ -237,23 +370,43 @@ Removed with their features: `cbMultipart`, `openPeripheralInventories`, `wbEnab
 
 ## Known Fragile Points
 
-1. **No mixins, no reflection, one AT.** A CC or Forge update can only break CCTweaks through
-   normal API changes (peripheral API, turtle upgrade API, `ItemInWorldManager`, Cobalt internals
-   used by `ItemDebugger`) plus the single AT below.
-2. **The AT is the only remaining bytecode-level coupling** — a name/visibility change to
+1. **CCTweaks is the only ticker of CC's `DelayedTasks` list.** `FmlEvents.onServerTick` calls
+   `DelayedTasks.update()`; CC 3.3.0's proxy ticks `MainThread` but not `DelayedTasks`. If CC
+   starts ticking it too, every delayed task runs twice and delays halve. Keep the single call
+   (and the `FmlEventsTest` assertion) until CC owns it.
+2. **No mixins, no reflection imports, one AT.** A CC or Forge update can only break CCTweaks
+   through normal API changes (peripheral API, turtle upgrade API, `ItemInWorldManager`, Cobalt
+   internals used by `ItemDebugger`) plus the single AT below.
+3. **The AT is the only remaining bytecode-level coupling** — a name/visibility change to
    `ItemInWorldManager.durabilityRemainingOnBlock` breaks `ToolHostPlayer` at compile time (the AT
    will simply stop matching).
 
-3. **`ItemDebugger` reaches into Cobalt** (`CobaltMachine.getLuaState()` → `DebugLib.add(state)`).
+4. **`ItemDebugger` reaches into Cobalt** (`CobaltMachine.getLuaState()` → `DebugLib.add(state)`).
    That is the one remaining "internal" dependency: if CC changes its Lua machine or Cobalt's
    `DebugLib` visibility again, only the debug wand's injector breaks (guarded by
-   `instanceof`/try-catch, returns `false`).
-4. **`ToolHostPlayer` emulates `ItemInWorldManager`** (including
+   `instanceof`/try-catch, and the reason is now reported in chat).
+   `DebugLib.add` writes into the live `LuaState` from the server thread while the computer's
+   worker thread may be executing the same state (`CobaltMachine.state` is not volatile), so the
+   injection is not synchronised — it is a debug tool, and `debugWandRequiresOp` exists to limit who
+   can trigger it.
+5. **`ToolHostPlayer` emulates `ItemInWorldManager`** (including
    `durabilityRemainingOnBlock`), so a Forge/vanilla mining-behaviour change affects tool host dig
    speed and durability.
-5. **No in-game config GUI.** `guiFactory` was blanked: it pointed at a non-existent
-   `client.gui.GuiConfigFactory`. Config is edited via `config/cctweaks.cfg` directly; the
-   `gui.config.cctweaks.*` lang keys are kept for a future factory.
+6. **`PeripheralHostProvider` is registered in `init`**, after CC's `DefaultPeripheralProvider`
+   (registered in CC's own preInit). CC asks providers in registration order, so an `IPeripheralHost`
+   tile that is also an `IInventory` is shadowed by CC's `InventoryPeripheral` and the host
+   peripheral is never returned. A CC-side fix is needed; do not rely on `IPeripheralHost` for
+   inventory tiles.
+7. **The config GUI is client-only by construction.** `CCTweaks.GUI_FACTORY` is a class-name
+   string in `@Mod(guiFactory = ...)`, so FML never loads `client.gui.*` on a dedicated server.
+   `GuiCCTweaksConfig` edits Forge's live `Configuration` (whose values are the `Property` objects);
+   `onGuiClosed` → `CCTweaks.saveConfiguration()` saves the file and re-reads the statics.
+   **Options that affect registration need a game restart** — the turtle upgrade IDs are registered
+   during init — so the screen flags every option as "requires restart".
+8. **The config GUI cannot be exercised headlessly.** `GuiScreen`'s static initialiser needs
+   LWJGL, so `GuiConfigFactoryTest` only loads the screen class (class literals/reflection) and
+   checks the factory wiring; the save-on-close path is covered up to `readConfig` by
+   `CCTweaksConfigIoTest`.
 
 ---
 
@@ -261,7 +414,12 @@ Removed with their features: `cbMultipart`, `openPeripheralInventories`, `wbEnab
 
 | File | Contents |
 |------|----------|
-| `docs/remove-reflection.md` | Completed migration plan: 13 reflection sites → mixins (mixins since deleted) |
-| `docs/remove-luaj.md` | Completed migration plan: LuaJ → Cobalt in `ItemDebugger` |
-| `docs/migrate-mixins-to-source.md` | Historical: move late-phase mixins into native CC / OP source — **superseded**, all mixins are now deleted |
 | `AGENTS.md` | **This file** — comprehensive agent reference |
+| `README.md` | User-facing overview, features and build instructions |
+| `AUDIT.md` | Codebase audit (bugs, refactors, test/dependency plan) |
+| `docs/tool-manipulator-api.md` | `tool_manipulator` peripheral reference: methods, arguments, result tuples, protection and disabled-action behaviour |
+| `src/test/java/**` | Executable specification for the pure/headless behaviour |
+| `scripts/headless-smoke.sh` | Automated dedicated-server smoke check (see Test Coverage) |
+
+Older links to `docs/remove-reflection.md`, `docs/remove-luaj.md` and
+`docs/migrate-mixins-to-source.md` referred to completed/pre-3.x migrations that no longer exist.

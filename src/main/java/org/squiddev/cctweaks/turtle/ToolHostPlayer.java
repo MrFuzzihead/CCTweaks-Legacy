@@ -11,6 +11,9 @@ import net.minecraft.util.Facing;
 import net.minecraft.util.Vec3;
 import net.minecraft.world.World;
 import net.minecraft.world.WorldServer;
+import net.minecraftforge.common.util.FakePlayer;
+import net.minecraftforge.common.util.ForgeDirection;
+import net.minecraftforge.event.ForgeEventFactory;
 
 import org.squiddev.cctweaks.CCTweaks;
 import org.squiddev.cctweaks.api.IWorldPosition;
@@ -18,6 +21,7 @@ import org.squiddev.cctweaks.core.McEvents;
 import org.squiddev.cctweaks.core.utils.FakeNetHandler;
 import org.squiddev.cctweaks.core.utils.WorldPosition;
 
+import dan200.computercraft.ComputerCraft;
 import dan200.computercraft.api.turtle.ITurtleAccess;
 import dan200.computercraft.api.turtle.TurtleCommandResult;
 import dan200.computercraft.shared.turtle.core.TurtlePlayer;
@@ -30,20 +34,36 @@ import dan200.computercraft.shared.util.WorldUtil;
  *
  * Emulates large parts of {@link ItemInWorldManager}
  */
-public class ToolHostPlayer extends TurtlePlayer {
+public class ToolHostPlayer extends TurtlePlayer implements IToolHostPlayer {
 
     private ChunkCoordinates digPosition;
     private Block digBlock;
-    public ItemStack itemInUse;
+    private ItemStack loadedStack;
 
     private ChunkCoordinates coordinates;
+
+    /**
+     * The drop consumer is created once and reused: it is pure apart from the turtle it writes
+     * back to, and an allocation per attack/dig is needless churn on the server tick.
+     */
+    private ITurtleAccess consumerTurtle;
+    private McEvents.IDropConsumer consumer;
 
     public ToolHostPlayer(ITurtleAccess turtle) {
         super((WorldServer) turtle.getWorld());
         playerNetServerHandler = new FakeNetHandler(this);
     }
 
-    public McEvents.IDropConsumer getConsumer(final ITurtleAccess turtle) {
+    public McEvents.IDropConsumer getConsumer(ITurtleAccess turtle) {
+        if (consumer == null || consumerTurtle != turtle) {
+            consumerTurtle = turtle;
+            consumer = createConsumer(turtle);
+        }
+
+        return consumer;
+    }
+
+    private McEvents.IDropConsumer createConsumer(final ITurtleAccess turtle) {
         return new McEvents.IDropConsumer() {
 
             @Override
@@ -56,7 +76,7 @@ public class ToolHostPlayer extends TurtlePlayer {
                 ItemStack remainder = InventoryUtil
                     .storeItems(drop, inventory, 0, inventory.getSizeInventory(), turtle.getSelectedSlot());
                 if (remainder != null) {
-                    ChunkCoordinates position = getPlayerCoordinates();
+                    ChunkCoordinates position = turtle.getPosition();
                     WorldUtil.dropItemStack(
                         remainder,
                         worldObj,
@@ -67,6 +87,56 @@ public class ToolHostPlayer extends TurtlePlayer {
                 }
             }
         };
+    }
+
+    @Override
+    public FakePlayer asPlayer() {
+        return this;
+    }
+
+    @Override
+    public World getWorld() {
+        return worldObj;
+    }
+
+    @Override
+    public double getX() {
+        return posX;
+    }
+
+    @Override
+    public double getY() {
+        return posY;
+    }
+
+    @Override
+    public double getZ() {
+        return posZ;
+    }
+
+    @Override
+    public void setHeldItem(ItemStack stack) {
+        inventory.setInventorySlotContents(inventory.currentItem, stack);
+    }
+
+    @Override
+    public void moveTowards(ForgeDirection direction, double distance) {
+        posX += direction.offsetX * distance;
+        posY += direction.offsetY * distance;
+        posZ += direction.offsetZ * distance;
+    }
+
+    @Override
+    public boolean finishUseItem(int duration) {
+        boolean using = isUsingItem();
+        ItemStack inUse = getItemInUse();
+
+        if (using && inUse != null && !ForgeEventFactory.onUseItemStop(this, inUse, duration)) {
+            inUse.onPlayerStoppedUsing(worldObj, this, inUse.getMaxItemUseDuration() - duration);
+            clearItemInUse();
+        }
+
+        return using;
     }
 
     public TurtleCommandResult attack(ITurtleAccess turtle, int direction) {
@@ -85,60 +155,68 @@ public class ToolHostPlayer extends TurtlePlayer {
      * already have been loaded with {@link #load(ITurtleAccess, int, boolean)}.
      */
     public TurtleCommandResult attack(ITurtleAccess turtle, Entity hitEntity) {
-        if (hitEntity != null) {
-            McEvents.addEntityConsumer(hitEntity, getConsumer(turtle));
-            attackTargetEntityWithCurrentItem(hitEntity);
-            McEvents.removeEntityConsumer(hitEntity);
+        if (hitEntity == null) return TurtleCommandResult.failure("Nothing to attack here");
 
-            return TurtleCommandResult.success();
+        McEvents.addEntityConsumer(hitEntity, getConsumer(turtle));
+        try {
+            attackTargetEntityWithCurrentItem(hitEntity);
+        } finally {
+            McEvents.removeEntityConsumer(hitEntity);
         }
 
-        return TurtleCommandResult.failure("Nothing to attack here");
+        return TurtleCommandResult.success();
     }
 
     public TurtleCommandResult dig(ITurtleAccess turtle, int direction) {
         updateInformation(turtle, direction);
 
-        ChunkCoordinates pos = getPlayerCoordinates();
-        pos.posX += Facing.offsetsXForSide[direction];
-        pos.posY += Facing.offsetsYForSide[direction];
-        pos.posZ += Facing.offsetsZForSide[direction];
-        int x = pos.posX, y = pos.posY, z = pos.posZ;
         World world = turtle.getWorld();
+        ChunkCoordinates turtlePosition = turtle.getPosition();
+        int x = turtlePosition.posX + Facing.offsetsXForSide[direction];
+        int y = turtlePosition.posY + Facing.offsetsYForSide[direction];
+        int z = turtlePosition.posZ + Facing.offsetsZForSide[direction];
         Block block = world.getBlock(x, y, z);
-
-        if (block != digBlock || !pos.equals(digPosition)) {
-            theItemInWorldManager.cancelDestroyingBlock(x, y, z);
-            theItemInWorldManager.durabilityRemainingOnBlock = -1;
-
-            digPosition = pos;
-            digBlock = block;
-        }
 
         if (!world.isAirBlock(x, y, z) && !block.getMaterial()
             .isLiquid()) {
+            if (ComputerCraft.turtlesObeyBlockProtection && !ComputerCraft.isBlockEditable(world, x, y, z, this)) {
+                return TurtleCommandResult.failure("Cannot break protected block");
+            }
+
             if (block == Blocks.bedrock || block.getBlockHardness(world, x, y, z) <= -1) {
                 return TurtleCommandResult.failure("Unbreakable block detected");
             }
 
+            ChunkCoordinates pos = new ChunkCoordinates(x, y, z);
+            if (block != digBlock || !pos.equals(digPosition)) {
+                theItemInWorldManager.cancelDestroyingBlock(x, y, z);
+                theItemInWorldManager.durabilityRemainingOnBlock = -1;
+
+                digPosition = pos;
+                digBlock = block;
+            }
+
             ItemInWorldManager manager = theItemInWorldManager;
-            for (int i = 0; i < CCTweaks.digFactor; i++) {
-                if (manager.durabilityRemainingOnBlock == -1) {
-                    manager.onBlockClicked(x, y, z, Facing.oppositeSide[direction]);
-                } else {
-                    manager.updateBlockRemoving();
-                    if (manager.durabilityRemainingOnBlock >= 9) {
 
-                        IWorldPosition position = new WorldPosition(world, x, y, z);
-                        McEvents.addBlockConsumer(position, getConsumer(turtle));
-                        manager.uncheckedTryHarvestBlock(x, y, z);
-                        McEvents.removeBlockConsumer(position);
-
-                        manager.durabilityRemainingOnBlock = -1;
-
-                        break;
+            // The consumer has to cover onBlockClicked too: it can harvest a soft block
+            // immediately, and those drops should end up in the turtle as well.
+            IWorldPosition position = new WorldPosition(world, x, y, z);
+            McEvents.addBlockConsumer(position, getConsumer(turtle));
+            try {
+                for (int i = 0; i < CCTweaks.digFactor; i++) {
+                    if (manager.durabilityRemainingOnBlock == -1) {
+                        manager.onBlockClicked(x, y, z, Facing.oppositeSide[direction]);
+                    } else {
+                        manager.updateBlockRemoving();
+                        if (manager.durabilityRemainingOnBlock >= 9) {
+                            manager.uncheckedTryHarvestBlock(x, y, z);
+                            manager.durabilityRemainingOnBlock = -1;
+                            break;
+                        }
                     }
                 }
+            } finally {
+                McEvents.removeBlockConsumer(position);
             }
 
             return TurtleCommandResult.success();
@@ -179,9 +257,21 @@ public class ToolHostPlayer extends TurtlePlayer {
      * turtle's inventory into the fake player's inventory.
      */
     public void load(ITurtleAccess turtle, int direction, boolean sneaking) {
+        if (loadedStack != null) {
+            getAttributeMap().removeAttributeModifiers(loadedStack.getAttributeModifiers());
+            loadedStack = null;
+        }
+
         updateInformation(turtle, direction);
         setSneaking(sneaking);
         loadTurtleInventory(turtle);
+
+        // FakePlayer.onUpdate() is a no-op, so the normal equipment-attribute pass never runs.
+        // Apply the held item's modifiers here or a diamond sword uses bare-hand damage.
+        loadedStack = inventory.getCurrentItem();
+        if (loadedStack != null) {
+            getAttributeMap().applyAttributeModifiers(loadedStack.getAttributeModifiers());
+        }
     }
 
     /**
@@ -189,17 +279,25 @@ public class ToolHostPlayer extends TurtlePlayer {
      * clearing out any stale fake inventory slots.
      */
     public void unload(ITurtleAccess turtle) {
+        if (loadedStack != null) {
+            getAttributeMap().removeAttributeModifiers(loadedStack.getAttributeModifiers());
+            loadedStack = null;
+        }
+
+        // Releasing the right button is part of finishing the action: every caller used to clear
+        // this right before unload(), so the peripheral does not need to know about it.
+        clearItemInUse();
         setSneaking(false);
         unloadTurtleInventory(turtle);
     }
 
     private void loadTurtleInventory(ITurtleAccess turtle) {
         IInventory turtleInventory = turtle.getInventory();
-        int size = turtleInventory.getSizeInventory();
         int largerSize = inventory.getSizeInventory();
+        int size = Math.min(turtleInventory.getSizeInventory(), largerSize);
 
         // Make sure getHeldItem()/getCurrentEquippedItem() uses the turtle's selected slot.
-        inventory.currentItem = turtle.getSelectedSlot();
+        inventory.currentItem = Math.min(turtle.getSelectedSlot(), largerSize - 1);
 
         for (int i = 0; i < size; i++) {
             inventory.setInventorySlotContents(i, turtleInventory.getStackInSlot(i));
@@ -211,8 +309,8 @@ public class ToolHostPlayer extends TurtlePlayer {
 
     private void unloadTurtleInventory(ITurtleAccess turtle) {
         IInventory turtleInventory = turtle.getInventory();
-        int size = turtleInventory.getSizeInventory();
         int largerSize = inventory.getSizeInventory();
+        int size = Math.min(turtleInventory.getSizeInventory(), largerSize);
 
         for (int i = 0; i < size; i++) {
             ItemStack stack = inventory.getStackInSlot(i);
@@ -243,31 +341,4 @@ public class ToolHostPlayer extends TurtlePlayer {
         }
     }
 
-    /**
-     * @deprecated Use {@link #load(ITurtleAccess, int, boolean)} instead.
-     */
-    @Deprecated
-    public void loadWholeInventory(ITurtleAccess turtle) {
-        loadTurtleInventory(turtle);
-    }
-
-    /**
-     * @deprecated Use {@link #unload(ITurtleAccess)} instead.
-     */
-    @Deprecated
-    public void unloadWholeInventory(ITurtleAccess turtle) {
-        unloadTurtleInventory(turtle);
-    }
-
-    @Override
-    public void setItemInUse(ItemStack stack, int duration) {
-        super.setItemInUse(stack, duration);
-        itemInUse = stack;
-    }
-
-    @Override
-    public void clearItemInUse() {
-        super.clearItemInUse();
-        itemInUse = null;
-    }
 }

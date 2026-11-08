@@ -5,6 +5,7 @@ import net.minecraft.inventory.InventoryCrafting;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.crafting.IRecipe;
+import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.world.World;
 
 import dan200.computercraft.api.turtle.TurtleSide;
@@ -51,13 +52,36 @@ public class CraftingComputerUpgrade implements IRecipe {
                 turtle.getUpgrade(computerStack, TurtleSide.Left),
                 turtle.getUpgrade(computerStack, TurtleSide.Right),
                 turtle.getFuelLevel(computerStack),
-                null,
-                null);
+                turtle.getOverlay(computerStack),
+                turtle.getHatOverlay(computerStack));
         } else if (computerItem instanceof ItemPocketComputer) {
             ItemPocketComputer pocket = (ItemPocketComputer) computerItem;
 
-            return PocketComputerItemFactory
+            ItemStack result = PocketComputerItemFactory
                 .create(id, label, ComputerFamily.Advanced, pocket.getHasModem(computerStack));
+
+            // The upgrade NBT carries the ender modem, speaker, chat box and NPC upgrades, plus
+            // any data those upgrades own. PocketComputerItemFactory only knows about the
+            // wireless-modem boolean, so copy the rest across ourselves.
+            int upgrade = pocket.getUpgrade(computerStack);
+            NBTTagCompound source = computerStack.getTagCompound();
+            if (result != null && upgrade > 0 && source != null) {
+                NBTTagCompound tag = result.getTagCompound();
+                if (tag == null) {
+                    tag = new NBTTagCompound();
+                    result.setTagCompound(tag);
+                }
+
+                tag.setInteger("upgrade", upgrade);
+                if (source.hasKey("upgradeData")) {
+                    tag.setTag(
+                        "upgradeData",
+                        source.getTag("upgradeData")
+                            .copy());
+                }
+            }
+
+            return result;
         }
 
         return null;
@@ -84,8 +108,17 @@ public class CraftingComputerUpgrade implements IRecipe {
 
             Item item = itemStack.getItem();
             if (item == Items.gold_ingot) {
+                // Count slots, not stack size: vanilla crafting consumes one item per slot, so
+                // seven ingots in one slot would otherwise be a free upgrade.
                 gold++;
             } else if (item instanceof IComputerItem) {
+                // Reject IComputerItem implementations we cannot rebuild. Accepting them here and
+                // returning null from getCraftingResult would shadow valid recipes with no output.
+                if (!(item instanceof ItemComputer) && !(item instanceof ItemTurtleBase)
+                    && !(item instanceof ItemPocketComputer)) {
+                    return null;
+                }
+
                 // If its a 'computer'
                 // Don't allow more than one computer and it must be a normal computer
                 if (computerStack != null || ((IComputerItem) item).getFamily(itemStack) != ComputerFamily.Normal) {
@@ -117,6 +150,8 @@ public class CraftingComputerUpgrade implements IRecipe {
 
     @Override
     public ItemStack getRecipeOutput() {
-        return null;
+        // A representative result for recipe browsers. The real result depends on the input
+        // computer, but IRecipe's contract expects a non-null sample.
+        return ComputerItemFactory.create(-1, null, ComputerFamily.Advanced);
     }
 }

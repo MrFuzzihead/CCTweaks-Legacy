@@ -68,6 +68,11 @@ tasks.named<JacocoReport>("jacocoTestReport") {
                 fileTree(it) {
                     // Generated mod metadata has no logic worth covering.
                     exclude("org/squiddev/cctweaks/Tags.class")
+                    // The in-world self test is exercised by the dedicated-server harness
+                    // (scripts/headless-smoke.sh -PselfTest), which runs in a second JVM that this
+                    // report does not instrument. Excluded so the number stays a measure of the
+                    // unit suite; the harness asserts its results on every run instead.
+                    exclude("org/squiddev/cctweaks/selfTest/**")
                 }
             }
         )
@@ -81,6 +86,18 @@ tasks.named<JacocoReport>("jacocoTestReport") {
 }
 
 tasks.named("check").configure { dependsOn(tasks.named("jacocoTestReport")) }
+
+// `-PselfTest` runs the in-world self test (org.squiddev.cctweaks.selfTest) as soon as the
+// dedicated server has loaded its worlds. The test writes a few blocks into a scratch area near
+// the spawn, checks digging/placement/attacks/upgrades against the real world and restores them.
+// scripts/headless-smoke.sh enables it by default; pass SMOKE_SELFTEST=0 to skip it.
+if (providers.gradleProperty("selfTest").isPresent) {
+    tasks.matching { it.name == "runServer25" }.configureEach {
+        if (this is JavaExec) {
+            systemProperty("cctweaks.selftest", "true")
+        }
+    }
+}
 
 // `-PsmokeTest` makes the dedicated server stop itself shortly after it finishes loading, so a
 // headless smoke run (scripts/headless-smoke.sh, CI) terminates on its own instead of needing an

@@ -285,6 +285,7 @@ public final void destroyOnce() { if (!destroyed) { destroyed = true; destroy();
 9. **Dimension-change cache invalidation** for `ToolHostPlayer` (recreate when
    `player.worldObj != turtle.getWorld()`).
 10. **Optional**: a `/cctweaks` command to inspect registered modules/config/upgrade IDs; useful on servers.
+    *(Done in batch 5, which also added `/cctweaks selftest`.)*
 
 ---
 
@@ -548,3 +549,79 @@ and real in-world integration coverage.
 - **Still open:** in-world sign-off for everything batch 1-3 touched, `/cctweaks` inspection
   command (§5.10), `ModIntegration`/`PortalGunIntegration` have no headless coverage (they need
   PortalGun on the test classpath), and the GUI save path is only unit-tested up to `readConfig`.
+
+## Batch 5 implementation status
+
+- **`/cctweaks` command (audit §5.10):** `commands/CommandCCTweaks` (permission level 2) with
+  `modules` (registration order), `config` (every live flag), `selftest`, tab completion and a
+  `WrongUsageException` for unknown sub-commands. Registered from `CCTweaks.onServerStarting`
+  (`FMLServerStartingEvent`), so a dedicated server and the integrated server both get it.
+- **In-world self test (the testing gap left by batches 1-4):** `selfTest/InWorldSelfTest` builds a
+  scratch area a few blocks above the world spawn, snapshots it, clears it, runs 12 checks and
+  restores the original blocks in a `finally`. `selfTest/SelfTestTurtle` is the runtime
+  `ITurtleAccess` (a real world plus `InventoryBasic`), because `testsupport.StubTurtleAccess` is
+  test-source-set only. Coverage that did not exist before:
+  - `ToolHostPlayer`: inventory load/unload round-trip including overflow storage, held-item
+    attribute modifiers applied and removed, `dig` of stone with a real `ItemInWorldManager`
+    (block broken, drop consumed into the turtle), refusals for bedrock/air/protected blocks,
+    `attack` killing a zombie.
+  - `ItemComputerUpgrade`: in-place computer upgrade (same tile instance, `+8` metadata, Advanced
+    family, second use refused), turtle upgrade in creative and with 7 gold ingots (and refusal
+    without gold), refusal on an unsupported tile, and the resulting chat messages (which also
+    exercise `FakeNetHandler`).
+  - Registry/config sanity: `digFactor` validation, module list, item presence.
+- **Harness wiring:** `-PselfTest` sets `-Dcctweaks.selftest=true` on `runServer25`;
+  `scripts/headless-smoke.sh` passes it by default (`SMOKE_SELFTEST=0` to skip), then greps
+  `CCTWEAKS-SELFTEST PASS|FAIL|RESULT` from the server logs and fails the run on any `FAIL` or a
+  missing `RESULT`. The CI `headless-smoke` job therefore runs the in-world checks on every push.
+  Local run: 12/12 checks pass.
+- **Coverage:** 166 tests / 30 classes, `./gradlew build` clean.
+  `build/reports/jacoco/test/jacocoTestReport.xml` is **55.8% lines / 54.8% branches** (up from
+  53.0%/54.5% with a smaller denominator). The `selfTest` package is excluded from the report
+  because it only runs in the game JVM, which JaCoCo cannot instrument; the harness asserts its
+  results instead.
+- **Bugs/frictions found while writing it:** none in the mod. Two MV mechanics had to be handled in
+  the test itself: `EntityLivingBase.hurtResistantTime` never decays without world ticks (so every
+  attack after the first was a no-op), and `Entity.isDead` only flips after the 20-tick death
+  animation, so the attack check waits on health. The `dig` loop needs 3 calls with `digFactor=10`,
+  and drops do reach the turtle.
+- **Still open:** the debug wand's Lua injection on a running computer, NEI rendering, the config
+  GUI and PortalGun interaction still need a dev client/`runClient25`. `ModIntegration` (the
+  PortalGun hook) remains uncovered because PortalGun is dev-only and absent from the dedicated
+  server.
+
+## Batch 6 implementation status
+
+Batch 5 covered the world-facing behaviour; batch 6 closes the last untested feature (the debug
+wand) and the remaining hot-path leftovers.
+
+- **Debug wand is now covered in-world** (`debug-wand-refused-off`, `debug-wand-inject`):
+  - a computer that has not been switched on is refused (with the range check asserted separately,
+    so the test cannot pass because the fake player is out of reach);
+  - injection into a **running** computer succeeds, the wand is not consumed and a second injection
+    also succeeds. This is the first automated coverage of the `DebugLib.add(CobaltMachine)` path.
+  - Booting the computer inside the test needed two non-obvious steps: `ServerComputer` only
+    advances from `ServerComputer.update()` (which the world tick calls), so the loop calls it and
+    sleeps to let CC's own computer thread build the Cobalt machine; and the fake player must be
+    positioned next to the computer or `TileComputerBase.isUsable` rejects the use.
+- **Turtle-facing upgrade paths** (`toolhost-upgrade-dig`, `toolhost-upgrade-disabled`,
+  `toolhost-manipulator-peripheral`): `TurtleUpgradeToolHost.useTool(Dig)` breaks stone and stores
+  the drop in the turtle, the disabled-config refusal returns a failure (not `null`), and
+  `TurtleUpgradeToolManipulator.createPeripheral` returns the `tool_manipulator` peripheral with 12
+  methods while the plain tool host returns `null`.
+- **`TurtleUpgradeMetadataTest`** (unit): config-driven ids stay distinct, both upgrades are
+  `Tool` upgrades, crafting-item metadata (0/1), peripheral-ness, and that both adjectives actually
+  exist in `en_US.lang` (an untranslated adjective shows up in the turtle GUI).
+- **Optimization (audit §3):** `TileDebugPeripheral.SidedPeripheral.getMethodNames()` returned a new
+  array on every call; it now returns a static constant. `ToolManipulatorPeripheral` already did.
+- **Bug found by the new checks:** the permission provider installed by the batch-5
+  `toolhost-dig-protected` check denied one coordinate *forever*, because CC has no unregister API.
+  That broke every later dig at the same block. It is now installed once and only denies while a
+  static "armed" flag matches.
+- **Bug found in the test, worth knowing:** `EntityLivingBase.isDead` (and `Computer.isOn()` before
+  `update()`) lag behind the actual state in an untick'd world - see batch 5 notes and above.
+- **Test suite:** 171 tests / 31 classes, `./gradlew build` clean, self test **17/17 checks**.
+  JaCoCo: **56.7% lines / 54.8% branches**.
+- **Still open:** the config GUI and NEI rendering (client-only), PortalGun interaction (dev-only
+  dependency, absent from a dedicated server), and the CC-side `IPeripheralHost` inventory
+  shadowing (E9, documented).

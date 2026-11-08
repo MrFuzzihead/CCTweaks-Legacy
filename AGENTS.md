@@ -38,6 +38,7 @@ was deleted. OpenPeripheral is no longer required or touched.
 | 5 | **Portal Gun Turtle Interaction** — registers the portal gun item as a swing/use turtle tool interaction | `integration/PortalGunIntegration.java` |
 | 6 | **NEI Documentation** — `assets/cctweaks/docs/<lang>/{item,tile}/<name>.txt` rendered in NEI usage/recipe pages (`ResourceDocProvider`; `${**}` bold, `${*}` italic, `***` page break). `LanguageDocProvider` `.information.N` keys are the fallback | `integration/nei/*` |
 | 7 | **In-game config GUI** — every option in Mods list → Config; edits Forge's live `Configuration`, then saves `config/cctweaks.cfg` and re-reads the statics on close | `client/gui/GuiConfigFactory.java`, `client/gui/GuiCCTweaksConfig.java`, `CCTweaks.getConfiguration/saveConfiguration` |
+| 8 | **`/cctweaks` diagnostics** — operator command (level 2): `modules`, `config`, `selftest`. `selftest` runs the in-world checks (see Test Coverage) near the world spawn and restores the area; the same suite runs at server start when `-Dcctweaks.selftest=true` (dev harness/CI) | `commands/CommandCCTweaks.java`, `selfTest/InWorldSelfTest.java`, `selfTest/SelfTestTurtle.java` |
 
 ### Removed Features (do not re-add without a CC gap to fill)
 
@@ -167,9 +168,7 @@ FMLPreInitializationEvent  →  CCTweaks.preInit()
   │    object in CCTweaks.configuration so the client config GUI can save and re-read it
   ├─ Register FmlEvents on FMLCommonHandler bus
   │    ServerTickEvent → DelayedTasks.update() + drain serverQueue
-  │    ClientTickEvent → drain clientQueue
   ├─ Register McEvents on MinecraftForge.EVENT_BUS
-  ├─ Create SimpleNetworkWrapper channel "cctweaks"
   └─ Registry.preInit()
        └─ IModule.preInit() for each module
             • Items/blocks registered with GameRegistry
@@ -184,8 +183,15 @@ FMLInitializationEvent  →  CCTweaks.init()
 FMLPostInitializationEvent  →  CCTweaks.postInit()
   └─ Registry.postInit() (no module currently implements it)
 
-FMLServerStartedEvent / FMLServerStoppedEvent
-  └─ DelayedTasks.reset()
+FMLServerStartingEvent  →  CCTweaks.onServerStarting()
+  └─ register CommandCCTweaks  (/cctweaks modules|config|selftest)
+
+FMLServerStartedEvent   →  CCTweaks.onServerStart()
+  ├─ FmlEvents.reset() / McEvents.reset() / DelayedTasks.reset()
+  └─ if -Dcctweaks.selftest=true → InWorldSelfTest.atSpawn(overworld).run()
+
+FMLServerStoppedEvent   →  CCTweaks.onServerStopped()
+  └─ FmlEvents.reset() / McEvents.reset() / DelayedTasks.reset()
 
 ─── Server Runtime ──────────────────────────────────────────────────
 
@@ -195,8 +201,7 @@ ServerTickEvent (Phase.START)
 
 ─── Client Runtime ──────────────────────────────────────────────────
 
-ClientTickEvent (Phase.START)
-  └─ Drain FmlEvents.clientQueue
+No client-side tick work: the client queue/handler was removed with the network featureset.
 ```
 
 ---
@@ -239,6 +244,7 @@ ClientTickEvent (Phase.START)
 | `items.UpgradeItemTest` | In-place computer metadata/family recreation, turtle transfer/recreation, failed-swap rollback |
 | `turtle.ToolManipulatorPeripheralTest` | Argument parsing, disabled actions, result shape, method table, side equality, hit-side resolution, `use(duration)` wait chaining, `canUse` item heuristics |
 | `turtle.ToolManipulatorFindHitTest` | Entity ray ends at the target, not beyond it |
+| `turtle.TurtleUpgradeMetadataTest` | Upgrade ids come from the config and stay distinct, both are tool upgrades, crafting item metadata, only the manipulator is a peripheral, adjectives are translated in `en_US.lang` |
 | `turtle.ToolManipulatorActionsTest` | The full `use`/`swing`/`canUse`/`canSwing` decision tree through the `IToolHostPlayer` + `ToolHitResolver` seams: registered interaction first, entity interact, block activation, place gating, item use in air, disabled actions, animation only on success |
 | `core.registry.ModuleRegistryTest` | Phase ordering, `canLoad` gating, duplicate registration, late registration catch-up, out-of-order/duplicate phase errors, immutable snapshot |
 | `harness.HeadlessTurtleHarnessTest` | Stub turtle + stub computer drive the real registry with no server/world |
@@ -246,12 +252,16 @@ ClientTickEvent (Phase.START)
 | `client.gui.GuiConfigFactoryTest` | `@Mod(guiFactory = ...)` names a real factory returning a `GuiConfig` subclass; the screen fields/methods it relies on exist (the class is loaded but never initialised, since `GuiScreen` needs LWJGL) |
 | `core.peripheral.PeripheralHostProviderTest` | `IPeripheralHost` tiles are unwrapped per side; non-hosts, empty positions and declining hosts return null |
 | `integration.nei.ResourceDocProviderTest` | Doc path derivation, page splitting, markup conversion, shipped resources readable |
+| `commands.CommandCCTweaksTest` | Command name/permission/usage, sub-command tab completion, help/modules/config output, unknown sub-command, world-less sender |
+| `selfTest.SelfTestTurtleTest` | The runtime `ITurtleAccess` stub: slot IR, `count`, defensive position, direction/teleport, inert fuel/upgrades |
 
-`./gradlew test` runs the JUnit 5 suite headlessly (153 tests / 28 classes at the time of writing).
+`./gradlew test` runs the JUnit 5 suite headlessly (171 tests / 31 classes at the time of writing).
 `./gradlew build` also runs Spotless, Checkstyle, `verifyTestSuiteExecuted` (fails the build if the
 test task produced zero XML results - a refactor that moves tests out of a detected package would
 otherwise pass silently) and `jacocoTestReport`, which writes
-`build/reports/jacoco/test/html/index.html` (~53% line coverage at the time of writing).
+`build/reports/jacoco/test/html/index.html` (~57% line coverage at the time of writing). The
+`selfTest` package is excluded from the report: it only runs inside the game JVM, which JaCoCo does
+not instrument, and its results are asserted by the harness instead.
 
 `ToolManipulatorPeripheral` talks to its fake player only through `IToolHostPlayer` and finds hits
 through `ToolHitResolver`; `ToolHostPlayer` and `ToolHitResolver.DEFAULT` are the in-game
@@ -265,9 +275,45 @@ if a fresh checkout has none). It runs
 `stop` (a few seconds after FML logs `Done`, or after `SMOKE_STOP_AFTER` seconds), then asserts on
 `run/server/logs/latest.log` + `fml-server-latest.log`: CCTweaks loaded, no CCTweaks
 ERRORs/exceptions, no unresolved 2.x mappings, no mod-sorting failures, clean shutdown. It catches
-runtime-only breakage (the AT stopped matching, `@Mod`/dependency change, a CC API rename); real
-in-world interactions (tool host mining/placement, debug wand injection, NEI GUI, the config GUI)
-still need a dev client.
+runtime-only breakage (the AT stopped matching, `@Mod`/dependency change, a CC API rename).
+
+By default the script also passes `-PselfTest`, which sets `-Dcctweaks.selftest=true` on the run
+task; `CCTweaks.onServerStart` then runs `selfTest.InWorldSelfTest.atSpawn(world)` and logs one
+`CCTWEAKS-SELFTEST PASS|FAIL <name>` line per check plus a `RESULT n passed, m failed` summary. The
+script fails the run on any `FAIL` line or a missing `RESULT`. `SMOKE_SELFTEST=0` disables it.
+
+What the self test covers (and nothing else does, because it needs a live `WorldServer`):
+
+* `ToolHostPlayer` load/unload inventory round-trip (including overflow storage) and held-item
+  attribute modifiers being applied and removed;
+* `dig` on stone with a real `ItemInWorldManager` - block broken, cobblestone ending up in the
+  turtle's inventory through the `McEvents` drop consumer;
+* `dig` refusals: bedrock, air, and a block denied by an `ITurtlePermissionProvider`
+  (`ComputerCraft.turtlesObeyBlockProtection`);
+* `attack` killing a zombie (the world does not tick during the test, so the loop resets
+  `hurtResistantTime` and waits on health, not `isDead` - `isDead` only flips after the 20-tick
+  death animation);
+* the computer upgrade applying in place (same tile instance, `+8` metadata, Advanced family,
+  second application refused) and the turtle upgrade in creative and with 7 gold ingots, plus
+  refusal on an unsupported tile;
+* the turtle-facing tool host (`TurtleUpgradeToolHost.useTool(Dig)` and its disabled-config
+  refusal) and `TurtleUpgradeToolManipulator.createPeripheral` returning the `tool_manipulator`
+  peripheral with its 12 methods;
+* the debug wand: refusal on a switched-off computer and a successful `DebugLib` injection into a
+  **running** computer (the wand is not consumed and a second injection succeeds). The computer has
+  to be booted by hand: the test calls `ServerComputer.update()` in a sleep loop, because the state
+  machine only advances from the world tick, and gives CC's own computer thread time to build the
+  Cobalt machine.
+
+The permission provider used by `toolhost-dig-protected` is a global CC hook that cannot be
+unregistered, so it is installed once and denies only while a single coordinate is armed.
+
+It builds its own `selfTest.SelfTestTurtle` (a real-world `ITurtleAccess` over `InventoryBasic`),
+because `testsupport.StubTurtleAccess` is test-source-set only. `SelfTestTurtle` is not
+`ToolHostPlayer`'s production turtle: no computer, no peripheral, no fuel.
+
+**Still needs a dev client:** the config GUI, NEI rendering, and Portal Gun interaction (PortalGun
+is a dev-only dependency, so it is absent from the dedicated server).
 
 Removed with their subjects: `NetworkTest`, `PacketTest`, `ComputerNetworkAccessTest`,
 `core/network/mock`.

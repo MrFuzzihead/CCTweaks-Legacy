@@ -10,18 +10,20 @@
 #   2. no CCTweaks ERROR/exception lines,
 #   3. no unresolved 2.x mappings ("Found a missing id from the world cctweaks:..."),
 #   4. no mod-sorting/discovery failure,
-#   5. the server shut down cleanly ("Stopping server").
+#   5. the server shut down cleanly ("Stopping server"),
+#   6. the in-world self test passed (see org.squiddev.cctweaks.selfTest).
 #
-# This cannot check in-world behaviour (mining, placement, the debug wand, the config GUI); those
-# need a client or Horizon-QA game tests. It is the cheapest guard against the class of breakage
-# that only appears at runtime: an Access Transformer that stopped matching, a @Mod annotation
-# change, a dependency that is no longer satisfied, an API method CC renamed.
+# The self test is the part that covers behaviour which needs a real world: digging with a tool
+# host (including drops landing in the turtle), block protection, attacking an entity, and the
+# computer/turtle upgrade items. It runs a few blocks above the world spawn and restores the area.
+# It cannot cover the client-only config GUI or NEI rendering; those still need a dev client.
 #
 # Usage:  bash scripts/headless-smoke.sh
 # Env:    SMOKE_TIMEOUT  seconds to wait for the server to reach "Done" (default 900)
 #         SMOKE_TASK     Gradle run task (default runServer25)
 #         SMOKE_STOP_AFTER  seconds after which the server is told to stop, if "Done" was not
 #                           seen first (default 300)
+#         SMOKE_SELFTEST  1 (default) to run the in-world self test, 0 to skip it
 #
 set -uo pipefail
 
@@ -30,6 +32,7 @@ cd "$ROOT" || exit 1
 
 TASK=${SMOKE_TASK:-runServer25}
 TIMEOUT=${SMOKE_TIMEOUT:-900}
+SELFTEST=${SMOKE_SELFTEST:-1}
 BOOT_LOG="$ROOT/run/server/logs/latest.log"
 # FML redirects mod/Forge logging into its own file; the vanilla log only carries server lines.
 LOG="$ROOT/run/server/logs/fml-server-latest.log"
@@ -46,8 +49,13 @@ if [ ! -f "$ROOT/run/server/eula.txt" ]; then
     echo "eula=true" >"$ROOT/run/server/eula.txt"
 fi
 
-echo "==> starting ./gradlew $TASK -PsmokeTest (gradle log: $GRADLE_LOG)"
-./gradlew "$TASK" -PsmokeTest -PsmokeStopAfter="${SMOKE_STOP_AFTER:-300}" --console=plain >"$GRADLE_LOG" 2>&1 &
+SELFTEST_FLAG=""
+if [ "$SELFTEST" != "0" ]; then
+    SELFTEST_FLAG="-PselfTest"
+fi
+
+echo "==> starting ./gradlew $TASK -PsmokeTest $SELFTEST_FLAG (gradle log: $GRADLE_LOG)"
+./gradlew "$TASK" -PsmokeTest $SELFTEST_FLAG -PsmokeStopAfter="${SMOKE_STOP_AFTER:-300}" --console=plain >"$GRADLE_LOG" 2>&1 &
 GRADLE_PID=$!
 GRADLE_EXIT=1
 
@@ -165,6 +173,29 @@ if grep -q 'Stopping server' "$BOOT_LOG"; then
     echo "   ok: the server shut down cleanly"
 else
     fail "the server never logged 'Stopping server' (it was killed or crashed)"
+fi
+
+if [ "$SELFTEST" != "0" ]; then
+    # Both logs are checked: mod logging goes to the FML log, but a hard failure can land in the
+    # vanilla one.
+    SELFTEST_LOG=$(mktemp)
+    cat "$LOG" "$BOOT_LOG" 2>/dev/null | grep 'CCTWEAKS-SELFTEST' >"$SELFTEST_LOG" || true
+
+    if grep -q 'CCTWEAKS-SELFTEST RESULT' "$SELFTEST_LOG"; then
+        echo "   ok: $(grep -c 'CCTWEAKS-SELFTEST PASS' "$SELFTEST_LOG") self-test check(s) passed"
+    else
+        fail "the in-world self test did not report a result (see $LOG)"
+    fi
+
+    if grep -q 'CCTWEAKS-SELFTEST FAIL' "$SELFTEST_LOG"; then
+        fail "the in-world self test reported failures:"
+        grep 'CCTWEAKS-SELFTEST FAIL' "$SELFTEST_LOG" >&2
+    else
+        echo "   ok: no self-test failures"
+    fi
+
+    grep 'CCTWEAKS-SELFTEST RESULT' "$SELFTEST_LOG" >&2 || true
+    rm -f "$SELFTEST_LOG"
 fi
 
 if [ "$GRADLE_EXIT" -ne 0 ]; then

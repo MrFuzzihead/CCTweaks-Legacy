@@ -44,6 +44,10 @@ record and why each was dropped.
   Enough Items usage/recipe pages.
 - **In-game config GUI** — every option is editable from the Mods list → Config screen, saved back
   to `config/cctweaks.cfg`.
+- **`/cctweaks` diagnostics** — operator command: `modules` lists the registered modules, `config`
+  prints the live options, `selftest` drives the mod's world-facing behaviour (tool host digging,
+  block protection, attacking, the upgrade items) against a scratch area near spawn and restores
+  it. The same self test runs automatically on a dev server with `-Dcctweaks.selftest=true`.
 
 Removed features (do not re-add without a ComputerCraft gap to fill): the CCTweaks wired network
 graph and all its nodes (full-block wired modem, wireless bridge block/turtle/pocket upgrades,
@@ -72,7 +76,7 @@ IntelliJ and run `./gradlew build`, or use the wrapper from the command line:
 ./gradlew jacocoTestReport   # HTML coverage -> build/reports/jacoco/test/html
 ./gradlew runServer          # dev server (Java 17+; ComputerCraft 3.x requires lwjgl3ify)
 ./gradlew spotlessApply      # apply formatting
-bash scripts/headless-smoke.sh  # boot a dedicated server and assert on its log
+bash scripts/headless-smoke.sh  # boot a dedicated server, assert on its log and run the self test
 ```
 
 The Gradle daemon is pinned to Java 25 (see `.java-version`); the mod itself targets Java 8
@@ -81,6 +85,12 @@ headless JUnit 5 suite, and `verifyTestSuiteExecuted` (part of `build`) fails if
 results. `./gradlew runServer25` boots a dev server; `bash scripts/headless-smoke.sh` automates
 that boot plus log assertions (mod loaded, no CCTweaks errors, clean shutdown) and runs in CI as the
 `headless-smoke` job, because unit tests cannot catch Access-Transformer or mod-load breakage.
+
+The smoke script also enables `-PselfTest`, which runs the in-world self test described under
+`/cctweaks selftest` on the dedicated server and fails the run if any check fails. That is the only
+automated coverage for code that needs a real world (the fake tool-host player, digging/placement,
+block protection, the upgrade items); set `SMOKE_SELFTEST=0` to skip it. The self test writes to a
+few blocks above the world spawn and restores them, so it is safe on a throwaway dev world.
 
 ## Configuration
 

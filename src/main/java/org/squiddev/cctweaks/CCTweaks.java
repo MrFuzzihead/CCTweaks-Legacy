@@ -1,15 +1,18 @@
 package org.squiddev.cctweaks;
 
 import net.minecraft.creativetab.CreativeTabs;
+import net.minecraft.server.MinecraftServer;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.common.config.Configuration;
 import net.minecraftforge.common.config.Property;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.squiddev.cctweaks.commands.CommandCCTweaks;
 import org.squiddev.cctweaks.core.FmlEvents;
 import org.squiddev.cctweaks.core.McEvents;
 import org.squiddev.cctweaks.core.registry.Registry;
+import org.squiddev.cctweaks.selfTest.InWorldSelfTest;
 
 import cpw.mods.fml.common.FMLCommonHandler;
 import cpw.mods.fml.common.Mod;
@@ -19,6 +22,7 @@ import cpw.mods.fml.common.event.FMLMissingMappingsEvent;
 import cpw.mods.fml.common.event.FMLPostInitializationEvent;
 import cpw.mods.fml.common.event.FMLPreInitializationEvent;
 import cpw.mods.fml.common.event.FMLServerStartedEvent;
+import cpw.mods.fml.common.event.FMLServerStartingEvent;
 import cpw.mods.fml.common.event.FMLServerStoppedEvent;
 import cpw.mods.fml.relauncher.Side;
 import dan200.computercraft.ComputerCraft;
@@ -114,12 +118,36 @@ public class CCTweaks {
     }
 
     @EventHandler
+    public void onServerStarting(FMLServerStartingEvent event) {
+        event.registerServerCommand(new CommandCCTweaks());
+    }
+
+    @EventHandler
     public void onServerStart(FMLServerStartedEvent event) {
         if (FMLCommonHandler.instance()
-            .getEffectiveSide() == Side.SERVER) {
-            FmlEvents.reset();
-            McEvents.reset();
-            DelayedTasks.reset();
+            .getEffectiveSide() != Side.SERVER) return;
+
+        FmlEvents.reset();
+        McEvents.reset();
+        DelayedTasks.reset();
+
+        // The headless harness (scripts/headless-smoke.sh, CI) sets this so the in-world checks
+        // run without a player. It is off by default, so this is inert in normal play.
+        if (Boolean.getBoolean("cctweaks.selftest")) runSelfTest();
+    }
+
+    private static void runSelfTest() {
+        try {
+            MinecraftServer server = MinecraftServer.getServer();
+            if (server == null || server.worldServers.length == 0) {
+                logger.warn("{} requested but no server world is loaded", InWorldSelfTest.MARKER);
+                return;
+            }
+            InWorldSelfTest.atSpawn(server.worldServers[0])
+                .run();
+        } catch (Throwable throwable) {
+            // A diagnostic must never take down server startup.
+            logger.error("{} crashed", InWorldSelfTest.MARKER, throwable);
         }
     }
 

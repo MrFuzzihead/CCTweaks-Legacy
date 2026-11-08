@@ -12,12 +12,14 @@ jobs:
     secrets: inherit
 
   # The unit suite runs on the JVM without a game. That cannot catch the failures that only appear
-  # at mod-load time: an Access Transformer that stopped matching, a @Mod annotation change, a
-  # dependency that is no longer satisfied, an API method CC renamed. This job boots a real
-  # dedicated dev server, lets it stop itself (scripts/headless-smoke.sh + -PsmokeTest) and asserts
-  # on its log.
+  # at mod-load time (an Access Transformer that stopped matching, a @Mod annotation change, a
+  # dependency that is no longer satisfied, an API method CC renamed) nor anything that needs a
+  # real world. This job boots a real dedicated dev server, lets it stop itself
+  # (scripts/headless-smoke.sh + -PsmokeTest) and asserts on its log. `-PselfTest` also runs the
+  # in-world checks (digging with a tool host, block protection, attacking, the upgrade items) on
+  # that server, which is what covers the code the JVM suite cannot reach.
   headless-smoke:
-    name: Headless server smoke
+    name: Headless server smoke + in-world self test
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:

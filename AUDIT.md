@@ -668,6 +668,11 @@ unloadable classes and tested.
   manipulator then falls through to block activation/placement). Fixing it means implementing
   fill/drain against `FluidContainerRegistry` - real world-mutating behaviour that needs in-game
   verification, so it is flagged rather than guessed at.
+- **CI fix:** the first real run of the `headless-smoke` job failed on
+  `./gradlew: Permission denied` - the wrapper's executable bit was never recorded in Git
+  (`100644`), which a Linux checkout cannot recover. `gradlew` and `scripts/headless-smoke.sh` are
+  now committed as `100755`, the workflow chmods them defensively, and the script invokes
+  `sh ./gradlew` so a Windows working copy or an older checkout still works.
 - **Remaining untested, by necessity:** `GuiCCTweaksConfig` (rendering), `DescriptionHandler`
   (rendering), `ToolHostPlayer`/`FakeNetHandler` (unit suite - they are covered by the in-world self
   test instead) and `ModIntegration.canLoad` (needs FML's `Loader`).

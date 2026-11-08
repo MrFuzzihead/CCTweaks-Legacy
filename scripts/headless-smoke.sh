@@ -55,7 +55,10 @@ if [ "$SELFTEST" != "0" ]; then
 fi
 
 echo "==> starting ./gradlew $TASK -PsmokeTest $SELFTEST_FLAG (gradle log: $GRADLE_LOG)"
-./gradlew "$TASK" -PsmokeTest $SELFTEST_FLAG -PsmokeStopAfter="${SMOKE_STOP_AFTER:-300}" --console=plain >"$GRADLE_LOG" 2>&1 &
+# `sh` rather than `./gradlew`: the wrapper is a POSIX shell script, and a checkout without the
+# executable bit (Windows working copy, older Git, some CI caches) would otherwise fail with
+# "Permission denied" before Gradle is even reached.
+sh ./gradlew "$TASK" -PsmokeTest $SELFTEST_FLAG -PsmokeStopAfter="${SMOKE_STOP_AFTER:-300}" --console=plain >"$GRADLE_LOG" 2>&1 &
 GRADLE_PID=$!
 GRADLE_EXIT=1
 

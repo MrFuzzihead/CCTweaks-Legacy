@@ -38,6 +38,14 @@ GRADLE_LOG="$ROOT/build/smoke-gradle.log"
 mkdir -p "$ROOT/build"
 rm -f "$BOOT_LOG" "$LOG" "$GRADLE_LOG"
 
+# A fresh checkout (CI) has no run/server at all. The dev server refuses to start without an
+# accepted EULA; this is a local-only GradleStart server with no Mojang services attached, so
+# agree on its behalf rather than failing the smoke run on a missing file.
+mkdir -p "$ROOT/run/server"
+if [ ! -f "$ROOT/run/server/eula.txt" ]; then
+    echo "eula=true" >"$ROOT/run/server/eula.txt"
+fi
+
 echo "==> starting ./gradlew $TASK -PsmokeTest (gradle log: $GRADLE_LOG)"
 ./gradlew "$TASK" -PsmokeTest -PsmokeStopAfter="${SMOKE_STOP_AFTER:-300}" --console=plain >"$GRADLE_LOG" 2>&1 &
 GRADLE_PID=$!
@@ -96,8 +104,13 @@ if [ "$started" -ne 1 ]; then
     exit 1
 fi
 
-echo "==> server reached 'Done', waiting for it to stop"
-for _ in $(seq 1 180); do
+# Gradle hands the server a "stop" command a few seconds after it sees "Done" in the log (or, if
+# reading the log fails while log4j holds it open, after SMOKE_STOP_AFTER seconds). This wait has to
+# outlast that fallback, otherwise the script kills a healthy server and reports it as a crash.
+STOP_WAIT=$(( ${SMOKE_STOP_AFTER:-300} + 150 ))
+
+echo "==> server reached 'Done', waiting up to ${STOP_WAIT}s for it to stop"
+for _ in $(seq 1 "$STOP_WAIT"); do
     if ! kill -0 "$GRADLE_PID" 2>/dev/null; then
         break
     fi

@@ -1,8 +1,6 @@
 package org.squiddev.cctweaks.core.registry;
 
-import java.util.ArrayList;
-import java.util.LinkedHashSet;
-import java.util.Set;
+import java.util.List;
 
 import org.squiddev.cctweaks.blocks.debug.BlockDebug;
 import org.squiddev.cctweaks.core.peripheral.PeripheralHostProvider;
@@ -21,11 +19,7 @@ public final class Registry {
     public static final ItemDebugger itemDebugger;
     public static final ItemToolHost itemToolHost;
 
-    private static final Set<IModule> modules = new LinkedHashSet<IModule>();
-
-    private static boolean preInit = false;
-    private static boolean init = false;
-    private static boolean postInit = false;
+    private static final ModuleRegistry registry = new ModuleRegistry();
 
     static {
         addModule(itemComputerUpgrade = new ItemComputerUpgrade());
@@ -50,44 +44,25 @@ public final class Registry {
     }
 
     public static void addModule(IModule module) {
-        modules.add(module);
-
-        if (preInit && module.canLoad()) {
-            module.preInit();
-            if (init) {
-                module.init();
-                if (postInit) module.postInit();
-            }
-        }
+        registry.add(module);
     }
 
     public static void preInit() {
-        if (preInit) throw new IllegalStateException("Attempting to preInit twice");
-        preInit = true;
-        for (IModule module : new ArrayList<IModule>(modules)) {
-            if (module.canLoad()) module.preInit();
-        }
+        registry.preInit();
     }
 
     public static void init() {
-        if (!preInit) throw new IllegalStateException("Cannot init before preInit");
-        if (init) throw new IllegalStateException("Attempting to init twice");
-
-        init = true;
-        for (IModule module : new ArrayList<IModule>(modules)) {
-            if (module.canLoad()) module.init();
-        }
+        registry.init();
     }
 
     public static void postInit() {
-        if (!preInit) throw new IllegalStateException("Cannot init before preInit");
-        if (!init) throw new IllegalStateException("Cannot postInit before init");
-        if (postInit) throw new IllegalStateException("Attempting to postInit twice");
-
-        postInit = true;
-        for (IModule module : new ArrayList<IModule>(modules)) {
-            if (module.canLoad()) module.postInit();
-        }
+        registry.postInit();
     }
 
+    /**
+     * @return A snapshot of the registered modules, in registration order
+     */
+    public static List<IModule> modules() {
+        return registry.modules();
+    }
 }

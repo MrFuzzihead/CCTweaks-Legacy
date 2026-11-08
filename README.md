@@ -67,8 +67,9 @@ Everything is handled by the `com.gtnewhorizons.gtnhconvention` plugin. Load the
 IntelliJ and run `./gradlew build`, or use the wrapper from the command line:
 
 ```
-./gradlew build              # compile, test, format check
+./gradlew build              # compile, test, format check, coverage report
 ./gradlew test               # tests only
+./gradlew jacocoTestReport   # HTML coverage -> build/reports/jacoco/test/html
 ./gradlew runServer          # dev server (Java 17+; ComputerCraft 3.x requires lwjgl3ify)
 ./gradlew spotlessApply      # apply formatting
 bash scripts/headless-smoke.sh  # boot a dedicated server and assert on its log
@@ -78,7 +79,8 @@ The Gradle daemon is pinned to Java 25 (see `.java-version`); the mod itself tar
 bytecode (via Jabel). The output jar is placed in `build/libs/`. `./gradlew test` runs the
 headless JUnit 5 suite, and `verifyTestSuiteExecuted` (part of `build`) fails if it produced no
 results. `./gradlew runServer25` boots a dev server; `bash scripts/headless-smoke.sh` automates
-that boot plus log assertions (mod loaded, no CCTweaks errors, clean shutdown).
+that boot plus log assertions (mod loaded, no CCTweaks errors, clean shutdown) and runs in CI as the
+`headless-smoke` job, because unit tests cannot catch Access-Transformer or mod-load breakage.
 
 ## Configuration
 

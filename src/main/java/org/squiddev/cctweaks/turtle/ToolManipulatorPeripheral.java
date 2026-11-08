@@ -1,7 +1,7 @@
 package org.squiddev.cctweaks.turtle;
 
 import net.minecraft.block.Block;
-import net.minecraft.entity.Entity;
+import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.ItemBlock;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.MovingObjectPosition;
@@ -13,6 +13,7 @@ import net.minecraftforge.event.ForgeEventFactory;
 import net.minecraftforge.event.entity.player.PlayerDestroyItemEvent;
 import net.minecraftforge.event.entity.player.PlayerInteractEvent;
 
+import org.squiddev.cctweaks.api.turtle.ITurtleInteraction;
 import org.squiddev.cctweaks.core.turtle.TurtleRegistry;
 import org.squiddev.cctweaks.core.utils.LuaResults;
 
@@ -31,9 +32,13 @@ import dan200.computercraft.api.turtle.TurtleCommandResult;
 import dan200.computercraft.api.turtle.TurtleSide;
 import dan200.computercraft.core.lua.lib.LuaEnvironment;
 import dan200.computercraft.shared.turtle.core.InteractDirection;
-import dan200.computercraft.shared.util.WorldUtil;
 
 public class ToolManipulatorPeripheral implements IPeripheral {
+
+    /**
+     * How far past the adjacent block an action reaches.
+     */
+    private static final double RANGE = 0.65;
 
     private static final String[] METHOD_NAMES = new String[] { "use", "useUp", "useDown", "canUse", "canUseUp",
         "canUseDown", "swing", "swingUp", "swingDown", "canSwing", "canSwingUp", "canSwingDown", };
@@ -50,13 +55,25 @@ public class ToolManipulatorPeripheral implements IPeripheral {
     };
 
     private final ITurtleAccess access;
-    private final ToolHostPlayer player;
+    private final IToolHostPlayer player;
     private final TurtleSide side;
+    private final ITurtleInteraction interactions;
+    private final ToolHitResolver hits;
 
-    public ToolManipulatorPeripheral(ITurtleAccess access, ToolHostPlayer player, TurtleSide side) {
+    public ToolManipulatorPeripheral(ITurtleAccess access, IToolHostPlayer player, TurtleSide side) {
+        this(access, player, side, TurtleRegistry.instance, ToolHitResolver.DEFAULT);
+    }
+
+    /**
+     * Test seam: inject the interaction registry and hit resolver.
+     */
+    ToolManipulatorPeripheral(ITurtleAccess access, IToolHostPlayer player, TurtleSide side,
+        ITurtleInteraction interactions, ToolHitResolver hits) {
         this.access = access;
         this.player = player;
         this.side = side;
+        this.interactions = interactions;
+        this.hits = hits;
     }
 
     @Override
@@ -197,14 +214,14 @@ public class ToolManipulatorPeripheral implements IPeripheral {
         player.load(access, direction, sneak);
 
         ForgeDirection fDirection = ForgeDirection.VALID_DIRECTIONS[direction];
-        MovingObjectPosition hit = findHit(fDirection, 0.65);
+        MovingObjectPosition hit = findHit(fDirection, RANGE);
         ItemStack stack = player.getItem(access);
-        World world = player.worldObj;
+        World world = player.getWorld();
 
         try {
             if (stack != null) {
-                TurtleCommandResult result = TurtleRegistry.instance
-                    .use(access, computer, player, stack, fDirection, hit);
+                TurtleCommandResult result = interactions
+                    .use(access, computer, player.asPlayer(), stack, fDirection, hit);
                 if (result != null) return toObjectArray(result);
             }
 
@@ -223,32 +240,24 @@ public class ToolManipulatorPeripheral implements IPeripheral {
             }
 
             if (stack != null && !ForgeEventFactory
-                .onPlayerInteract(player, PlayerInteractEvent.Action.RIGHT_CLICK_AIR, 0, 0, 0, -1, world)
+                .onPlayerInteract(player.asPlayer(), PlayerInteractEvent.Action.RIGHT_CLICK_AIR, 0, 0, 0, -1, world)
                 .isCanceled()) {
-                player.posX += fDirection.offsetX * 0.6;
-                player.posY += fDirection.offsetY * 0.6;
-                player.posZ += fDirection.offsetZ * 0.6;
+                player.moveTowards(fDirection, 0.6);
 
                 duration = Math.min(duration, stack.getMaxItemUseDuration());
                 ItemStack old = stack.copy();
-                ItemStack result = stack.useItemRightClick(player.worldObj, player);
+                ItemStack result = stack.useItemRightClick(world, player.asPlayer());
 
-                boolean using = player.isUsingItem();
-                ItemStack inUse = player.getItemInUse();
-                if (using && inUse != null && !ForgeEventFactory.onUseItemStop(player, inUse, duration)) {
-                    inUse.onPlayerStoppedUsing(player.worldObj, player, inUse.getMaxItemUseDuration() - duration);
-                    player.clearItemInUse();
-                }
+                boolean using = player.finishUseItem(duration);
 
                 if (using || !ItemStack.areItemStacksEqual(old, result)) {
-                    player.inventory.setInventorySlotContents(player.inventory.currentItem, result);
+                    player.setHeldItem(result);
                     return new Object[] { true, "item", "use" };
                 } else {
                     return new Object[] { false };
                 }
             }
         } finally {
-            player.clearItemInUse();
             player.unload(access);
         }
 
@@ -261,12 +270,13 @@ public class ToolManipulatorPeripheral implements IPeripheral {
         int z = hit.blockZ;
         if (!world.getBlock(x, y, z)
             .isAir(world, x, y, z)) {
-            if (ComputerCraft.turtlesObeyBlockProtection && !ComputerCraft.isBlockEditable(world, x, y, z, player)) {
+            if (ComputerCraft.turtlesObeyBlockProtection
+                && !ComputerCraft.isBlockEditable(world, x, y, z, player.asPlayer())) {
                 return new Object[] { false, "Cannot use protected block" };
             }
 
             if (ForgeEventFactory
-                .onPlayerInteract(player, PlayerInteractEvent.Action.RIGHT_CLICK_BLOCK, x, y, z, side, world)
+                .onPlayerInteract(player.asPlayer(), PlayerInteractEvent.Action.RIGHT_CLICK_BLOCK, x, y, z, side, world)
                 .isCanceled()) {
                 return new Object[] { true, "block", "interact" };
             }
@@ -282,19 +292,20 @@ public class ToolManipulatorPeripheral implements IPeripheral {
         float xCoord = (float) look.xCoord - (float) x;
         float yCoord = (float) look.yCoord - (float) y;
         float zCoord = (float) look.zCoord - (float) z;
-        World world = player.worldObj;
+        World world = player.getWorld();
+        EntityPlayer asPlayer = player.asPlayer();
 
         if (stack != null && stack.getItem() != null
             && stack.getItem()
-                .onItemUseFirst(stack, player, world, x, y, z, side, xCoord, yCoord, zCoord)) {
+                .onItemUseFirst(stack, asPlayer, world, x, y, z, side, xCoord, yCoord, zCoord)) {
             return new Object[] { true, "item", "use" };
         }
 
         if (!player.isSneaking() || stack == null
             || stack.getItem()
-                .doesSneakBypassUse(world, x, y, z, player)) {
+                .doesSneakBypassUse(world, x, y, z, asPlayer)) {
             if (world.getBlock(x, y, z)
-                .onBlockActivated(world, x, y, z, player, side, xCoord, yCoord, zCoord)) {
+                .onBlockActivated(world, x, y, z, asPlayer, side, xCoord, yCoord, zCoord)) {
                 return new Object[] { true, "block", "interact" };
             }
         }
@@ -321,7 +332,7 @@ public class ToolManipulatorPeripheral implements IPeripheral {
             }
 
             if (ComputerCraft.turtlesObeyBlockProtection
-                && !ComputerCraft.isBlockEditable(world, placeX, placeY, placeZ, player)) {
+                && !ComputerCraft.isBlockEditable(world, placeX, placeY, placeZ, asPlayer)) {
                 return new Object[] { false, "Cannot place protected block" };
             }
 
@@ -331,9 +342,9 @@ public class ToolManipulatorPeripheral implements IPeripheral {
             }
         }
 
-        if (stack.tryPlaceItemIntoWorld(player, world, x, y, z, side, xCoord, yCoord, zCoord)) {
+        if (stack.tryPlaceItemIntoWorld(asPlayer, world, x, y, z, side, xCoord, yCoord, zCoord)) {
             if (stack.stackSize <= 0) {
-                MinecraftForge.EVENT_BUS.post(new PlayerDestroyItemEvent(player, stack));
+                MinecraftForge.EVENT_BUS.post(new PlayerDestroyItemEvent(asPlayer, stack));
             }
 
             return new Object[] { true, "place" };
@@ -371,12 +382,12 @@ public class ToolManipulatorPeripheral implements IPeripheral {
         ItemStack stack = player.getItem(access);
         TurtleAnimation animation = side == TurtleSide.Left ? TurtleAnimation.SwingLeftTool
             : TurtleAnimation.SwingRightTool;
-        MovingObjectPosition hit = findHit(fDirection, 0.65);
+        MovingObjectPosition hit = findHit(fDirection, RANGE);
 
         try {
             if (stack != null) {
-                TurtleCommandResult result = TurtleRegistry.instance
-                    .swing(access, computer, player, stack, fDirection, hit);
+                TurtleCommandResult result = interactions
+                    .swing(access, computer, player.asPlayer(), stack, fDirection, hit);
                 if (result != null) {
                     if (result.isSuccess()) access.playAnimation(animation);
                     return result;
@@ -404,7 +415,6 @@ public class ToolManipulatorPeripheral implements IPeripheral {
                 }
             }
         } finally {
-            player.clearItemInUse();
             player.unload(access);
         }
 
@@ -426,11 +436,11 @@ public class ToolManipulatorPeripheral implements IPeripheral {
 
                 ItemStack stack = player.getHeldItem();
                 ForgeDirection fDirection = ForgeDirection.VALID_DIRECTIONS[direction];
-                MovingObjectPosition hit = findHit(fDirection, 0.65);
+                MovingObjectPosition hit = findHit(fDirection, RANGE);
 
                 try {
                     if (stack != null) {
-                        boolean result = TurtleRegistry.instance.canUse(access, player, stack, fDirection, hit);
+                        boolean result = interactions.canUse(access, player.asPlayer(), stack, fDirection, hit);
                         if (result) return new Object[] { true };
                     }
 
@@ -464,12 +474,13 @@ public class ToolManipulatorPeripheral implements IPeripheral {
      * </p>
      */
     boolean canUseOnBlock(MovingObjectPosition hit, ItemStack stack, int side) {
-        World world = player.worldObj;
+        World world = player.getWorld();
         int x = hit.blockX, y = hit.blockY, z = hit.blockZ;
         Block block = world.getBlock(x, y, z);
 
         if (block == null || block.isAir(world, x, y, z)) return false;
-        if (ComputerCraft.turtlesObeyBlockProtection && !ComputerCraft.isBlockEditable(world, x, y, z, player)) {
+        if (ComputerCraft.turtlesObeyBlockProtection
+            && !ComputerCraft.isBlockEditable(world, x, y, z, player.asPlayer())) {
             return false;
         }
 
@@ -486,7 +497,7 @@ public class ToolManipulatorPeripheral implements IPeripheral {
             }
 
             if (ComputerCraft.turtlesObeyBlockProtection
-                && !ComputerCraft.isBlockEditable(world, placeX, placeY, placeZ, player)) {
+                && !ComputerCraft.isBlockEditable(world, placeX, placeY, placeZ, player.asPlayer())) {
                 return false;
             }
 
@@ -499,7 +510,7 @@ public class ToolManipulatorPeripheral implements IPeripheral {
 
         if (!player.isSneaking() || stack == null
             || stack.getItem()
-                .doesSneakBypassUse(world, x, y, z, player)) {
+                .doesSneakBypassUse(world, x, y, z, player.asPlayer())) {
             int metadata = world.getBlockMetadata(x, y, z);
             return block.hasTileEntity(metadata);
         }
@@ -533,7 +544,7 @@ public class ToolManipulatorPeripheral implements IPeripheral {
 
                 ItemStack stack = player.getHeldItem();
                 ForgeDirection fDirection = ForgeDirection.VALID_DIRECTIONS[direction];
-                MovingObjectPosition hit = findHit(fDirection, 0.65);
+                MovingObjectPosition hit = findHit(fDirection, RANGE);
 
                 try {
                     if (hit != null) {
@@ -543,7 +554,7 @@ public class ToolManipulatorPeripheral implements IPeripheral {
                     }
 
                     if (stack != null) {
-                        boolean result = TurtleRegistry.instance.canSwing(access, player, stack, fDirection, hit);
+                        boolean result = interactions.canSwing(access, player.asPlayer(), stack, fDirection, hit);
                         if (result) return new Object[] { true };
                     }
 
@@ -556,7 +567,7 @@ public class ToolManipulatorPeripheral implements IPeripheral {
                             .getBlock(hit.blockX, hit.blockY, hit.blockZ);
                         int meta = access.getWorld()
                             .getBlockMetadata(hit.blockX, hit.blockY, hit.blockZ);
-                        if (block.canHarvestBlock(player, meta)) return new Object[] { true };
+                        if (block.canHarvestBlock(player.asPlayer(), meta)) return new Object[] { true };
                     }
 
                     return new Object[] { false };
@@ -605,26 +616,7 @@ public class ToolManipulatorPeripheral implements IPeripheral {
     }
 
     public MovingObjectPosition findHit(ForgeDirection facing, double range) {
-        Vec3 origin = Vec3.createVectorHelper(player.posX, player.posY, player.posZ);
-        Vec3 blockCenter = origin.addVector(facing.offsetX * 0.51, facing.offsetY * 0.51, facing.offsetZ * 0.51);
-        Vec3 target = blockCenter.addVector(facing.offsetX * range, facing.offsetY * range, facing.offsetZ * range);
-
-        MovingObjectPosition hit = player.worldObj.rayTraceBlocks(origin, target);
-
-        // WorldUtil treats its third argument as a direction and multiplies it by the distance,
-        // so passing the endpoint here traces a ray into the distance instead of towards the
-        // target block. Pass the relative vector and a distance of 1 instead.
-        Vec3 direction = Vec3.createVectorHelper(
-            target.xCoord - origin.xCoord,
-            target.yCoord - origin.yCoord,
-            target.zCoord - origin.zCoord);
-        Entity entity = WorldUtil.rayTraceEntities(player.worldObj, origin, direction, 1.0);
-
-        if (entity != null) {
-            return new MovingObjectPosition(entity);
-        } else {
-            return hit;
-        }
+        return hits.find(player.getWorld(), player.getX(), player.getY(), player.getZ(), facing, range);
     }
 
     @Override

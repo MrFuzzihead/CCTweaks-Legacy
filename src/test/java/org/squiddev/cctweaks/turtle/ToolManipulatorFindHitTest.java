@@ -41,10 +41,10 @@ public class ToolManipulatorFindHitTest {
                 org.mockito.ArgumentMatchers.any(AxisAlignedBB.class))).thenReturn(Collections.<Entity>emptyList());
 
         ToolHostPlayer player = mock(ToolHostPlayer.class);
-        player.worldObj = world;
-        player.posX = 10.5;
-        player.posY = 64.0;
-        player.posZ = 10.5;
+        when(player.getWorld()).thenReturn(world);
+        when(player.getX()).thenReturn(10.5);
+        when(player.getY()).thenReturn(64.0);
+        when(player.getZ()).thenReturn(10.5);
 
         ToolManipulatorPeripheral peripheral = new ToolManipulatorPeripheral(
             mock(ITurtleAccess.class),

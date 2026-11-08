@@ -1,5 +1,6 @@
 import org.gradle.api.tasks.JavaExec
 import org.gradle.api.tasks.testing.Test
+import org.gradle.testing.jacoco.tasks.JacocoReport
 
 import java.io.File
 import java.io.PipedInputStream
@@ -47,6 +48,39 @@ val verifyTestSuiteExecuted = tasks.register("verifyTestSuiteExecuted") {
 }
 
 tasks.named("check").configure { dependsOn(verifyTestSuiteExecuted) }
+
+// Coverage: the `jacoco` plugin instruments the existing test task and registers
+// `jacocoTestReport`. The report is attached to `check` so `./gradlew build` publishes
+// build/reports/jacoco/test/html without a second test run.
+apply(plugin = "jacoco")
+
+tasks.withType<Test>().configureEach {
+    extensions.configure<org.gradle.testing.jacoco.plugins.JacocoTaskExtension> {
+        isEnabled = true
+    }
+}
+
+tasks.named<JacocoReport>("jacocoTestReport") {
+    dependsOn(tasks.named("test"))
+    classDirectories.setFrom(
+        files(
+            classDirectories.files.map {
+                fileTree(it) {
+                    // Generated mod metadata has no logic worth covering.
+                    exclude("org/squiddev/cctweaks/Tags.class")
+                }
+            }
+        )
+    )
+    reports {
+        xml.required.set(true)
+        csv.required.set(false)
+        html.required.set(true)
+        html.outputLocation.set(layout.buildDirectory.dir("reports/jacoco/test/html"))
+    }
+}
+
+tasks.named("check").configure { dependsOn(tasks.named("jacocoTestReport")) }
 
 // `-PsmokeTest` makes the dedicated server stop itself shortly after it finishes loading, so a
 // headless smoke run (scripts/headless-smoke.sh, CI) terminates on its own instead of needing an

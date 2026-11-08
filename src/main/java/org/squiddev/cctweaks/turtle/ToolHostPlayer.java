@@ -11,6 +11,9 @@ import net.minecraft.util.Facing;
 import net.minecraft.util.Vec3;
 import net.minecraft.world.World;
 import net.minecraft.world.WorldServer;
+import net.minecraftforge.common.util.FakePlayer;
+import net.minecraftforge.common.util.ForgeDirection;
+import net.minecraftforge.event.ForgeEventFactory;
 
 import org.squiddev.cctweaks.CCTweaks;
 import org.squiddev.cctweaks.api.IWorldPosition;
@@ -31,7 +34,7 @@ import dan200.computercraft.shared.util.WorldUtil;
  *
  * Emulates large parts of {@link ItemInWorldManager}
  */
-public class ToolHostPlayer extends TurtlePlayer {
+public class ToolHostPlayer extends TurtlePlayer implements IToolHostPlayer {
 
     private ChunkCoordinates digPosition;
     private Block digBlock;
@@ -39,12 +42,28 @@ public class ToolHostPlayer extends TurtlePlayer {
 
     private ChunkCoordinates coordinates;
 
+    /**
+     * The drop consumer is created once and reused: it is pure apart from the turtle it writes
+     * back to, and an allocation per attack/dig is needless churn on the server tick.
+     */
+    private ITurtleAccess consumerTurtle;
+    private McEvents.IDropConsumer consumer;
+
     public ToolHostPlayer(ITurtleAccess turtle) {
         super((WorldServer) turtle.getWorld());
         playerNetServerHandler = new FakeNetHandler(this);
     }
 
-    public McEvents.IDropConsumer getConsumer(final ITurtleAccess turtle) {
+    public McEvents.IDropConsumer getConsumer(ITurtleAccess turtle) {
+        if (consumer == null || consumerTurtle != turtle) {
+            consumerTurtle = turtle;
+            consumer = createConsumer(turtle);
+        }
+
+        return consumer;
+    }
+
+    private McEvents.IDropConsumer createConsumer(final ITurtleAccess turtle) {
         return new McEvents.IDropConsumer() {
 
             @Override
@@ -68,6 +87,56 @@ public class ToolHostPlayer extends TurtlePlayer {
                 }
             }
         };
+    }
+
+    @Override
+    public FakePlayer asPlayer() {
+        return this;
+    }
+
+    @Override
+    public World getWorld() {
+        return worldObj;
+    }
+
+    @Override
+    public double getX() {
+        return posX;
+    }
+
+    @Override
+    public double getY() {
+        return posY;
+    }
+
+    @Override
+    public double getZ() {
+        return posZ;
+    }
+
+    @Override
+    public void setHeldItem(ItemStack stack) {
+        inventory.setInventorySlotContents(inventory.currentItem, stack);
+    }
+
+    @Override
+    public void moveTowards(ForgeDirection direction, double distance) {
+        posX += direction.offsetX * distance;
+        posY += direction.offsetY * distance;
+        posZ += direction.offsetZ * distance;
+    }
+
+    @Override
+    public boolean finishUseItem(int duration) {
+        boolean using = isUsingItem();
+        ItemStack inUse = getItemInUse();
+
+        if (using && inUse != null && !ForgeEventFactory.onUseItemStop(this, inUse, duration)) {
+            inUse.onPlayerStoppedUsing(worldObj, this, inUse.getMaxItemUseDuration() - duration);
+            clearItemInUse();
+        }
+
+        return using;
     }
 
     public TurtleCommandResult attack(ITurtleAccess turtle, int direction) {
@@ -215,6 +284,9 @@ public class ToolHostPlayer extends TurtlePlayer {
             loadedStack = null;
         }
 
+        // Releasing the right button is part of finishing the action: every caller used to clear
+        // this right before unload(), so the peripheral does not need to know about it.
+        clearItemInUse();
         setSneaking(false);
         unloadTurtleInventory(turtle);
     }

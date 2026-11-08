@@ -137,9 +137,11 @@ Facts worth remembering about CC's peripheral API:
 
 ## Module System
 
-All registerable content implements `IModule` (or `IClientModule`).
-`Registry` holds a static `Set<IModule>` and sequences `preInit → init → postInit`.
-Client-only modules are wrapped in `RegisterWrapperClient` (uses `@SideOnly(CLIENT)` on `clientInit`).
+All registerable content implements `IModule` (the `IClientModule`/`RegisterWrapperClient` path was
+deleted - there are no client-only modules). `ModuleRegistry` sequences `preInit → init → postInit`
+on a `LinkedHashSet` (registration order, duplicate-safe, snapshot per phase so a module that
+registers another module cannot break the current pass). `Registry` is the static facade that owns
+that instance and registers the built-in modules in its initialiser.
 
 ```
 Registry (static initialiser — runs when CCTweaks.preInit is called)
@@ -237,18 +239,28 @@ ClientTickEvent (Phase.START)
 | `items.UpgradeItemTest` | In-place computer metadata/family recreation, turtle transfer/recreation, failed-swap rollback |
 | `turtle.ToolManipulatorPeripheralTest` | Argument parsing, disabled actions, result shape, method table, side equality, hit-side resolution, `use(duration)` wait chaining, `canUse` item heuristics |
 | `turtle.ToolManipulatorFindHitTest` | Entity ray ends at the target, not beyond it |
+| `turtle.ToolManipulatorActionsTest` | The full `use`/`swing`/`canUse`/`canSwing` decision tree through the `IToolHostPlayer` + `ToolHitResolver` seams: registered interaction first, entity interact, block activation, place gating, item use in air, disabled actions, animation only on success |
+| `core.registry.ModuleRegistryTest` | Phase ordering, `canLoad` gating, duplicate registration, late registration catch-up, out-of-order/duplicate phase errors, immutable snapshot |
 | `harness.HeadlessTurtleHarnessTest` | Stub turtle + stub computer drive the real registry with no server/world |
 | `api.CCTweaksAPILoaderTest` | API instance stability; missing/wrong-type/constructor-less/throwing implementations raise `CoreNotFoundException` |
 | `client.gui.GuiConfigFactoryTest` | `@Mod(guiFactory = ...)` names a real factory returning a `GuiConfig` subclass; the screen fields/methods it relies on exist (the class is loaded but never initialised, since `GuiScreen` needs LWJGL) |
 | `core.peripheral.PeripheralHostProviderTest` | `IPeripheralHost` tiles are unwrapped per side; non-hosts, empty positions and declining hosts return null |
 | `integration.nei.ResourceDocProviderTest` | Doc path derivation, page splitting, markup conversion, shipped resources readable |
 
-`./gradlew test` runs the JUnit 5 suite headlessly (121 tests / 26 classes at the time of writing).
-`./gradlew build` also runs Spotless, Checkstyle and `verifyTestSuiteExecuted`, which fails the
-build if the test task produced zero XML results (a refactor that moves tests out of a detected
-package would otherwise pass silently).
+`./gradlew test` runs the JUnit 5 suite headlessly (153 tests / 28 classes at the time of writing).
+`./gradlew build` also runs Spotless, Checkstyle, `verifyTestSuiteExecuted` (fails the build if the
+test task produced zero XML results - a refactor that moves tests out of a detected package would
+otherwise pass silently) and `jacocoTestReport`, which writes
+`build/reports/jacoco/test/html/index.html` (~53% line coverage at the time of writing).
 
-`bash scripts/headless-smoke.sh` is the automated server harness. It runs
+`ToolManipulatorPeripheral` talks to its fake player only through `IToolHostPlayer` and finds hits
+through `ToolHitResolver`; `ToolHostPlayer` and `ToolHitResolver.DEFAULT` are the in-game
+implementations, and `testsupport.StubToolHostPlayer` plus a fixed-hit resolver let the action
+decision tree run with no `WorldServer`.
+
+`bash scripts/headless-smoke.sh` is the automated server harness (also run by the
+`headless-smoke` job in `.github/workflows/build-and-test.yml`; it creates a dev-server `eula.txt`
+if a fresh checkout has none). It runs
 `./gradlew runServer25 -PsmokeTest`, which hands the dev server a stdin pipe so it can be told to
 `stop` (a few seconds after FML logs `Done`, or after `SMOKE_STOP_AFTER` seconds), then asserts on
 `run/server/logs/latest.log` + `fml-server-latest.log`: CCTweaks loaded, no CCTweaks

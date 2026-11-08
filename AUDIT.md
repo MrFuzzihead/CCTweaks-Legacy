@@ -504,3 +504,47 @@ and real in-world integration coverage.
 - **Still open:** everything needs in-world sign-off (mining/placement, wand injection, NEI pages,
   the new config GUI); the config GUI save path is only unit-tested to `readConfig` because
   `GuiScreen` cannot be initialised headlessly.
+
+## Batch 4 implementation status
+
+- **Testability seam (audit §2.2, the last P2 item):** `ToolManipulatorPeripheral` no longer depends
+  on the concrete `ToolHostPlayer`. It talks to the new `IToolHostPlayer` interface (`asPlayer`,
+  world/position accessors, `load`/`unload`, `moveTowards`, `interactWith`, `finishUseItem`,
+  `attack`, `dig`) and finds what it would hit through `ToolHitResolver` (`ToolHitResolver.DEFAULT`
+  is the ray trace that used to live in `findHit`). `ToolHostPlayer` is the in-game implementation;
+  the `clearItemInUse` + `onUseItemStop` block moved into `ToolHostPlayer.finishUseItem`, and
+  `unload` now always releases the item in use. The peripheral's constructor still accepts
+  `IToolHostPlayer`, so `TurtleUpgradeToolManipulator` is unchanged.
+  New `ToolManipulatorActionsTest` (26 cases) drives the whole decision tree with
+  `StubToolHostPlayer` and a fixed hit: registered interaction first, entity interaction, block
+  activation, the `place`/`dig`/`attack` gating, item use in air (stack replacement, `finishUseItem`,
+  the 0.6 nudge), `canUse` tile-entity/placeable/air heuristics, `canSwing` harvest checks, and
+  "animate only on success". Two findings while writing it: `ItemStack.getItem()` resolves through
+  Forge's `RegistryDelegate` on `Item`, so a Mockito `mock(Item.class)` makes every `ItemStack` look
+  empty (the tests use real `Item` subclasses now); and `use()` returns the disabled message as a raw
+  `Object[]` while every other path comes back wrapped.
+- **`ModuleRegistry` (audit §2.3):** the static phase flags moved into an instance-based
+  `ModuleRegistry`; `Registry` is now a thin facade that owns one instance, registers the built-in
+  modules and exposes `modules()` for inspection. `ModuleRegistryTest` covers ordering, `canLoad`
+  gating, duplicate registration, late-registration catch-up, the out-of-order/duplicate phase
+  exceptions and snapshot immutability. Item construction still has to happen at class-init because
+  `ItemBase`/`BlockBase` take CC's creative tab; that is now documented rather than implied.
+- **Coverage (audit §6.3):** `jacoco` is applied in `addon.gradle.kts` and `jacocoTestReport` is
+  attached to `check`, writing `build/reports/jacoco/test/html` (XML at
+  `build/reports/jacoco/test/jacocoTestReport.xml`). Baseline: **53.0% lines / 54.5% branches**,
+  with `core/peripheral` at 92.9% and `client/gui` at 13.0% (the GUI cannot be initialised).
+  No coverage floor is enforced: a threshold on this codebase would mostly measure GUI and
+  world-interaction code that cannot run headless.
+- **CI harness (audit §6.2):** `.github/workflows/build-and-test.yml` gained a `headless-smoke` job
+  (checkout, Temurin 21, Gradle cache, `scripts/headless-smoke.sh`, log artifact upload), so the
+  server boot is verified on every push/PR and not just by hand. The script now also writes
+  `run/server/eula.txt` when a fresh checkout has none, which is what made a CI run impossible
+  before. Found while re-running it: the script waited 180s for the server to stop, but Gradle's
+  own fallback is 300s, so a server that *did* stop on the fallback was killed early and reported as
+  a crash. The wait now derives from `SMOKE_STOP_AFTER` (fallback + 150s); a full local run passes.
+- **Optimization:** `ToolHostPlayer.getConsumer` caches its `IDropConsumer` per turtle instead of
+  allocating one for every attack/dig.
+- **Test suite:** 153 tests / 28 classes, `./gradlew build` clean.
+- **Still open:** in-world sign-off for everything batch 1-3 touched, `/cctweaks` inspection
+  command (§5.10), `ModIntegration`/`PortalGunIntegration` have no headless coverage (they need
+  PortalGun on the test classpath), and the GUI save path is only unit-tested up to `readConfig`.

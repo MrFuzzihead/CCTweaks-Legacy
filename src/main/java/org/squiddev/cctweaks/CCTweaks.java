@@ -61,8 +61,6 @@ public class CCTweaks {
     // region computer
     public static boolean computerUpgradeEnabled = true;
     public static boolean computerUpgradeCrafting = true;
-    public static boolean debugWandEnabled = true;
-    public static boolean debugWandRequiresOp = false;
     // endregion
     // endregion
     // region testing
@@ -220,16 +218,6 @@ public class CCTweaks {
             true,
             "Enable crafting the computer upgrade. Requires computerUpgradeEnabled.")
                 .getBoolean(computerUpgradeCrafting);
-        debugWandEnabled = bool(config, "computer", "debugWandEnabled", true, "Enable using the debug wand.")
-            .getBoolean(debugWandEnabled);
-        debugWandRequiresOp = bool(
-            config,
-            "computer",
-            "debugWandRequiresOp",
-            false,
-            "Require operator permissions to inject the debug library. Recommended on public servers: "
-                + "the Cobalt debug library allows scripts to reach outside the computer sandbox.")
-                    .getBoolean(debugWandRequiresOp);
         // endregion
         // region testing
         debugItems = bool(config, "testing", "debugItems", false, "Enable debug items.").getBoolean(debugItems);

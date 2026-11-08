@@ -7,7 +7,6 @@ import org.squiddev.cctweaks.core.peripheral.PeripheralHostProvider;
 import org.squiddev.cctweaks.core.turtle.DefaultTurtleProviders;
 import org.squiddev.cctweaks.integration.PortalGunIntegration;
 import org.squiddev.cctweaks.items.ItemComputerUpgrade;
-import org.squiddev.cctweaks.items.ItemDebugger;
 import org.squiddev.cctweaks.items.ItemToolHost;
 
 /**
@@ -16,14 +15,12 @@ import org.squiddev.cctweaks.items.ItemToolHost;
 public final class Registry {
 
     public static final ItemComputerUpgrade itemComputerUpgrade;
-    public static final ItemDebugger itemDebugger;
     public static final ItemToolHost itemToolHost;
 
     private static final ModuleRegistry registry = new ModuleRegistry();
 
     static {
         addModule(itemComputerUpgrade = new ItemComputerUpgrade());
-        addModule(itemDebugger = new ItemDebugger());
         addModule(itemToolHost = new ItemToolHost());
 
         addModule(new BlockDebug());

@@ -158,8 +158,14 @@ else
     echo "   ok: no CCTweaks exceptions"
 fi
 
-if grep -q 'Found a missing id from the world cctweaks:' "$LOG"; then
-    fail "a removed 2.x block/item is still present in the dev world and was not remapped"
+# A missing id the mod's FMLMissingMappingsEvent handler discards on purpose (an item removed in
+# 3.x, still present in a stale local world) is resolved, not unresolved. Only fail for a cctweaks:
+# id that FML reports but the handler never discarded.
+MISSING_IDS=$(grep -o 'Found a missing id from the world cctweaks:[^ ]*' "$LOG" 2>/dev/null | sed 's/.*cctweaks:/cctweaks:/' | sort -u)
+DISCARDED_IDS=$(grep -o "Discarding removed CCTweaks mapping 'cctweaks:[^']*'" "$LOG" 2>/dev/null | sed "s/.*'\(cctweaks:[^']*\)'.*/\1/" | sort -u)
+UNRESOLVED_IDS=$(comm -23 <(echo "$MISSING_IDS") <(echo "$DISCARDED_IDS"))
+if [ -n "$UNRESOLVED_IDS" ]; then
+    fail "a removed 2.x block/item is still present in the dev world and was not remapped: $UNRESOLVED_IDS"
 else
     echo "   ok: no unresolved 2.x mappings"
 fi

@@ -709,3 +709,30 @@ and `AGENTS.md` lists the interaction in the feature catalogue.
 **61.7% lines / 57.7% branches**: the unit-report number dipped slightly because `ForgeActions` (the
 real fluid/placement implementation) is only exercised by the in-world harness, which JaCoCo does
 not instrument. The decision tree around it is fully unit tested.
+
+## Batch 9 implementation status
+
+**Bucket no-hit pour (supported cells only).** A filled bucket with no block hit can now be emptied
+into the cell in front of the turtle if that cell has solid support underneath it — the
+diagonal-down action a player reaches by clicking the top face of the floor in front of them,
+which the turtle's axis-aligned ray cannot. Mid-air pouring stays refused, filling still requires
+the source block itself, and entity hits are not claimed by the fallback. Scoped to
+`BucketInteraction` (new `Actions.isSupported`), so no other held item changes behaviour. 5 new
+unit cases, 2 new in-world checks (`bucket-place-supported-no-hit`,
+`bucket-place-unsupported-no-hit`): 225 tests / 37 classes, self test 22/22.
+
+**Debug Wand removed.** A redundancy check against the CC 3.3.0 sources showed
+`CobaltMachine` installs `DebugLib` unconditionally for every computer, so the wand's injection —
+its main function — was a no-op re-add of an existing library. The wand is gone entirely:
+`ItemDebugger`, its test, self-test checks, `debugWandEnabled`/`debugWandRequiresOp` config and
+lang keys, NEI doc, texture, `Registry.itemDebugger`, the `/cctweaks config` lines, and the
+`shouldConsume` hook it was the only override of. This also removes the last direct Cobalt
+dependency. The Debug Block (`TileDebugPeripheral`, `BlockDebug`) remains — it was the wand's
+only inspection consumer but is itself a peripheral test fixture. Config language-key count drops
+from 11 to 9.
+
+After the removal: **216 tests / 36 classes**, `./gradlew build` clean, JaCoCo
+**62% lines / 58% branches**. Headless smoke passes (20/20 self-test checks — the 2 wand checks
+are gone with the wand). The smoke script's missing-mapping check now only fails for ids the
+`FMLMissingMappingsEvent` handler did not discard, so a stale local world containing the removed
+`cctweaks:debugger` item no longer fails it.

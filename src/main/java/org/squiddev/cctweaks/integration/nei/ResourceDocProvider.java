@@ -81,14 +81,14 @@ public class ResourceDocProvider implements DescriptionHelpers.IDocProvider {
      * The docs path for an unlocalised name.
      *
      * <p>
-     * An unlocalised name looks like {@code item.cctweaks.debugger} or
+     * An unlocalised name looks like {@code item.cctweaks.computerUpgrade} or
      * {@code tile.cctweaks.debugBlock}: the leading {@code item.}/{@code tile.} selects the docs
      * directory and the mod id is dropped, matching how the resources are laid out.
      * </p>
      *
      * @param unlocalizedName The stack's unlocalised name
      * @param blockItem       Whether the item places a block, used when the name carries no prefix
-     * @return A path such as {@code item/debugger}, or null if the name is unusable
+     * @return A path such as {@code item/computerUpgrade}, or null if the name is unusable
      */
     static String docsPath(String unlocalizedName, boolean blockItem) {
         if (unlocalizedName == null || unlocalizedName.isEmpty()) return null;

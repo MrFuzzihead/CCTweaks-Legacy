@@ -29,10 +29,8 @@ import dan200.computercraft.api.permissions.ITurtlePermissionProvider;
 import dan200.computercraft.api.turtle.TurtleCommandResult;
 import dan200.computercraft.api.turtle.TurtleSide;
 import dan200.computercraft.api.turtle.TurtleVerb;
-import dan200.computercraft.core.lua.ILuaMachine;
 import dan200.computercraft.shared.computer.blocks.TileComputerBase;
 import dan200.computercraft.shared.computer.core.ComputerFamily;
-import dan200.computercraft.shared.computer.core.ServerComputer;
 import dan200.computercraft.shared.turtle.blocks.TileTurtle;
 
 /**
@@ -146,8 +144,6 @@ public final class InWorldSelfTest {
             check("bucket-place-supported-no-hit", this::checkBucketPlaceSupportedNoHit);
             check("bucket-place-unsupported-no-hit", this::checkBucketPlaceUnsupportedNoHit);
             check("bucket-not-a-source", this::checkBucketNotASource);
-            check("debug-wand-refused-off", this::checkDebugWandOff);
-            check("debug-wand-inject", this::checkDebugWandInject);
             check("upgrade-computer", this::checkUpgradeComputer);
             check("upgrade-turtle-creative", this::checkUpgradeTurtleCreative);
             check("upgrade-turtle-gold", this::checkUpgradeTurtleGold);
@@ -594,96 +590,6 @@ public final class InWorldSelfTest {
      * The wand must refuse a computer that has not been switched on yet, with a distinct message
      * (the return value is what a caller sees; the message itself is unit tested).
      */
-    /**
-     * A fake player standing next to {@code (x, y, z)}, which is what a player using the wand looks
-     * like: the wand's {@code isUsable} range check fails for a player still at the origin.
-     */
-    private ToolHostPlayer wandPlayer(int x, int y, int z) {
-        ToolHostPlayer player = new ToolHostPlayer(turtle(originX, originY, originZ));
-        player.capabilities.isCreativeMode = true;
-        player.setSneaking(true);
-        player.setPosition(x + 0.5, y + 0.5, z + 0.5);
-        return player;
-    }
-
-    private void checkDebugWandOff() {
-        int x = originX + 4, y = originY, z = originZ;
-        TileComputerBase computer = placeComputer(x, y, z);
-
-        ToolHostPlayer player = wandPlayer(x, y, z);
-        assertTrue(computer.isUsable(player, false), "the stand-in player should be within reach of the computer");
-
-        boolean used = Registry.itemDebugger
-            .onItemUseFirst(new ItemStack(Registry.itemDebugger), player, world, x, y, z, 1, 0.5f, 0.5f, 0.5f);
-
-        assertTrue(!used, "the debug wand must not report success on a computer that is off");
-    }
-
-    /**
-     * Injects the Cobalt debug library into a running computer, which is the one code path that
-     * cannot be unit tested: it needs a started {@code ServerComputer} with a real Cobalt machine.
-     */
-    private void checkDebugWandInject() throws Exception {
-        int x = originX + 4, y = originY, z = originZ;
-        ServerComputer server = placeComputer(x, y, z).getServerComputer();
-        assertTrue(server != null, "the computer should have a server instance");
-        assertTrue(!server.isOn(), "the computer should start switched off");
-
-        server.turnOn();
-
-        // The world is not ticking, so the tile never calls ServerComputer.update() - the call
-        // that advances the computer's state machine. Do it here, and sleep so CC's own computer
-        // thread can build the Lua machine in between. Sleeping is safe: this is a diagnostic
-        // path, not a tick-critical one.
-        long deadline = System.currentTimeMillis() + 20000;
-        while (server.getComputer() == null || !server.getComputer()
-            .isOn()
-            || server.getComputer()
-                .getLuaMachine() == null) {
-            if (System.currentTimeMillis() > deadline) {
-                throw new AssertionError("the computer did not start within 20 seconds");
-            }
-            server.update();
-            Thread.sleep(20);
-        }
-
-        ILuaMachine machine = server.getComputer()
-            .getLuaMachine();
-        assertTrue(machine != null, "a running computer should have a Lua machine");
-        assertTrue(server.isOn(), "the computer should report that it is on");
-
-        ToolHostPlayer player = wandPlayer(x, y, z);
-        ItemStack wand = new ItemStack(Registry.itemDebugger);
-        boolean used = Registry.itemDebugger.onItemUseFirst(wand, player, world, x, y, z, 1, 0.5f, 0.5f, 0.5f);
-        assertTrue(used, "the debug wand should inject into a running computer");
-
-        // The wand is a reusable tool: a successful use must not consume it.
-        assertTrue(wand.stackSize == 1, "the debug wand must not be consumed");
-
-        // A second injection must work as well (idempotent library install).
-        assertTrue(
-            Registry.itemDebugger.onItemUseFirst(wand, player, world, x, y, z, 1, 0.5f, 0.5f, 0.5f),
-            "injecting twice should still succeed");
-    }
-
-    /**
-     * Place a computer block and make sure its {@link ServerComputer} exists. A freshly placed
-     * tile is only validated (and its server computer created) on the next world tick, which the
-     * self test does not get, so this creates it directly - the same call CC makes from
-     * {@code validate()} and that the upgrade item makes after an in-place upgrade.
-     */
-    private TileComputerBase placeComputer(int x, int y, int z) {
-        world.setBlockToAir(x, y, z);
-        world.setBlock(x, y, z, ComputerCraft.Blocks.computer, 0, 3);
-
-        TileEntity tile = world.getTileEntity(x, y, z);
-        assertTrue(tile instanceof TileComputerBase, "placing a computer block should create a computer tile");
-
-        TileComputerBase computer = (TileComputerBase) tile;
-        if (computer.getServerComputer() == null) computer.createServerComputer();
-        return computer;
-    }
-
     private void checkUpgradeComputer() {
         int x = originX + 4, y = originY, z = originZ;
         world.setBlock(x, y, z, ComputerCraft.Blocks.computer, 0, 3);

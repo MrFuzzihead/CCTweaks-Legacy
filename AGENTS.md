@@ -32,12 +32,11 @@ was deleted. OpenPeripheral is no longer required or touched.
 | # | Feature | Key Source Files |
 |---|---------|-----------------|
 | 1 | **Computer Upgrade Item** — upgrades Normal computer → Advanced in place (metadata family bit; ID, label and on-state kept; the running program restarts); Normal turtle → Advanced, transferring the brain/inventory/fuel/overlays and recreating the Advanced ServerComputer (costs 7 gold ingots) | `items/ItemComputerUpgrade.java`, `items/CraftingComputerUpgrade.java` |
-| 2 | **Debug Wand** — prints tile/peripheral/peripheral-binding info in chat; shift-right-clicking a **running** computer injects Cobalt's `DebugLib` into its Lua state and reports success or the exact reason it failed in chat. Never consumed | `items/ItemDebugger.java`, `blocks/debug/TileDebugPeripheral.java` |
-| 3 | **Debug Block** — one debug peripheral tile (`meta 0`, `debugPeripheral`), gated by `debugItems` | `blocks/debug/BlockDebug.java` |
-| 4 | **Tool Host Turtle Upgrades** — Normal (`Gripping`) and Advanced (`Manipulative`) variants; turtles hold and swing arbitrary tools as interactions. The manipulator peripheral's `use(duration)` really waits `duration` ticks; `canUse` mirrors `use`. Buckets work as tools via `BucketInteraction` (fill from a source, empty on the clicked side) | `turtle/TurtleUpgradeToolHost.java`, `turtle/TurtleUpgradeToolManipulator.java`, `turtle/ToolHostPlayer.java`, `turtle/ToolManipulatorPeripheral.java`, `core/turtle/BucketInteraction.java` |
-| 5 | **Portal Gun Turtle Interaction** — registers the portal gun item as a swing/use turtle tool interaction | `integration/PortalGunIntegration.java` |
-| 6 | **NEI Documentation** — `assets/cctweaks/docs/<lang>/{item,tile}/<name>.txt` rendered in NEI usage/recipe pages (`ResourceDocProvider`; `${**}` bold, `${*}` italic, `***` page break). `LanguageDocProvider` `.information.N` keys are the fallback | `integration/nei/*` |
-| 7 | **In-game config GUI** — every option in Mods list → Config; edits Forge's live `Configuration`, then saves `config/cctweaks.cfg` and re-reads the statics on close | `client/gui/GuiConfigFactory.java`, `client/gui/GuiCCTweaksConfig.java`, `CCTweaks.getConfiguration/saveConfiguration` |
+| 2 | **Debug Block** — one debug peripheral tile (`meta 0`, `debugPeripheral`), gated by `debugItems` | `blocks/debug/BlockDebug.java` |
+| 3 | **Tool Host Turtle Upgrades** — Normal (`Gripping`) and Advanced (`Manipulative`) variants; turtles hold and swing arbitrary tools as interactions. The manipulator peripheral's `use(duration)` really waits `duration` ticks; `canUse` mirrors `use`. Buckets work as tools via `BucketInteraction` (fill from a source, empty on the clicked side) | `turtle/TurtleUpgradeToolHost.java`, `turtle/TurtleUpgradeToolManipulator.java`, `turtle/ToolHostPlayer.java`, `turtle/ToolManipulatorPeripheral.java`, `core/turtle/BucketInteraction.java` |
+| 4 | **Portal Gun Turtle Interaction** — registers the portal gun item as a swing/use turtle tool interaction | `integration/PortalGunIntegration.java` |
+| 5 | **NEI Documentation** — `assets/cctweaks/docs/<lang>/{item,tile}/<name>.txt` rendered in NEI usage/recipe pages (`ResourceDocProvider`; `${**}` bold, `${*}` italic, `***` page break). `LanguageDocProvider` `.information.N` keys are the fallback | `integration/nei/*` |
+| 6 | **In-game config GUI** — every option in Mods list → Config; edits Forge's live `Configuration`, then saves `config/cctweaks.cfg` and re-reads the statics on close | `client/gui/GuiConfigFactory.java`, `client/gui/GuiCCTweaksConfig.java`, `CCTweaks.getConfiguration/saveConfiguration` |
 | 8 | **`/cctweaks` diagnostics** — operator command (level 2): `modules`, `config`, `selftest`. `selftest` runs the in-world checks (see Test Coverage) near the world spawn and restores the area; the same suite runs at server start when `-Dcctweaks.selftest=true` (dev harness/CI) | `commands/CommandCCTweaks.java`, `selfTest/InWorldSelfTest.java`, `selfTest/SelfTestTurtle.java` |
 
 ### Removed Features (do not re-add without a CC gap to fill)
@@ -53,6 +52,7 @@ was deleted. OpenPeripheral is no longer required or touched.
 | Network visualiser + debug block metas 1/2 (`core/visualiser/*`, `RenderNetworkOverlay`, `TileDebugNetworkedPeripheral`, `TileDebugNode`) | Debug tooling for the removed graph |
 | OpenPeripheral integration (`AdapterNetworkedInventory`, `OpenPeripheralIntegration`, 5 OP mixins) | Its only purpose was `ARG_NETWORK`; CC's `InventoryPeripheral` now offers `pushItems`/`pullItems` on every `IInventory` |
 | `PeripheralAPI_Mixin` + `PeripheralWrapper` accessors | Replaced by CC's own `IPeripheral.attach`/`detach` lifecycle |
+| Debug Wand (`ItemDebugger`) | CC 3.3.0's `CobaltMachine` already installs `DebugLib` unconditionally for every computer, so the wand's injection did nothing; its tile/peripheral inspection had no other consumer. The Debug Block (`TileDebugPeripheral`) remains |
 | All CC accessor/invoker mixins | CC 3.3.0 widened/renamed every member they exposed |
 
 ---
@@ -69,7 +69,6 @@ current tree still carries these ordinary-source fixes:
 - Upgrade items: Advanced turtle/computer `ServerComputer` family/colour recreation, turtle
   overlay/hat and pocket upgrade NBT preservation, unsupported-`IComputerItem` rejection,
   protection checks and rollback on failed block swaps.
-- Debug wand: no longer consumed, uses the real player range check, logs injection failures.
 - Events/lifecycle: cancelled `LivingDropsEvent` is respected; `McEvents`/`FmlEvents` reset on
   server stop; `TileBase` destroys exactly once; `PeripheralHelpers` stops on proxy cycles.
 
@@ -96,9 +95,9 @@ CC 3.x is built with `jvmDowngrader` (base classes are Java 8 class file version
 Three things differ from 2.x and must be preserved:
 
 1. **Cobalt is relocated and shadowed.** `org.squiddev.cobalt.*` does not exist on the classpath.
-   Import `dan200.computercraft.shadow.org.squiddev.cobalt.*`. Cobalt is now 0.9.9, where
-   `DebugLib` has a private constructor and is installed with `DebugLib.add(state)`
-   (`ItemDebugger`).
+   Import `dan200.computercraft.shadow.org.squiddev.cobalt.*` (no remaining classes currently
+   import Cobalt directly, since the Debug Wand — its last user — was removed: CC 3.3.0's
+   `CobaltMachine` installs `DebugLib` itself).
 2. **Blocking Lua is gone.** `ILuaContext` has `executeMainThreadTask` (returning `MethodResult`)
    and `issueMainThreadTask` only — no `pullEvent`/`pullEventRaw`/`yield`. A method that waits
    returns a `MethodResult`; the Lua bridge suspends the coroutine.
@@ -147,7 +146,6 @@ that instance and registers the built-in modules in its initialiser.
 ```
 Registry (static initialiser — runs when CCTweaks.preInit is called)
   addModule(ItemComputerUpgrade)    items/ItemComputerUpgrade.java
-  addModule(ItemDebugger)           items/ItemDebugger.java
   addModule(ItemToolHost)           items/ItemToolHost.java
   addModule(BlockDebug)             blocks/debug/BlockDebug.java
   addModule(PeripheralHostProvider) core/peripheral/PeripheralHostProvider.java
@@ -234,13 +232,12 @@ No client-side tick work: the client queue/handler was removed with the network 
 | `core.peripheral.PeripheralHelpersTest` | Chains, targets, nulls, proxy cycles |
 | `core.peripheral.PeripheralProxyTest` | Lazy creation, attach replay, detach, default type, equality |
 | `core.turtle.TurtleRegistryTest` | Item-before-generic dispatch, first-result wins, null handling, registration guards |
-| `core.turtle.BucketInteractionTest` | Bucket decision tree: fill target is the hit block, empty target is the clicked side (all six), invalid side/entity/null hit ignored, non-bucket ignored, `canUse` mirroring, stack bookkeeping (single replaced, stack decremented + container stored), failures leave the stack alone |
+| `core.turtle.BucketInteractionTest` | Bucket decision tree: fill target is the hit block, empty target is the clicked side (all six), invalid side/entity hit ignored, supported no-hit pour and unsupported refusal, non-bucket ignored, `canUse` mirroring, stack bookkeeping (single replaced, stack decremented + container stored), failures leave the stack alone |
 | `core.utils.InventoryUtilsTest` / `LuaResultsTest` / `WorldPositionTest` | Extraction/counting, Lua suspension wrapping, positions |
 | `blocks.TileBaseLifecycleTest` | `create`/`destroy` exactly once across validate/invalidate/chunk unload |
 | `blocks.debug.TileDebugPeripheralTest` | Per-side cache, bounds, `getSide`, computer tracking |
 | `items.CraftingComputerUpgradeTest` | Matching, gold-slot semantics, unsupported items, pocket NBT preservation |
-| `items.ItemComputerActionTest` | Client always defers to the server (packet flow), consumption hook, debug wand non-consumption |
-| `items.ItemDebuggerTest` | Every wand failure path reports a distinct chat message; operator gate on/off; generic tile info |
+| `items.ItemComputerActionTest` | Client always defers to the server (packet flow), successful use consumes one item |
 | `items.ItemToolHostTest` | Creative subtype gating |
 | `items.UpgradeItemTest` | In-place computer metadata/family recreation, turtle transfer/recreation, failed-swap rollback |
 | `turtle.ToolManipulatorPeripheralTest` | Argument parsing, disabled actions, result shape, method table, side equality, hit-side resolution, `use(duration)` wait chaining, `canUse` item heuristics |
@@ -325,12 +322,6 @@ What the self test covers (and nothing else does, because it needs a live `World
   a water bucket onto the clicked side, and refusing a non-fluid block (both `use` and `canUse`);
 * the bucket interaction against the real Forge fluid registry (fill from a source, pour onto the
   clicked side, refuse a non-fluid block) - see above;
-* the debug wand: refusal on a switched-off computer and a successful `DebugLib` injection into a
-  **running** computer (the wand is not consumed and a second injection succeeds). The computer has
-  to be booted by hand: the test calls `ServerComputer.update()` in a sleep loop, because the state
-  machine only advances from the world tick, and gives CC's own computer thread time to build the
-  Cobalt machine.
-
 The permission provider used by `toolhost-dig-protected` is a global CC hook that cannot be
 unregistered, so it is installed once and denies only while a single coordinate is armed.
 
@@ -352,8 +343,6 @@ Removed with their subjects: `NetworkTest`, `PacketTest`, `ComputerNetworkAccess
 |------|---------|--------|
 | `computerUpgradeEnabled` | true | Enable Computer Upgrade item |
 | `computerUpgradeCrafting` | true | Enable its crafting recipe |
-| `debugWandEnabled` | true | Enable Debug Wand item |
-| `debugWandRequiresOp` | false | Require permission level 2 to inject the debug library (recommended on public servers) |
 | `debugItems` | false | Enable the debug block |
 | `thEnabled` | true | Enable Tool Host turtle upgrade |
 | `advanced` | true | Enable the Advanced Tool Manipulator variant |
@@ -362,7 +351,7 @@ Removed with their subjects: `NetworkTest`, `PacketTest`, `ComputerNetworkAccess
 | `advancedUpgradeId` | 333 | Advanced tool manipulator upgrade id (must be distinct, 64..32767) |
 | `digFactor` | 10 | Dig progress per Tool Host call (clamped to 1..100) |
 
-Removed with their features: `cbMultipart`, `openPeripheralInventories`, `wbEnabled`,
+Removed with their features: `debugWandEnabled`, `debugWandRequiresOp`, `cbMultipart`, `openPeripheralInventories`, `wbEnabled`,
 `wbCrafting`, `turtleEnabled`, `pocketEnabled`, `pocketId`, `fullBlockModemCrafting`,
 `extendedControllerValidation`, `euRefuelAmount`, `fluxRefuelAmount`.
 
@@ -376,23 +365,15 @@ Removed with their features: `cbMultipart`, `openPeripheralInventories`, `wbEnab
    (and the `FmlEventsTest` assertion) until CC owns it.
 2. **No mixins, no reflection imports, one AT.** A CC or Forge update can only break CCTweaks
    through normal API changes (peripheral API, turtle upgrade API, `ItemInWorldManager`, Cobalt
-   internals used by `ItemDebugger`) plus the single AT below.
+   plus the single AT below.
 3. **The AT is the only remaining bytecode-level coupling** — a name/visibility change to
    `ItemInWorldManager.durabilityRemainingOnBlock` breaks `ToolHostPlayer` at compile time (the AT
    will simply stop matching).
 
-4. **`ItemDebugger` reaches into Cobalt** (`CobaltMachine.getLuaState()` → `DebugLib.add(state)`).
-   That is the one remaining "internal" dependency: if CC changes its Lua machine or Cobalt's
-   `DebugLib` visibility again, only the debug wand's injector breaks (guarded by
-   `instanceof`/try-catch, and the reason is now reported in chat).
-   `DebugLib.add` writes into the live `LuaState` from the server thread while the computer's
-   worker thread may be executing the same state (`CobaltMachine.state` is not volatile), so the
-   injection is not synchronised — it is a debug tool, and `debugWandRequiresOp` exists to limit who
-   can trigger it.
-5. **`ToolHostPlayer` emulates `ItemInWorldManager`** (including
+4. **`ToolHostPlayer` emulates `ItemInWorldManager`** (including
    `durabilityRemainingOnBlock`), so a Forge/vanilla mining-behaviour change affects tool host dig
    speed and durability.
-6. **`PeripheralHostProvider` is registered in `init`**, after CC's `DefaultPeripheralProvider`
+5. **`PeripheralHostProvider` is registered in `init`**, after CC's `DefaultPeripheralProvider`
    (registered in CC's own preInit). CC asks providers in registration order, so an `IPeripheralHost`
    tile that is also an `IInventory` is shadowed by CC's `InventoryPeripheral` and the host
    peripheral is never returned. A CC-side fix is needed; do not rely on `IPeripheralHost` for

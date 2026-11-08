@@ -116,8 +116,7 @@ public class DescriptionProvidersTest {
 
     @Test
     public void shippedDocsStillResolveThroughTheDefaultChain() {
-        // The resources in this repo document the debugger; the default chain must find them
-        // before falling back to language keys.
+        // A stack with no bundled resource doc and no language keys gets no pages.
         assertEquals(null, DescriptionHelpers.getTranslate(stack), "an undocumented stack has no pages");
     }
 
